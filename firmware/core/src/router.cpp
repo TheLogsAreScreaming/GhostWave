@@ -19,6 +19,11 @@ constexpr size_t kGossipSize = 11;
 constexpr size_t kBeaconFixed = 13;   // flags, velocity, util, store count, bloom
 constexpr size_t kBloomOff = 5;
 constexpr uint8_t kBeaconHasGps = 0x01;
+// Beacon velocity (DESIGN §4.4), measured from successive position fixes.
+constexpr uint64_t kVelWindowMs = 20 * 1000;
+constexpr uint64_t kVelStaleMs = 60 * 1000;   // an older measurement is not sent
+constexpr double kVelNoiseM = 10;
+constexpr double kPi = 3.14159265358979323846;
 constexpr uint8_t kBeaconSos = 0x10;  // sender holds at least one SOS
 constexpr uint8_t kBeaconSeek = 0x20;  // sender heard nobody: please answer (DESIGN §6.2)
 // Beacon recovery (DESIGN §6.2). Retries after a boot/move beacon nobody answered.
@@ -58,6 +63,17 @@ void put32(std::vector<uint8_t>& v, uint32_t x) {
 }
 uint32_t get32(const uint8_t* p) {
   return p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<uint32_t>(p[3]) << 24);
+}
+
+// Little-endian u16: heading (7 bits, 360/128 degree steps) above speed (9 bits, 0.1 m/s).
+uint16_t packVelocity(const Velocity& v) {
+  long speed = std::lround(std::min(v.speedMps, 51.1) * 10);
+  long heading = std::lround(v.headingDeg * 128 / 360) % 128;
+  return static_cast<uint16_t>((heading << 9) | speed);
+}
+
+Velocity unpackVelocity(uint16_t raw) {
+  return {(raw & 0x1FF) / 10.0, (raw >> 9) * 360.0 / 128};
 }
 
 // Two bit positions (k = 2) in the 64-bit beacon Bloom filter for (src, msg_id).
@@ -193,9 +209,49 @@ bool Router::openData(const Packet& p, std::vector<uint8_t>& plain) {
 // ------------------------------------------------------------------ inputs --
 
 void Router::setPosition(const Position& p, uint64_t now) {
-  (void)now;
   pos_ = p;
   havePos_ = p.valid;
+  updateVelocity(p, now);
+}
+
+// Velocity from successive fixes, so every host gets it without a GPS speed
+// field. Below kVelNoiseM over the window reads as stopped: that is fix jitter.
+void Router::updateVelocity(const Position& p, uint64_t now) {
+  if (!p.valid) {
+    velAnchorSet_ = false;
+    velSpeed_ = {};
+    return;
+  }
+  if (!velAnchorSet_) {
+    velAnchorSet_ = true;
+    velAnchor_ = p;
+    velAnchorT_ = now;
+    return;
+  }
+  uint64_t dt = now - velAnchorT_;
+  if (dt < kVelWindowMs) return;
+  double d = distanceM(velAnchor_, p);
+  Velocity v;
+  if (dt <= kVelStaleMs && d >= kVelNoiseM) {
+    v.speedMps = d / (dt / 1000.0);
+    const double r = kPi / 180;
+    double dl = (p.lon - velAnchor_.lon) * r;
+    double y = std::sin(dl) * std::cos(p.lat * r);
+    double x = std::cos(velAnchor_.lat * r) * std::sin(p.lat * r) -
+               std::sin(velAnchor_.lat * r) * std::cos(p.lat * r) * std::cos(dl);
+    v.headingDeg = std::fmod(std::atan2(y, x) / r + 360.0, 360.0);
+  }
+  velSpeed_ = v;
+  velT_ = now;
+  velAnchor_ = p;
+  velAnchorT_ = now;
+}
+
+bool Router::neighborVelocity(uint32_t id, Velocity& out) const {
+  auto it = nb_.find(id);
+  if (it == nb_.end()) return false;
+  out = it->second.velocity;
+  return true;
 }
 
 void Router::addKnownPosition(uint32_t id, const Position& p, uint64_t obsMs) { learn(id, p, obsMs); }
@@ -694,7 +750,10 @@ void Router::onBeacon(const Packet& p, uint64_t now) {
       return a.second.heardMs < b.second.heardMs;
     }));
   }
-  nb_[p.src] = {p.fwdPos, now, answered};
+  Velocity velocity;
+  if (p.payload.size() >= kBeaconFixed)
+    velocity = unpackVelocity(static_cast<uint16_t>(p.payload[1] | (p.payload[2] << 8)));
+  nb_[p.src] = {p.fwdPos, now, answered, velocity};
   learn(p.src, p.fwdPos, now);
   app_.onNeighbor(p.src, p.fwdPos, isNew);
   wantIdent(p.src, now);
@@ -1084,8 +1143,9 @@ void Router::sendBeacon(uint64_t now, uint16_t to, bool seek) {
   b.fwdPos = pos_;
   auto& pl = b.payload;
   pl.push_back(kBeaconHasGps | (sos_.empty() ? 0 : kBeaconSos) | (seek ? kBeaconSeek : 0));
-  pl.push_back(0);
-  pl.push_back(0);                                      // velocity: TODO from GPS RMC
+  uint16_t vel = packVelocity(now - velT_ <= kVelStaleMs ? velSpeed_ : Velocity{});
+  pl.push_back(static_cast<uint8_t>(vel));
+  pl.push_back(static_cast<uint8_t>(vel >> 8));
   pl.push_back(static_cast<uint8_t>(clampd(util_, 0, 1) * 255));
   pl.push_back(static_cast<uint8_t>(std::min<size_t>(store_.size() + sos_.size(), 255)));
   uint8_t bloom[8] = {0};

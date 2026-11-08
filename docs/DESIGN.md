@@ -128,7 +128,8 @@ UNICAST and add `dst_pos` en route. Everything else is authenticated end to end 
 ```
  0   1    beacon_flags   bit0 has_gps, bit1 stationary, bit2 mains_power, bit3 gateway,
                          bit4 carrying_sos, bit5 seek (heard nobody: please answer, §6.2)
- 1   2    velocity       heading (7 bits, 2.8° steps) + speed (9 bits, 0.1 m/s)
+ 1   2    velocity       u16 LE: heading (top 7 bits, 2.8° steps) + speed (low 9 bits, 0.1 m/s);
+                         measured over ≥ 20 s of position fixes, 0 = stopped or not measured
  3   1    util           channel utilization this node measures, 0..255 = 0..100 %
  4   1    store_count    number of DTN messages carried
  5   8    dtn_summary    64-bit Bloom filter over carried (src,msg_id) keys, k = 2
@@ -556,11 +557,12 @@ Identity mapping is explicit (the user pairs contacts). The bridge never forward
 4. The forwarding area helps dense meshes a lot but costs sparse ones some latency (§14).
    The 10-neighbor gate is a first guess.
 5. Bridge identity model.
-6. Not yet implemented in firmware: velocity in beacons, client protocol, the
+6. Not yet implemented in firmware: client protocol, the
    regulatory duty-cycle cap, the beacon MAC (§9.1), Bloom-filter use on receive for DTN
    *data* (it is used for SOS), and IDENT in the Pi daemon (it still loads an X25519 secret
    and peer keys from files). Implemented since v0.1: ChaCha20-Poly1305 AEAD for DATA (DM +
-   channel keys), the SOS lane (§8), IDENT (§4.5) and Ed25519 → X25519 secret-key conversion.
+   channel keys), the SOS lane (§8), IDENT (§4.5), Ed25519 → X25519 secret-key conversion and
+   velocity in beacons (sent and stored; no forwarding decision uses it yet).
 7. SOS cost: in backcountry with 6 concurrent SOS events the lane spends ~3× flood3's SOS
    airtime, because every node holds and re-offers every SOS. Its reach to fixed nodes beats flood3 in the
    tail but not flood7 (§14). Worth trying: coarser (per-15-min) Bloom keys for updates,
