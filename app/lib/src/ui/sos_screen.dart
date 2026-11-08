@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -214,12 +215,22 @@ Future<void> ackAlert(BuildContext context, WidgetRef ref, int src) async {
   }
 }
 
+/// How far the finger may drift from where it pressed before a hold is
+/// cancelled, logical pixels. Generous: a thumb wanders over 3 s.
+const double kSosHoldSlop = 40;
+
 /// A big round button that fires only after being held for [kSosHold].
+///
+/// The hold is tracked with raw pointer events, and the button claims the
+/// gesture as soon as it is pressed, so a scrolling parent cannot steal it
+/// when the thumb drifts. A tick is felt each second and a strong buzz when it
+/// fires; letting go early shows "Keep holding". Screen-reader users get a
+/// double-tap that opens a confirm dialog instead.
 class HoldToConfirmButton extends StatefulWidget {
   /// Creates the button.
   const HoldToConfirmButton({required this.onConfirmed, this.enabled = true, super.key});
 
-  /// Called once the hold completes.
+  /// Called once the hold completes (or the accessible confirm is accepted).
   final VoidCallback onConfirmed;
 
   /// Whether it reacts.
@@ -231,28 +242,97 @@ class HoldToConfirmButton extends StatefulWidget {
 
 class _HoldToConfirmButtonState extends State<HoldToConfirmButton> with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(vsync: this, duration: kSosHold)
+    ..addListener(_tick)
     ..addStatusListener((s) {
       if (s == AnimationStatus.completed) {
         unawaited(HapticFeedback.heavyImpact());
+        _pointer = null;
         widget.onConfirmed();
         _c.reset();
       }
     });
 
+  int? _pointer;
+  Offset _start = Offset.zero;
+  int _secondsLeft = 0;
+  String? _hint;
+  Timer? _hintTimer;
+
   @override
   void dispose() {
+    _hintTimer?.cancel();
     _c.dispose();
     super.dispose();
   }
 
-  void _down() {
-    if (!widget.enabled) return;
+  void _tick() {
+    final left = (kSosHold.inMilliseconds * (1 - _c.value) / 1000).ceil();
+    if (_c.status == AnimationStatus.forward && left != _secondsLeft && left > 0) {
+      unawaited(HapticFeedback.selectionClick());
+    }
+    _secondsLeft = left;
+  }
+
+  void _showHint(String text) {
+    _hintTimer?.cancel();
+    setState(() => _hint = text);
+    _hintTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _hint = null);
+    });
+  }
+
+  void _down(PointerDownEvent e) {
+    if (!widget.enabled || _pointer != null) return;
+    _pointer = e.pointer;
+    _start = e.position;
+    _secondsLeft = kSosHold.inSeconds;
+    _hintTimer?.cancel();
+    if (_hint != null) setState(() => _hint = null);
     unawaited(HapticFeedback.selectionClick());
     unawaited(_c.forward(from: 0));
   }
 
-  void _up() {
-    if (_c.isAnimating) unawaited(_c.reverse());
+  void _move(PointerMoveEvent e) {
+    if (e.pointer != _pointer) return;
+    if ((e.position - _start).distance > kSosHoldSlop) _cancel('Moved too far. Press and hold again.');
+  }
+
+  void _up(PointerUpEvent e) {
+    if (e.pointer != _pointer) return;
+    _cancel('Keep holding for ${kSosHold.inSeconds} seconds');
+  }
+
+  void _pointerCancel(PointerCancelEvent e) {
+    if (e.pointer != _pointer) return;
+    _cancel(null);
+  }
+
+  void _cancel(String? hint) {
+    _pointer = null;
+    if (_c.isAnimating || _c.value > 0) {
+      unawaited(_c.reverse());
+      if (hint != null) _showHint(hint);
+    }
+  }
+
+  Future<void> _accessibleConfirm() async {
+    if (!widget.enabled) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Send SOS?'),
+        content: const Text('Your node broadcasts an emergency alert with your position to the mesh.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: GwColors.alert, foregroundColor: GwColors.onAlert),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Send SOS'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) widget.onConfirmed();
   }
 
   @override
@@ -261,44 +341,74 @@ class _HoldToConfirmButtonState extends State<HoldToConfirmButton> with SingleTi
     // SOS is alert red, never a brand colour; grey when it cannot be sent.
     final color = widget.enabled ? GwColors.alert : scheme.outline;
     final onColor = widget.enabled ? GwColors.onAlert : scheme.onSurface;
-    return Semantics(
-      button: true,
-      label: 'SOS. Press and hold for 3 seconds to send.',
-      child: GestureDetector(
-        onTapDown: (_) => _down(),
-        onTapUp: (_) => _up(),
-        onTapCancel: _up,
-        child: AnimatedBuilder(
-          animation: _c,
-          builder: (context, _) => SizedBox(
-            width: 200,
-            height: 200,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox.expand(
-                  child: CircularProgressIndicator(
-                    value: _c.value,
-                    strokeWidth: 10,
-                    color: color,
-                    backgroundColor: color.withValues(alpha: 0.15),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(
+          button: true,
+          enabled: widget.enabled,
+          label: 'SOS. Press and hold for 3 seconds to send, or double-tap to confirm.',
+          onTap: widget.enabled ? () => unawaited(_accessibleConfirm()) : null,
+          child: ExcludeSemantics(
+            // claims the pointer at once, so a scrolling parent never wins it
+            child: RawGestureDetector(
+              gestures: <Type, GestureRecognizerFactory>{
+                EagerGestureRecognizer: GestureRecognizerFactoryWithHandlers<EagerGestureRecognizer>(
+                  EagerGestureRecognizer.new,
+                  (_) {},
+                ),
+              },
+              child: Listener(
+                onPointerDown: _down,
+                onPointerMove: _move,
+                onPointerUp: _up,
+                onPointerCancel: _pointerCancel,
+                child: AnimatedBuilder(
+                  animation: _c,
+                  builder: (context, _) => SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox.expand(
+                          child: CircularProgressIndicator(
+                            value: _c.value,
+                            strokeWidth: 10,
+                            color: color,
+                            backgroundColor: color.withValues(alpha: 0.15),
+                          ),
+                        ),
+                        Container(
+                          width: 168,
+                          height: 168,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+                          alignment: Alignment.center,
+                          child: Text(
+                            _c.value > 0 ? '${(kSosHold.inSeconds * (1 - _c.value)).ceil()}' : 'SOS',
+                            style: TextStyle(color: onColor, fontSize: 48, fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                Container(
-                  width: 168,
-                  height: 168,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _c.value > 0 ? '${(kSosHold.inSeconds * (1 - _c.value)).ceil()}' : 'SOS',
-                    style: TextStyle(color: onColor, fontSize: 48, fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
-      ),
+        // fixed height so the hint does not move the layout
+        SizedBox(
+          height: 28,
+          child: Center(
+            child: AnimatedOpacity(
+              opacity: _hint == null ? 0 : 1,
+              duration: const Duration(milliseconds: 150),
+              child: Text(_hint ?? '', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.error)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

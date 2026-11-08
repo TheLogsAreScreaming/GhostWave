@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'src/app/location_share.dart';
+import 'src/app/mesh_alerts.dart';
 import 'src/app/mesh_controller.dart';
 import 'src/app/providers.dart';
 import 'src/data/mesh_store.dart';
@@ -14,9 +16,20 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   final dir = await getApplicationSupportDirectory();
+  MeshAlerts alerts = const NoMeshAlerts();
+  try {
+    alerts = await LocalMeshAlerts.create();
+  } on Object catch (e) {
+    // notifications are a convenience: the app works without them
+    debugPrint('notifications unavailable: $e');
+  }
   runApp(
     ProviderScope(
-      overrides: [sharedPrefsProvider.overrideWithValue(prefs), meshStoreProvider.overrideWithValue(MeshStore(dir))],
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        meshStoreProvider.overrideWithValue(MeshStore(dir)),
+        meshAlertsProvider.overrideWithValue(alerts),
+      ],
       child: const GhostWaveApp(),
     ),
   );
@@ -48,6 +61,12 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // inactive (permission dialog, notification shade) still counts as foreground
+    ref
+        .read(appForegroundProvider.notifier)
+        .set(foreground: state == AppLifecycleState.resumed || state == AppLifecycleState.inactive);
+    // back in front: the link may have died while the screen was off
+    if (state == AppLifecycleState.resumed) ref.read(nodeLinkProvider).checkNow();
     // save chat history before the OS may kill a backgrounded app
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       ref.read(meshProvider.notifier).flush();
@@ -58,6 +77,8 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
   Widget build(BuildContext context) {
     // start the mesh controller with the app so no event is missed
     ref.watch(meshProvider.select((_) => 0));
+    // and location sharing, which follows the link and the foreground state
+    ref.watch(locationShareProvider.select((_) => 0));
     final hasAddress = ref.watch(nodeAddressProvider) != null;
     return MaterialApp(
       title: 'GhostWave',

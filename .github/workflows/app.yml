@@ -92,6 +92,11 @@ jobs:
     name: App Android APK
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    env:
+      # true when the dev signing secrets are available (not on fork PRs)
+      HAS_DEV_KEY: ${{ secrets.ANDROID_DEV_KEYSTORE_B64 != '' }}
+      # SHA-256 of the dev signing certificate (public; see app/README.md)
+      DEV_CERT_SHA256: a2b5618f5364b9fb018ca85220f4afe5ec824264a48ce8d1d7fa63ba2e7da9ae
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-java@v4.7.1
@@ -104,9 +109,43 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter pub get
+      - name: Dev signing key (from repo secrets)
+        if: env.HAS_DEV_KEY == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_DEV_KEYSTORE_B64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/dev-keystore.p12"
+          echo "GW_DEV_KEYSTORE=$RUNNER_TEMP/dev-keystore.p12" >> "$GITHUB_ENV"
+      - name: No dev key (fork PR); the APK uses a throwaway debug key
+        if: env.HAS_DEV_KEY != 'true'
+        run: echo "::warning::Dev signing secrets not available; this APK is signed with a throwaway debug key"
       # arm64 only: every current Android phone, about a third of a universal APK
-      - name: Build APK (release mode, arm64, signed with the CI debug key)
+      - name: Build APK (release mode, arm64)
+        env:
+          GW_DEV_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_DEV_KEYSTORE_PASSWORD }}
+          GW_DEV_KEY_ALIAS: ${{ secrets.ANDROID_DEV_KEY_ALIAS }}
         run: flutter build apk --release --split-per-abi --target-platform android-arm64 --build-number ${{ github.run_number }}
+      - name: Check the APK signer
+        run: |
+          bt=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          apk=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          certs=$("$ANDROID_HOME/build-tools/$bt/apksigner" verify --print-certs "$apk")
+          echo "$certs" | grep -i "certificate SHA-256"
+          # every signer line ("Signer #1 certificate ..." or "V2 Signer: certificate ...",
+          # depending on the apksigner version) must name one and the same certificate
+          got=$(echo "$certs" | grep -i "certificate SHA-256 digest" | awk '{print $NF}' | tr 'A-F' 'a-f' | sort -u)
+          if [ -z "$got" ] || [ "$(echo "$got" | wc -l)" -ne 1 ]; then
+            echo "::error::could not read one signer certificate from apksigner"; exit 1
+          fi
+          if [ "$HAS_DEV_KEY" = "true" ]; then
+            if [ "$got" != "$DEV_CERT_SHA256" ]; then
+              echo "::error::APK signed with $got, expected the dev key $DEV_CERT_SHA256"
+              exit 1
+            fi
+            echo "Signed with the GhostWave dev key"
+          elif [ "$got" = "$DEV_CERT_SHA256" ]; then
+            echo "::error::dev key used without the secrets?"; exit 1
+          fi
       - name: Name the APK
         run: |
           short=$(git rev-parse --short HEAD)
@@ -114,6 +153,7 @@ jobs:
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "out/ghostwave-app-${{ github.run_number }}-$short-arm64.apk"
           {
             echo "### APK built"
+            if [ "$HAS_DEV_KEY" = "true" ]; then echo "Signed with the GhostWave dev key"; else echo "Signed with a throwaway debug key"; fi
             echo '```'
             ls -l out/*.apk
             sha256sum out/*.apk

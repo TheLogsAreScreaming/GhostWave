@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/providers.dart';
+import '../link/contact_card.dart';
 import '../link/node_link.dart';
 import 'connect_screen.dart';
 import 'theme.dart';
@@ -31,6 +32,69 @@ class LinkChip extends ConsumerWidget {
     );
   }
 }
+
+/// Slim header above the tabs: which node the app is talking to. Tap opens
+/// the Connect screen.
+class ConnectionBar extends ConsumerWidget {
+  /// Creates the bar. [safeTop] pads for the status bar (false when another
+  /// banner above already does).
+  const ConnectionBar({this.safeTop = true, super.key});
+
+  /// Whether to add the status-bar inset.
+  final bool safeTop;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(linkStateProvider).value ?? const LinkIdle();
+    final address = ref.watch(nodeAddressProvider);
+    final scheme = Theme.of(context).colorScheme;
+    final (IconData icon, Color color, String text) = switch (state) {
+      LinkUp(:final info) => (
+        Icons.link,
+        GwColors.success,
+        'Connected to ${_nodeLabel(decodeLenient(info.name), info.nodeId)}',
+      ),
+      LinkConnecting(:final target) => (Icons.sync, scheme.tertiary, 'Connecting to $target…'),
+      LinkWaiting(:final target, :final retryIn) => (
+        Icons.schedule,
+        scheme.tertiary,
+        'Reconnecting to $target in ${retryIn.inSeconds} s',
+      ),
+      LinkFailed(:final reason) => (Icons.error_outline, scheme.error, 'Stopped: $reason'),
+      LinkIdle() => (Icons.link_off, scheme.outline, address == null ? 'Not connected' : 'Offline · tap to connect'),
+    };
+    return Material(
+      color: GwColors.surface1,
+      child: SafeArea(
+        top: safeTop,
+        bottom: false,
+        child: InkWell(
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ConnectScreen())),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: Theme.of(context).textTheme.labelLarge,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _nodeLabel(String name, int id) => name.isEmpty ? nodeIdHex(id) : '$name (${nodeIdHex(id)})';
 
 /// Placeholder body when there is no link.
 class NotConnected extends StatelessWidget {

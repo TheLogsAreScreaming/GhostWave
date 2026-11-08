@@ -4,12 +4,19 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Stable dev signing: CI decodes the dev keystore (repo secrets) to a temp file
+// and sets these. Without them (local builds, fork PRs) release builds fall
+// back to the throwaway debug key. This is a dev key, not for store releases.
+val devKeystore: String? = System.getenv("GW_DEV_KEYSTORE")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "org.ghostwave.ghostwave_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications needs core library desugaring
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -29,11 +36,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (devKeystore != null) {
+            create("dev") {
+                storeFile = file(devKeystore)
+                storeType = "pkcs12"
+                storePassword = System.getenv("GW_DEV_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("GW_DEV_KEY_ALIAS")
+                // PKCS12 made with openssl: one password for store and key
+                keyPassword = System.getenv("GW_DEV_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (devKeystore != null) "dev" else "debug")
         }
     }
 }
@@ -46,4 +64,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

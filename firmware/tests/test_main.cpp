@@ -15,6 +15,7 @@
 #include "ghostwave/packet.h"
 #include "ghostwave/router.h"
 #include "ghostwave/util.h"
+#include "beacon_timing.h"
 #include "vchannel.h"
 
 using namespace gw;
@@ -293,6 +294,7 @@ struct Medium {
   std::vector<std::unique_ptr<SimNode>> nodes;
   double rangeM = 2500;
   uint32_t identIntervalMs = 60 * 60 * 1000;
+  uint32_t beaconMinS = 0, beaconMaxS = 0;   // ghostwaved --beacon-*-s overrides; 0 = defaults
   uint64_t now = 0;
   uint32_t txCount = 0;
   std::vector<uint8_t> txTypes;
@@ -309,6 +311,7 @@ struct Medium {
     c.responder = responder;
     c.rngSeed = id * 7919ull + 1;
     c.identIntervalMs = identIntervalMs;
+    applyBeaconTiming(beaconMinS, beaconMaxS, c);
     n->router = std::make_unique<Router>(c, n->radio, n->app);
     n->pos = {45.0 + kmNorth * 0.0089932, -110.0 + kmEast * 0.0127, true};
     n->router->setPosition(n->pos, now);
@@ -351,6 +354,47 @@ bool TestRadio::transmit(const uint8_t* buf, size_t len) {
   }
   m->deliver(idx, buf, len);
   return true;
+}
+
+// ghostwaved --beacon-min-s / --beacon-max-s (pi/beacon_timing.h): parsing,
+// validation, defaults unchanged, and the effect on a stationary node.
+static void testBeaconTimingFlags() {
+  std::printf("beacon timing flags\n");
+  uint32_t v = 0;
+  CHECK(parseBeaconSeconds("60", v) && v == 60);
+  CHECK(parseBeaconSeconds("86400", v) && v == 86400);
+  for (const char* bad : {"", "0", "-5", "+5", "1.5", "60s", "86401", "abc", " 60"}) CHECK(!parseBeaconSeconds(bad, v));
+  CHECK(!parseBeaconSeconds(nullptr, v));
+
+  Config def;
+  Config c;
+  CHECK(applyBeaconTiming(0, 0, c).empty());
+  CHECK(c.beaconMinMs == def.beaconMinMs && c.beaconMaxMs == def.beaconMaxMs);   // no flags: unchanged
+  CHECK(applyBeaconTiming(0, 60, c).empty());
+  CHECK(c.beaconMaxMs == 60000 && c.beaconMinMs == def.beaconMinMs);
+  Config d;
+  CHECK(applyBeaconTiming(10, 30, d).empty() && d.beaconMinMs == 10000 && d.beaconMaxMs == 30000);
+  Config e;
+  CHECK(!applyBeaconTiming(120, 60, e).empty());                      // min above max
+  CHECK(e.beaconMinMs == def.beaconMinMs && e.beaconMaxMs == def.beaconMaxMs);   // untouched on error
+  Config f;
+  CHECK(!applyBeaconTiming(0, 30, f).empty());                        // default min (60 s) above 30 s
+
+  // two stationary nodes whose startup beacons are lost: with the defaults they
+  // stay strangers for 15 minutes; with --beacon-max-s 60 they meet within ~1 min
+  for (uint32_t maxS : {0u, 60u}) {
+    Medium m;
+    m.beaconMaxS = maxS;
+    m.identIntervalMs = 0;
+    SimNode& a = m.add(0xA1, 0);
+    SimNode& b = m.add(0xB1, 1);
+    m.drop = [&](int, const uint8_t*, size_t) { return m.now < 5000; };   // collisions at startup
+    m.run(5000);
+    m.drop = nullptr;
+    m.run(3 * 60 * 1000);
+    bool met = !a.app.neighbors.empty() && !b.app.neighbors.empty();
+    CHECK(met == (maxS == 60));
+  }
 }
 
 static void testLine() {
@@ -1414,6 +1458,7 @@ int main() {
   testAead();
   testPosAge();
   testUtil();
+  testBeaconTimingFlags();
   testLine();
   testDtnCarry();
   testSpray();

@@ -127,6 +127,27 @@ void ClientLink::poll(uint64_t now) {
   dropClosed();
 }
 
+// TCP keepalive with short timers, so a client that vanished without closing
+// (phone asleep, Wi-Fi lost) is dropped in about a minute instead of holding
+// one of the kMaxClients slots for hours. Best effort: options differ by OS.
+static void enableKeepalive(int fd) {
+  int one = 1;
+  setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof one);
+  int idle = 30, intvl = 10, cnt = 3;   // first probe after 30 s idle, give up after 3 x 10 s
+#if defined(TCP_KEEPIDLE)
+  setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof idle);
+#elif defined(TCP_KEEPALIVE)
+  setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE, &idle, sizeof idle);   // macOS name
+#endif
+#if defined(TCP_KEEPINTVL)
+  setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &intvl, sizeof intvl);
+#endif
+#if defined(TCP_KEEPCNT)
+  setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &cnt, sizeof cnt);
+#endif
+  (void)idle; (void)intvl; (void)cnt;
+}
+
 void ClientLink::accept() {
   for (int n = 0; n < 4; ++n) {
     sockaddr_storage ss{};
@@ -137,6 +158,7 @@ void ClientLink::accept() {
     noSigPipe(fd);
     int one = 1;
     setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
+    enableKeepalive(fd);
     Client c;
     c.fd = fd;
     c.peer = sockName(reinterpret_cast<sockaddr*>(&ss));

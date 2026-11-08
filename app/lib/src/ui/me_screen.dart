@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../app/location_share.dart';
 import '../app/providers.dart';
 import '../link/contact_card.dart';
-import 'widgets.dart';
+import 'format.dart';
 import 'theme.dart';
+import 'widgets.dart';
 
 /// The connected node's identity and its contact-card QR code.
 class MeScreen extends ConsumerWidget {
@@ -40,6 +44,8 @@ class MeScreen extends ConsumerWidget {
                     ),
                   ),
                 const SizedBox(height: 16),
+                const _LocationShareCard(),
+                const SizedBox(height: 8),
                 _Field('Name', decodeLenient(info.name)),
                 _Field('Node ID', nodeIdHex(info.nodeId)),
                 _Field('Ed25519 public key (identity)', hexEncode(info.ed25519Pub)),
@@ -99,4 +105,59 @@ class _Field extends StatelessWidget {
     title: Text(label, style: Theme.of(context).textTheme.labelMedium),
     subtitle: SelectableText(value.isEmpty ? '—' : value, style: GwText.mono),
   );
+}
+
+/// Opt-in: send the phone's GPS position to the node as its own position.
+class _LocationShareCard extends ConsumerWidget {
+  const _LocationShareCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = ref.watch(locationShareProvider);
+    final ctl = ref.read(locationShareProvider.notifier);
+    final scheme = Theme.of(context).colorScheme;
+    final (String detail, bool problem) = switch (loc) {
+      LocationShareState(enabled: false) => (
+        'Off. When on, the node uses this phone\'s GPS as its position (beacons, map, SOS), '
+            'while the app is open.',
+        false,
+      ),
+      LocationShareState(access: LocationAccess.serviceOff) => ('Location is switched off on this phone.', true),
+      LocationShareState(access: LocationAccess.deniedForever) => (
+        'Location permission is blocked. Allow it in the app settings.',
+        true,
+      ),
+      LocationShareState(access: LocationAccess.denied) => ('Location permission was not given.', true),
+      LocationShareState(:final error?) => (error, true),
+      LocationShareState(:final lastSent?, :final lastSentAt?) => (
+        'Sent ${timeAgo(lastSentAt)}: $lastSent. Updates on 50 m of movement, at most every 30 s.',
+        false,
+      ),
+      LocationShareState(active: true) => ('Waiting for a GPS fix…', false),
+      _ => ('On. Shares while the app is open and connected.', false),
+    };
+    final fixable =
+        loc.enabled && (loc.access == LocationAccess.deniedForever || loc.access == LocationAccess.serviceOff);
+    return Card(
+      child: Column(
+        children: [
+          SwitchListTile(
+            secondary: const Icon(Icons.my_location),
+            title: const Text('Share phone location with node'),
+            subtitle: Text(detail, style: problem ? TextStyle(color: scheme.error) : null),
+            value: loc.enabled,
+            onChanged: (on) => unawaited(ctl.setEnabled(enabled: on)),
+          ),
+          if (fixable)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
+                child: TextButton(onPressed: () => unawaited(ctl.openSettings()), child: const Text('Open settings')),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

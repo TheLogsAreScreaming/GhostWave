@@ -20,6 +20,9 @@ any other mesh app.
 | **Map:** own node, contacts, nearby nodes and SOS alerts on OpenStreetMap tiles (online) | done |
 | **SOS:** hold 3 s to raise, "SOS active" with acks received, stop; incoming SOS banner on every tab with Ack | done |
 | **Status:** every `Status` field, refreshed every 10 s | done |
+| **Recent nodes:** one-tap reconnect on the Connect screen; "Connected to N1 (9d66916b)" bar above the tabs | done |
+| **Share phone location:** opt-in switch on the Me tab sends the phone's GPS to the node (`SetOwnPosition`) on 50 m of movement, at most every 30 s, only while the app is open | done |
+| **Notifications:** new DMs and SOS alerts while the app is in the background and still connected | done |
 | BLE transport | later (needs the Heltec BLE service) |
 | Offline map tiles | follow-up |
 | iPhone install | blocked, see below |
@@ -76,9 +79,17 @@ gh release download app-v0.1.0-dev.2 --repo TheLogsAreScreaming/GhostWave-Releas
 adb install -r apk/*.apk
 ```
 
-Development builds are signed with a throwaway debug key, and each build may have a different one, so
-Android may refuse to install a newer build over an older one ("App not installed"). Uninstall the old
-one first; this also clears the app's saved data. Proper signing comes with the first real release.
+**Signing.** From `app-v0.1.0-dev.4` on, CI signs the APK with a fixed GhostWave **dev key**, so a
+newer build installs over an older one and keeps the app's data. Its certificate SHA-256 is
+`A2:B5:61:8F:53:64:B9:FB:01:8C:A8:52:20:F4:AF:E5:EC:82:42:64:A4:8C:E8:D1:D7:FA:63:BA:2E:7D:A9:AE`
+(CI checks every APK against it). This is a development key only, never for store releases.
+Builds dev.1 to dev.3 used a different throwaway key each, so moving from one of those to dev.4 needs
+**one more uninstall** (this clears the app's saved data). After that, updates install over the top.
+
+How it works: the keystore (PKCS12) and its password are repository secrets
+(`ANDROID_DEV_KEYSTORE_B64`, `ANDROID_DEV_KEYSTORE_PASSWORD`, `ANDROID_DEV_KEY_ALIAS`). CI decodes it to
+a temporary file and passes it to Gradle through `GW_DEV_KEYSTORE*` environment variables. Without the
+secrets (local builds, pull requests from forks) release builds fall back to the throwaway debug key.
 
 **CI builds.** Every App workflow run on a pull request or on `main` also attaches the APK to the run
 as the `ghostwave-app-apk` artifact (Actions tab → the run → Artifacts, kept 14 days); the run summary
@@ -101,6 +112,16 @@ paid Apple Developer account (TestFlight). That decision is still open. Android 
   send as it, add contacts and raise or ack SOS. `ghostwaved` only listens on 127.0.0.1 unless told
   otherwise; `--lan` / `--bind` are for a **trusted Wi-Fi only**. Stop the mesh when you are done.
 - Map tiles need internet (OpenStreetMap). Offline tiles are a follow-up.
+- **Notifications only while the app is still running.** There is no push service: once the phone
+  stops the backgrounded app (minutes on many Android phones, almost at once on iPhone), the link
+  closes and nothing more arrives until the app is opened again. The node holds DMs and SOS alerts for
+  the app meanwhile and replays them on reconnect.
+- **Location sharing is foreground only.** It pauses when the app goes to the background.
+- **Contacts come from the node.** A node in radio range becomes a contact on its own once your node
+  hears its identity (IDENT; trust on first use, marked with a radio icon). Until then it shows under
+  "Heard nearby, waiting for their key" and cannot be messaged: the client protocol carries no key
+  for heard nodes, so the app cannot add them itself. Scanning or pasting the contact card pins the key
+  (check-mark icon).
 
 ## Development
 

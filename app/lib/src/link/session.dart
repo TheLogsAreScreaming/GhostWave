@@ -207,6 +207,6 @@ class LinkSession {
     unawaited(_events.close());
   }
 
-  /// Closes the session.
-  Future<void> close() async => _shutdown('closed by the app');
+  /// Closes the session; [reason] becomes the result of [done].
+  Future<void> close({String reason = 'closed by the app'}) async => _shutdown(reason);
 }

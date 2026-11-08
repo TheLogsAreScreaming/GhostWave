@@ -82,10 +82,33 @@ const List<Duration> kReconnectBackoff = <Duration>[
   Duration(seconds: 20),
 ];
 
+/// How often a live link is checked with a `GetStatus` ping.
+const Duration kHeartbeatEvery = Duration(seconds: 15);
+
+/// How long a ping may go unanswered before the link counts as dead.
+const Duration kHeartbeatTimeout = Duration(seconds: 10);
+
 /// The connection manager. Plain Dart; one per app.
+///
+/// A TCP link can die without either side noticing (phone screen off, Wi-Fi
+/// power save, access-point roaming): the socket stays "open" but nothing
+/// arrives. So while the link is up it pings the node every [heartbeatEvery];
+/// no reply within [heartbeatTimeout] closes the session as "link timed out",
+/// and the normal backoff reconnect takes over.
 class NodeLink {
   /// Creates the manager. [clientName] goes into `Hello`.
-  NodeLink({this.clientName = 'GhostWave app', this.backoff = kReconnectBackoff});
+  NodeLink({
+    this.clientName = 'GhostWave app',
+    this.backoff = kReconnectBackoff,
+    this.heartbeatEvery = kHeartbeatEvery,
+    this.heartbeatTimeout = kHeartbeatTimeout,
+  });
+
+  /// Ping interval while the link is up.
+  final Duration heartbeatEvery;
+
+  /// Ping reply deadline.
+  final Duration heartbeatTimeout;
 
   /// Sent in `Hello` (node logs only).
   final String clientName;
@@ -99,6 +122,8 @@ class NodeLink {
   Transport? _transport;
   int _generation = 0;
   Timer? _retry;
+  Timer? _heartbeat;
+  bool _pinging = false;
 
   /// Current state.
   LinkState get state => _state;
@@ -122,6 +147,18 @@ class NodeLink {
     unawaited(_attempt(++_generation, 1));
   }
 
+  /// Checks the link now (app back in the foreground, network changed): pings
+  /// a live link, or reconnects at once, with the backoff reset, if it is
+  /// waiting to retry. A stopped link ([LinkFailed]) is left to the user.
+  void checkNow() {
+    final s = _state;
+    if (s is LinkUp) {
+      unawaited(_ping(_generation, s.session));
+    } else if (s is LinkWaiting) {
+      retryNow();
+    }
+  }
+
   /// Retries now if waiting or failed.
   void retryNow() {
     final t = _transport;
@@ -141,6 +178,8 @@ class NodeLink {
   void _stopCurrent() {
     _retry?.cancel();
     _retry = null;
+    _heartbeat?.cancel();
+    _heartbeat = null;
     final s = session;
     _generation++;
     if (s != null) unawaited(s.close());
@@ -167,7 +206,12 @@ class NodeLink {
         return;
       }
       _set(LinkUp(t.label, info, s));
+      final live = s;
+      _heartbeat?.cancel();
+      _heartbeat = Timer.periodic(heartbeatEvery, (_) => unawaited(_ping(gen, live)));
       final reason = await s.done;
+      _heartbeat?.cancel();
+      _heartbeat = null;
       unawaited(sub.cancel());
       if (gen != _generation) return;
       _scheduleRetry(gen, 1, reason);
@@ -188,6 +232,24 @@ class NodeLink {
       } else {
         _scheduleRetry(gen, attempt + 1, reason);
       }
+    }
+  }
+
+  Future<void> _ping(int gen, LinkSession s) async {
+    if (_pinging || s.isClosed || gen != _generation) return;
+    _pinging = true;
+    try {
+      await s.request(pb.ToRadio(getStatus: pb.GetStatus()), timeout: heartbeatTimeout);
+    } on ReplyTimeoutException {
+      if (gen == _generation && !s.isClosed) {
+        await s.close(reason: 'link timed out (no reply in ${heartbeatTimeout.inSeconds} s)');
+      }
+    } on NodeError {
+      // the node answered, so the link is alive
+    } on LinkClosedException {
+      // already closing; the reconnect logic handles it
+    } finally {
+      _pinging = false;
     }
   }
 

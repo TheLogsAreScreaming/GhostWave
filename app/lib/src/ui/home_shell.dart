@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/mesh_alerts.dart';
 import '../app/mesh_controller.dart';
+import '../app/providers.dart';
 import 'contacts_screen.dart';
 import 'map_screen.dart';
 import 'me_screen.dart';
 import 'sos_screen.dart';
 import 'status_screen.dart';
+import 'widgets.dart';
 
 /// Bottom-navigation shell with the app's tabs and the SOS alert banner.
 class HomeShell extends ConsumerStatefulWidget {
@@ -22,6 +25,28 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   static const _statusTab = 4;
   int _tab = 0;
 
+  static const _askedNotificationsKey = 'asked_notifications';
+
+  @override
+  void initState() {
+    super.initState();
+    // ask once for notification permission (Android 13+, iOS), after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) => _askNotificationsOnce());
+  }
+
+  Future<void> _askNotificationsOnce() async {
+    if (!mounted) return;
+    final prefs = ref.read(sharedPrefsProvider);
+    if (prefs.getBool(_askedNotificationsKey) ?? false) return;
+    await prefs.setBool(_askedNotificationsKey, true);
+    if (!mounted) return;
+    try {
+      await ref.read(meshAlertsProvider).requestPermission();
+    } on Object catch (e) {
+      debugPrint('notification permission: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mesh = ref.watch(meshProvider);
@@ -31,10 +56,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       body: Column(
         children: [
           SosAlertBanner(onView: () => setState(() => _tab = _sosTab)),
+          ConnectionBar(safeTop: alerts == 0),
           Expanded(
             child: MediaQuery.removePadding(
               context: context,
-              removeTop: alerts > 0,
+              // the bars above already cover the status bar
+              removeTop: true,
               child: IndexedStack(
                 index: _tab,
                 children: [
