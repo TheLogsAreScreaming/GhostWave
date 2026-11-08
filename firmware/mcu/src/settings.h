@@ -1,4 +1,6 @@
-// Node settings persisted in NVS (ESP32 Preferences, namespace "gw").
+// Node settings, persisted in NVS on the ESP32 (Preferences, namespace "gw",
+// settings.cpp) and in a LittleFS file in internal flash on the nRF52
+// (settings_nrf52.cpp).
 #pragma once
 
 #include <array>
@@ -30,22 +32,26 @@ struct Settings {
   float freqMHz = 0;
   bool responder = false;
   bool requireEnc = false;
+  bool bleOn = true;            // nRF52 only: advertise the BLE client link
   size_t peerCount = 0;
   std::array<PeerKey, kMaxStoredPeers> peers{};
 };
 
 // Loads everything; on first boot creates and saves a node ID (from the
-// factory MAC) and an identity key (from the hardware RNG). False if NVS fails.
+// factory MAC / FICR device ID) and an identity key (from the hardware RNG).
+// False if storage fails.
 bool loadSettings(Settings& s);
 
 bool saveFixedPos(const Settings& s);
 bool savePsk(const Settings& s);
 bool saveRadio(const Settings& s);
 bool saveFlags(const Settings& s);
+bool saveBle(const Settings& s);
 // Adds or replaces `id`'s key. False when kMaxStoredPeers are already held.
 bool savePeer(Settings& s, uint32_t id, const Key32& pub);
 
-// Hardware RNG with the RF-independent entropy source switched on.
+// Hardware RNG (ESP32: with the RF-independent entropy source switched on;
+// nRF52: the RNG peripheral, through the SoftDevice once it is running).
 void secureRandom(uint8_t* out, size_t n);
 
 }  // namespace mcu

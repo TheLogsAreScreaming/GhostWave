@@ -1,0 +1,415 @@
+// Host tests for the transport-independent client-link handler
+// (firmware/core/src/client_handler.cpp), which ghostwaved's TCP link and the
+// MCU firmware's BLE link share: Hello gating, replies, the offline event
+// queue and its replay on Hello, bad frames, multi-connection fan-out.
+#include <cstdio>
+#include <cstring>
+#include <deque>
+#include <string>
+#include <vector>
+
+#include "ghostwave/client_handler.h"
+#include "ghostwave/client_proto.h"
+#include "ghostwave/router.h"
+
+using namespace gw::client;
+
+static int g_fail = 0, g_pass = 0;
+#define CHECK(cond)                                                     \
+  do {                                                                  \
+    if (cond) {                                                         \
+      ++g_pass;                                                         \
+    } else {                                                            \
+      ++g_fail;                                                         \
+      std::printf("  FAIL %s:%d  %s\n", __FILE__, __LINE__, #cond);     \
+    }                                                                   \
+  } while (0)
+
+namespace {
+
+struct NullRadio : gw::RadioPort {
+  bool channelBusy() override { return false; }
+  bool transmit(const uint8_t*, size_t) override { return true; }
+};
+struct NullApp : gw::AppPort {
+  void onMessage(uint32_t, uint32_t, const std::vector<uint8_t>&) override {}
+};
+
+// A transport with N connections whose output is decoded back to FromRadio.
+struct FakeTransport : Transport {
+  struct C {
+    Conn conn;
+    bool open = true;
+    Bytes out;
+  };
+  std::deque<C> conns;
+  bool hold = true;
+  std::vector<std::string> logs;
+
+  C& add(const std::string& peer) {
+    conns.emplace_back();
+    conns.back().conn.peer = peer;
+    return conns.back();
+  }
+  void write(Conn& c, const uint8_t* f, size_t n) override {
+    for (auto& x : conns)
+      if (&x.conn == &c) x.out.insert(x.out.end(), f, f + n);
+  }
+  void forEachConn(const std::function<void(Conn&)>& fn) override {
+    for (auto& x : conns)
+      if (x.open) fn(x.conn);
+  }
+  bool holdEvents() const override { return hold; }
+  void log(const std::string& line) override { logs.push_back(line); }
+
+  // Every frame written to `c` since the last call.
+  static std::vector<FromRadio> drain(C& c) {
+    std::vector<FromRadio> v;
+    FrameReader r;
+    r.push(c.out.data(), c.out.size());
+    c.out.clear();
+    uint8_t ver;
+    Bytes body;
+    while (r.next(ver, body) == FrameReader::Result::Frame) {
+      FromRadio m;
+      if (ver == kProtocolVersion && decodeFrom(body.data(), body.size(), m)) v.push_back(m);
+      else v.push_back(FromRadio());   // kind None marks a bad frame
+    }
+    return v;
+  }
+};
+
+struct Rig {
+  NullRadio radio;
+  NullApp app;
+  gw::Config cfg;
+  gw::Router router;
+  gw::Position pos;
+  FakeTransport t;
+  Handler::Hooks hooks;
+  NodeIdentity self;
+  Handler h;
+  std::vector<gw::Position> ownPos;
+
+  static gw::Config mkCfg() {
+    gw::Config c;
+    c.nodeId = 0x11111111;
+    c.rngSeed = 7;
+    return c;
+  }
+  explicit Rig(size_t queueMax = 64)
+      : cfg(mkCfg()), router(cfg, radio, app), h(router, ident(), pos, mkHooks(), 0, t, queueMax) {}
+
+  static NodeIdentity ident() {
+    NodeIdentity s;
+    s.id = 0x11111111;
+    s.name = "GhostWave-1111";
+    s.legacy = true;
+    for (int i = 0; i < 32; ++i) s.xPub[i] = static_cast<uint8_t>(i + 1);
+    s.firmware = "ghostwave-test 1";
+    return s;
+  }
+  Handler::Hooks mkHooks() {
+    Handler::Hooks k;
+    k.addPeer = [](uint32_t id, const Bytes& ed, const Bytes& x, std::string& err) -> uint32_t {
+      if (ed.empty() && x.size() == 32 && id) return id;
+      err = "nope";
+      return 0;
+    };
+    k.setOwnPosition = [this](const gw::Position& p) {
+      ownPos.push_back(p);
+      pos = p;
+    };
+    return k;
+  }
+
+  // Sends one ToRadio from connection `c` as a frame.
+  void req(FakeTransport::C& c, const ToRadio& m, uint64_t now = 1000) {
+    Bytes f;
+    frameTo(m, f);
+    FrameReader in;
+    in.push(f.data(), f.size());
+    h.receive(c.conn, in, now);
+  }
+  void hello(FakeTransport::C& c, uint32_t reqId = 1) {
+    ToRadio m;
+    m.reqId = reqId;
+    m.kind = ToKind::Hello;
+    m.protocolVersion = 1;
+    m.clientName = "test";
+    req(c, m);
+  }
+};
+
+void testHelloGate() {
+  Rig r;
+  auto& c = r.t.add("a");
+  ToRadio m;
+  m.reqId = 9;
+  m.kind = ToKind::GetStatus;
+  r.req(c, m);
+  auto v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Error && v[0].error == ErrorCode::NeedHello && v[0].reqId == 9);
+
+  r.hello(c, 3);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::NodeInfo && v[0].reqId == 3);
+  CHECK(v[0].nodeId == 0x11111111 && v[0].legacy && v[0].ed25519Pub.empty() && v[0].x25519Pub.size() == 32);
+  CHECK(v[0].firmware == "ghostwave-test 1" && v[0].maxTextBytes == 73 && v[0].name == "GhostWave-1111");
+  CHECK(c.conn.hello && !c.conn.closing);
+
+  ToRadio bad;
+  bad.kind = ToKind::Hello;
+  bad.protocolVersion = 2;
+  auto& c2 = r.t.add("b");
+  r.req(c2, bad);
+  v = FakeTransport::drain(c2);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadVersion && c2.conn.closing && !c2.conn.hello);
+}
+
+void testQueueAndReplay() {
+  Rig r;
+  r.h.onMessage(0xAAAA0001, 1, {'h', 'i'});
+  r.h.onSos(gw::SosInfo{0xBBBB0002, 5, {}, 0xFF, 50, "help"});
+  r.h.onNeighbor(0xCCCC0003, {1, 2, true}, true);   // live only: not held
+  CHECK(r.h.queued() == 2);
+
+  auto& c = r.t.add("a");
+  r.h.onDelivered(0xDDDD0004, 77);   // connected but no Hello yet: still held
+  CHECK(r.h.queued() == 3 && c.out.empty());
+  r.hello(c);
+  auto v = FakeTransport::drain(c);
+  CHECK(v.size() == 4);
+  if (v.size() == 4) {
+    CHECK(v[0].kind == FromKind::NodeInfo && !v[0].replayed);
+    CHECK(v[1].kind == FromKind::Text && v[1].replayed && v[1].src == 0xAAAA0001 && v[1].text == Bytes({'h', 'i'}));
+    CHECK(v[2].kind == FromKind::Sos && v[2].replayed && v[2].src == 0xBBBB0002 && v[2].batteryPct.has &&
+          v[2].batteryPct.v == 50 && !v[2].accuracyM.has);
+    CHECK(v[3].kind == FromKind::Delivered && v[3].replayed && v[3].msgId == 77);
+  }
+  CHECK(r.h.queued() == 0);
+  CHECK(!r.t.logs.empty() && r.t.logs.back() == "client a hello \"test\", replaying 3 held events");
+
+  // live now, not replayed, neighbors included
+  r.h.onNeighbor(0xCCCC0003, {1, 2, true}, false);
+  r.h.onSosAck(0xEEEE0005, 9);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 2 && v[0].kind == FromKind::Neighbor && !v[0].replayed && v[1].kind == FromKind::SosAck &&
+        v[1].seq == 9 && v[1].src == 0xEEEE0005);
+  CHECK(r.h.queued() == 0);
+
+  // a second Hello on the same connection does not replay again
+  c.conn.hello = true;
+  r.h.onMessage(1, 2, {'x'});
+  FakeTransport::drain(c);
+  r.hello(c);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::NodeInfo);
+}
+
+void testQueueEviction() {
+  Rig r(4);
+  r.h.onSos(gw::SosInfo{0x5001, 1, {}, 0xFF, 0xFF, "a"});
+  r.h.onMessage(0x7001, 1, {'1'});
+  r.h.onSos(gw::SosInfo{0x5002, 1, {}, 0xFF, 0xFF, "b"});
+  r.h.onMessage(0x7002, 2, {'2'});
+  r.h.onMessage(0x7003, 3, {'3'});   // full: the oldest non-SOS (0x7001) goes
+  r.h.onSos(gw::SosInfo{0x5003, 1, {}, 0xFF, 0xFF, "c"});   // then 0x7002
+  CHECK(r.h.queued() == 4);
+  auto& c = r.t.add("a");
+  r.hello(c);
+  auto v = FakeTransport::drain(c);
+  CHECK(v.size() == 5);
+  if (v.size() == 5) {
+    CHECK(v[1].kind == FromKind::Sos && v[1].src == 0x5001);
+    CHECK(v[2].kind == FromKind::Sos && v[2].src == 0x5002);
+    CHECK(v[3].kind == FromKind::Text && v[3].src == 0x7003);
+    CHECK(v[4].kind == FromKind::Sos && v[4].src == 0x5003);
+  }
+
+  // all SOS: the oldest SOS goes
+  Rig s(2);
+  s.h.onSos(gw::SosInfo{0x5001, 1, {}, 0xFF, 0xFF, "a"});
+  s.h.onSos(gw::SosInfo{0x5002, 1, {}, 0xFF, 0xFF, "b"});
+  s.h.onSos(gw::SosInfo{0x5003, 1, {}, 0xFF, 0xFF, "c"});
+  auto& d = s.t.add("a");
+  s.hello(d);
+  v = FakeTransport::drain(d);
+  CHECK(v.size() == 3 && v[1].src == 0x5002 && v[2].src == 0x5003);
+
+  // link down (BLE off): nothing is held
+  Rig off;
+  off.t.hold = false;
+  off.h.onMessage(1, 1, {'x'});
+  CHECK(off.h.queued() == 0);
+}
+
+void testFanOut() {
+  Rig r;
+  auto& a = r.t.add("a");
+  auto& b = r.t.add("b");
+  auto& c = r.t.add("c");
+  r.hello(a);
+  r.hello(b);
+  FakeTransport::drain(a);
+  FakeTransport::drain(b);
+  r.h.onPeerIdent(0x1234, "bob", true);
+  CHECK(FakeTransport::drain(a).size() == 1 && FakeTransport::drain(b).size() == 1 && c.out.empty());
+  CHECK(r.h.queued() == 0);   // someone was there: not held
+  b.conn.closing = true;
+  r.h.onPeerIdent(0x1234, "bob2", false);
+  CHECK(FakeTransport::drain(a).size() == 1 && b.out.empty());
+  CHECK(r.h.ready() == 1);
+}
+
+void testRequests() {
+  Rig r;
+  auto& c = r.t.add("a");
+  r.hello(c);
+  FakeTransport::drain(c);
+
+  ToRadio m;
+  m.reqId = 20;
+  m.kind = ToKind::SendText;
+  m.dest = 0x11111111;   // ourselves
+  m.text = {'x'};
+  r.req(c, m);
+  auto v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument && v[0].reqId == 20);
+
+  m.dest = 0x22222222;
+  m.text.assign(74, 'y');
+  r.req(c, m);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::TooLong);
+
+  m.text.assign(73, 'y');
+  m.clientMsgId = 4242;
+  r.req(c, m);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::SendQueued && v[0].msgId != 0 && v[0].clientMsgId == 4242 &&
+        v[0].dest == 0x22222222);
+  uint32_t mid = v.empty() ? 0 : v[0].msgId;
+  r.h.onDelivered(0x22222222, mid);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Delivered && v[0].clientMsgId == 4242 && v[0].msgId == mid);
+
+  m = {};
+  m.reqId = 21;
+  m.kind = ToKind::SetOwnPosition;
+  m.pos = posFromDegrees(44.5, -110.25);
+  r.req(c, m);
+  m = {};
+  m.reqId = 22;
+  m.kind = ToKind::GetPosition;
+  r.req(c, m);
+  v = FakeTransport::drain(c);
+  CHECK(r.ownPos.size() == 1 && r.ownPos[0].valid && r.ownPos[0].lat > 44.49 && r.ownPos[0].lat < 44.51);
+  CHECK(v.size() == 2 && v[0].kind == FromKind::Ok && v[0].reqId == 21 && v[1].kind == FromKind::Position &&
+        v[1].pos == posFromDegrees(44.5, -110.25));
+
+  m = {};
+  m.reqId = 23;
+  m.kind = ToKind::AddContact;
+  m.nodeId = 0x33333333;
+  m.ed25519Pub.assign(32, 1);
+  r.req(c, m);
+  m.ed25519Pub.clear();
+  m.x25519Pub.assign(32, 9);
+  m.reqId = 24;
+  r.req(c, m);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 2 && v[0].error == ErrorCode::KeyRejected && v[0].detail == "nope" && v[1].kind == FromKind::Ok &&
+        v[1].reqId == 24);
+
+  r.h.onMessage(1, 2, {'z'});   // live, so not held
+  m = {};
+  m.reqId = 25;
+  m.kind = ToKind::GetStatus;
+  r.req(c, m, 61000);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 2 && v[1].kind == FromKind::Status && v[1].status.clients == 1 && v[1].status.queued == 0 &&
+        v[1].status.uptimeS == 61);
+
+  m = {};
+  m.reqId = 26;
+  m.kind = ToKind::SosAck;
+  m.nodeId = 0x44444444;
+  r.req(c, m);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NotFound);
+
+  m = {};
+  m.reqId = 27;
+  m.kind = ToKind::SosStart;
+  m.text = {'h', 'e', 'l', 'p'};
+  r.req(c, m);
+  m.reqId = 28;
+  r.req(c, m);   // within a minute: rate limited
+  m = {};
+  m.reqId = 29;
+  m.kind = ToKind::SosStop;
+  r.req(c, m);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 3 && v[0].kind == FromKind::Ok && v[1].error == ErrorCode::RateLimited &&
+        v[2].kind == FromKind::Ok && !r.router.sosActive());
+}
+
+void testBadFrames() {
+  Rig r;
+  auto& c = r.t.add("a");
+  FrameReader in;
+  // bad length, then an undecodable body, then a good Hello: link stays up
+  const uint8_t badLen[] = {0x94, 0xC3, 0xFF, 0x00};
+  in.push(badLen, sizeof badLen);
+  Bytes junk;
+  const uint8_t pb[] = {0xFF, 0xFF, 0xFF};
+  frame(pb, sizeof pb, junk);
+  in.push(junk.data(), junk.size());
+  ToRadio h;
+  h.kind = ToKind::Hello;
+  h.protocolVersion = 1;
+  Bytes f;
+  frameTo(h, f);
+  in.push(f.data(), f.size());
+  r.h.receive(c.conn, in, 0);
+  auto v = FakeTransport::drain(c);
+  CHECK(v.size() >= 3);
+  CHECK(!v.empty() && v.front().error == ErrorCode::BadFrame);
+  CHECK(!v.empty() && v.back().kind == FromKind::NodeInfo && c.conn.hello);
+
+  // a frame with version 2 closes the link; what follows is not handled
+  auto& d = r.t.add("b");
+  FrameReader in2;
+  Bytes v2;
+  frame(pb, 1, v2, 2);
+  in2.push(v2.data(), v2.size());
+  in2.push(f.data(), f.size());
+  r.h.receive(d.conn, in2, 0);
+  v = FakeTransport::drain(d);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadVersion && d.conn.closing && !d.conn.hello);
+
+  // unknown request (a newer client)
+  ToRadio u;
+  u.reqId = 5;
+  Bytes uf;
+  frameTo(u, uf);
+  FrameReader in3;
+  in3.push(uf.data(), uf.size());
+  r.h.receive(c.conn, in3, 0);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::UnknownRequest && v[0].reqId == 5);
+}
+
+}  // namespace
+
+int main() {
+  testHelloGate();
+  testQueueAndReplay();
+  testQueueEviction();
+  testFanOut();
+  testRequests();
+  testBadFrames();
+  std::printf("client handler: %d passed, %d failed\n", g_pass, g_fail);
+  return g_fail ? 1 : 0;
+}

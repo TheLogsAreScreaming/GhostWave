@@ -1,4 +1,7 @@
+// ESP32 settings store (NVS). The nRF52 one is settings_nrf52.cpp.
 #include "settings.h"
+
+#if defined(ARDUINO_ARCH_ESP32)
 
 #include <Arduino.h>
 #include <Preferences.h>
@@ -133,6 +136,8 @@ bool saveFlags(const Settings& s) {
   return nvs.ok() && nvs->putBool("responder", s.responder) && nvs->putBool("reqenc", s.requireEnc);
 }
 
+bool saveBle(const Settings&) { return true; }   // no BLE link on the ESP32 builds yet
+
 bool savePeer(Settings& s, uint32_t id, const Key32& pub) {
   if (id == 0 || id == kBroadcast) return false;
   size_t i = 0;
@@ -150,3 +155,5 @@ bool savePeer(Settings& s, uint32_t id, const Key32& pub) {
 
 }  // namespace mcu
 }  // namespace gw
+
+#endif  // ARDUINO_ARCH_ESP32
