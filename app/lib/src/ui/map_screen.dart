@@ -1,0 +1,189 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart' as ll;
+
+import '../app/mesh_controller.dart';
+import '../link/geo.dart';
+import 'format.dart';
+import 'widgets.dart';
+
+/// Own position, contacts, nodes heard nearby and SOS alerts on an
+/// OpenStreetMap base map (online tiles; offline tiles are a follow-up).
+class MapScreen extends ConsumerStatefulWidget {
+  /// Creates the screen.
+  const MapScreen({super.key});
+
+  @override
+  ConsumerState<MapScreen> createState() => _MapScreenState();
+}
+
+enum _Kind { me, contact, nearby, sos }
+
+class _Pin {
+  const _Pin(this.kind, this.pos, this.title, this.detail);
+
+  final _Kind kind;
+  final LatLon pos;
+  final String title;
+  final String detail;
+}
+
+class _MapScreenState extends ConsumerState<MapScreen> {
+  final MapController _map = MapController();
+  bool _fitted = false;
+
+  List<_Pin> _pins(MeshState m) {
+    final pins = <_Pin>[];
+    if (m.ownPos case final p?) pins.add(_Pin(_Kind.me, p, 'My node', p.toString()));
+    final ids = <int>{};
+    for (final c in m.contacts.values) {
+      final p = c.pos ?? m.neighbors[c.nodeId]?.pos;
+      if (p == null) continue;
+      ids.add(c.nodeId);
+      final seen = c.lastSeen ?? m.neighbors[c.nodeId]?.lastSeen;
+      pins.add(_Pin(_Kind.contact, p, m.nameOf(c.nodeId), seen == null ? p.toString() : 'seen ${timeAgo(seen)}'));
+    }
+    for (final n in m.neighbors.values) {
+      if (n.pos == null || ids.contains(n.nodeId)) continue;
+      pins.add(_Pin(_Kind.nearby, n.pos!, m.nameOf(n.nodeId), 'heard ${timeAgo(n.lastSeen)}'));
+    }
+    for (final a in m.alerts) {
+      if (a.pos == null) continue;
+      pins.add(
+        _Pin(
+          _Kind.sos,
+          a.pos!,
+          'SOS ${m.nameOf(a.src)}',
+          [
+            if (a.text.isNotEmpty) a.text,
+            timeAgo(a.receivedAt),
+            if (a.accuracyM != null) '±${a.accuracyM} m',
+          ].join(' · '),
+        ),
+      );
+    }
+    return pins;
+  }
+
+  void _fit(List<_Pin> pins) {
+    if (pins.isEmpty) return;
+    final pts = [for (final p in pins) ll.LatLng(p.pos.lat, p.pos.lon)];
+    if (pts.length == 1) {
+      _map.move(pts.first, 14);
+    } else {
+      _map.fitCamera(CameraFit.coordinates(coordinates: pts, padding: const EdgeInsets.all(48), maxZoom: 15));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mesh = ref.watch(meshProvider);
+    final pins = _pins(mesh);
+    if (!_fitted && pins.isNotEmpty) {
+      _fitted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fit(pins);
+      });
+    }
+    final scheme = Theme.of(context).colorScheme;
+    Color colorOf(_Kind k) => switch (k) {
+      _Kind.me => Colors.blue.shade700,
+      _Kind.contact => Colors.green.shade700,
+      _Kind.nearby => Colors.blueGrey,
+      _Kind.sos => scheme.error,
+    };
+    IconData iconOf(_Kind k) => switch (k) {
+      _Kind.me => Icons.my_location,
+      _Kind.contact => Icons.person_pin_circle,
+      _Kind.nearby => Icons.cell_tower,
+      _Kind.sos => Icons.sos,
+    };
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Map'),
+        actions: [
+          IconButton(tooltip: 'Show all', onPressed: () => _fit(pins), icon: const Icon(Icons.fit_screen)),
+          const LinkChip(),
+        ],
+      ),
+      body: Stack(
+        children: [
+          FlutterMap(
+            mapController: _map,
+            options: const MapOptions(initialCenter: ll.LatLng(46.87, -113.99), initialZoom: 11),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'org.ghostwave.ghostwave_app',
+                maxZoom: 19,
+              ),
+              MarkerLayer(
+                markers: [
+                  for (final p in pins)
+                    Marker(
+                      point: ll.LatLng(p.pos.lat, p.pos.lon),
+                      width: 44,
+                      height: 44,
+                      child: GestureDetector(
+                        onTap: () => showSnack(context, '${p.title}: ${p.detail}'),
+                        child: Icon(iconOf(p.kind), color: colorOf(p.kind), size: p.kind == _Kind.sos ? 44 : 36),
+                      ),
+                    ),
+                ],
+              ),
+              const RichAttributionWidget(
+                alignment: AttributionAlignment.bottomLeft,
+                attributions: [TextSourceAttribution('OpenStreetMap contributors')],
+              ),
+            ],
+          ),
+          if (pins.isEmpty)
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 12,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    'No positions yet. Your node\'s fix and its neighbors\' beacons appear here.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ),
+            ),
+          Positioned(
+            right: 12,
+            bottom: 12,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final k in _Kind.values)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(iconOf(k), color: colorOf(k), size: 16),
+                          const SizedBox(width: 4),
+                          Text(switch (k) {
+                            _Kind.me => 'My node',
+                            _Kind.contact => 'Contact',
+                            _Kind.nearby => 'Nearby',
+                            _Kind.sos => 'SOS',
+                          }, style: Theme.of(context).textTheme.labelSmall),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

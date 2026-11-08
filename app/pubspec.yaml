@@ -40,6 +40,9 @@ dependencies:
   path_provider: ^2.1.6
   fixnum: ^1.1.1
   qr_flutter: ^4.1.0
+  mobile_scanner: ^7.5.0
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
 
 dev_dependencies:
   flutter_test:
