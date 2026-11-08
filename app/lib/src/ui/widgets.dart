@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app/providers.dart';
 import '../link/node_link.dart';
 import 'connect_screen.dart';
+import 'theme.dart';
 
 /// App-bar chip showing the link state; tap opens the Connect screen.
 class LinkChip extends ConsumerWidget {
@@ -23,7 +24,7 @@ class LinkChip extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ActionChip(
-        avatar: Icon(icon, size: 18, color: state is LinkUp ? Colors.green.shade600 : null),
+        avatar: Icon(icon, size: 18, color: state is LinkUp ? GwColors.success : null),
         label: Text(label),
         onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ConnectScreen())),
       ),

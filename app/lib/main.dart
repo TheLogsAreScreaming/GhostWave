@@ -8,6 +8,7 @@ import 'src/app/providers.dart';
 import 'src/data/mesh_store.dart';
 import 'src/ui/connect_screen.dart';
 import 'src/ui/home_shell.dart';
+import 'src/ui/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,16 +62,11 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
     return MaterialApp(
       title: 'GhostWave',
       debugShowCheckedModeBanner: false,
-      theme: _theme(Brightness.light),
-      darkTheme: _theme(Brightness.dark),
+      theme: buildGhostWaveTheme(),
+      themeMode: ThemeMode.dark,
       home: hasAddress ? const HomeShell() : const _FirstRun(),
     );
   }
-
-  static ThemeData _theme(Brightness b) => ThemeData(
-    colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E6B5E), brightness: b),
-    useMaterial3: true,
-  );
 }
 
 /// First launch: no node yet, so start on Connect.

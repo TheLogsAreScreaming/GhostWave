@@ -7,6 +7,7 @@ import '../app/mesh_controller.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'widgets.dart';
+import 'theme.dart';
 
 /// Add a contact by scanning its QR code, or by pasting the card text.
 class AddContactScreen extends ConsumerStatefulWidget {
@@ -43,10 +44,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
           children: [
             Text('Node ${nodeIdHex(card.nodeId)}'),
             const SizedBox(height: 4),
-            Text(
-              'Key ${hexEncode(card.ed25519Pub).substring(0, 16)}…',
-              style: const TextStyle(fontFamily: 'monospace'),
-            ),
+            Text('Key ${hexEncode(card.ed25519Pub).substring(0, 16)}…', style: GwText.mono),
             const SizedBox(height: 12),
             TextField(
               controller: nameCtl,

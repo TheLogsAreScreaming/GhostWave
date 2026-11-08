@@ -7,6 +7,7 @@ import '../app/mesh_controller.dart';
 import '../link/geo.dart';
 import 'format.dart';
 import 'widgets.dart';
+import 'theme.dart';
 
 /// Own position, contacts, nodes heard nearby and SOS alerts on an
 /// OpenStreetMap base map (online tiles; offline tiles are a follow-up).
@@ -86,12 +87,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         if (mounted) _fit(pins);
       });
     }
-    final scheme = Theme.of(context).colorScheme;
     Color colorOf(_Kind k) => switch (k) {
-      _Kind.me => Colors.blue.shade700,
-      _Kind.contact => Colors.green.shade700,
-      _Kind.nearby => Colors.blueGrey,
-      _Kind.sos => scheme.error,
+      _Kind.me => GwColors.mapMe,
+      _Kind.contact => GwColors.mapContact,
+      _Kind.nearby => GwColors.mapNearby,
+      _Kind.sos => GwColors.alert,
     };
     IconData iconOf(_Kind k) => switch (k) {
       _Kind.me => Icons.my_location,

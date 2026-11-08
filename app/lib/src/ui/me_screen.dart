@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../app/providers.dart';
 import '../link/contact_card.dart';
 import 'widgets.dart';
+import 'theme.dart';
 
 /// The connected node's identity and its contact-card QR code.
 class MeScreen extends ConsumerWidget {
@@ -96,6 +97,6 @@ class _Field extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
     contentPadding: EdgeInsets.zero,
     title: Text(label, style: Theme.of(context).textTheme.labelMedium),
-    subtitle: SelectableText(value.isEmpty ? '—' : value, style: const TextStyle(fontFamily: 'monospace')),
+    subtitle: SelectableText(value.isEmpty ? '—' : value, style: GwText.mono),
   );
 }
