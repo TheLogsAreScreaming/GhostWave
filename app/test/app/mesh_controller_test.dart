@@ -212,6 +212,10 @@ void main() {
     c = await makeContainer(dir);
     addTearDown(c.dispose);
     c.read(nodeLinkProvider).connect(answeringNode());
+    // loading is real file I/O, which a fixed wait can lose to on a busy machine
+    for (var i = 0; i < 200 && c.read(meshProvider).nodeId == null; i++) {
+      await settle();
+    }
     await settle();
     expect(c.read(meshProvider).messages[bob]!.single.text, 'saved');
   });

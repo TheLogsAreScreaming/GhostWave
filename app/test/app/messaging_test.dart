@@ -288,7 +288,7 @@ void main() {
       );
       await settle();
       ctl().flush();
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await c.read(meshStoreProvider)!.idle;
       final saved = await MeshStore(dir, testHistoryKeys).load(n.node.nodeId);
       expect(saved.channels.keys, ['crew']);
       expect(saved.channelMessages['crew']!.single.text, 'ok');
