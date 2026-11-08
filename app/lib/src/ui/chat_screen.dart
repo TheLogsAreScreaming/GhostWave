@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,8 +7,11 @@ import '../app/mesh_controller.dart';
 import '../app/providers.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
+import '../link/session.dart';
 import 'format.dart';
+import 'message_bubble.dart';
 import 'theme.dart';
+import 'widgets.dart';
 
 /// Default DM limit if the node has not said (`NodeInfo.max_text_bytes`).
 const int kDefaultMaxTextBytes = 73;
@@ -67,6 +72,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final over = bytes > max;
     final scheme = Theme.of(context).colorScheme;
 
+    final ctl = ref.read(meshProvider.notifier);
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -76,24 +82,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Text(
               [
                 nodeIdHex(widget.peer),
+                if (contact != null && !contact.verified) 'unverified',
                 if (contact?.lastSeen != null) 'seen ${timeAgo(contact!.lastSeen!)}',
               ].join(' · '),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (c) async {
+              if (c != 'delete') return;
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (dialog) => AlertDialog(
+                  title: const Text('Delete conversation?'),
+                  content: const Text('Deletes these messages on this phone. The contact stays.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+                    FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Delete')),
+                  ],
+                ),
+              );
+              if (ok == true) ctl.deleteThread(widget.peer);
+            },
+            itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete conversation'))],
+          ),
+        ],
       ),
       body: Column(
         children: [
-          if (contact?.keyChanged ?? false)
-            MaterialBanner(
-              backgroundColor: scheme.errorContainer,
-              content: const Text(
-                'This node announced a different key. Your node kept the old one. '
-                'If you expect a new key, scan their QR code again.',
-              ),
-              actions: const [SizedBox.shrink()],
-            ),
+          if (contact?.keyChanged ?? false) _KeyChangeBanner(contact: contact!),
           if (!online)
             Container(
               width: double.infinity,
@@ -108,7 +127,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     reverse: true,
                     padding: const EdgeInsets.all(12),
                     itemCount: msgs.length,
-                    itemBuilder: (context, i) => _Bubble(msgs[msgs.length - 1 - i]),
+                    itemBuilder: (context, i) {
+                      final m = msgs[msgs.length - 1 - i];
+                      return MessageBubble(
+                        outgoing: m.outgoing,
+                        text: m.text,
+                        at: m.at,
+                        state: m.state,
+                        replayed: m.replayed,
+                        error: m.error,
+                        onRetry: m.outgoing && m.state == MsgState.failed ? () => unawaited(ctl.retry(m)) : null,
+                        onDelete: () => ctl.deleteMessage(m),
+                      );
+                    },
                   ),
           ),
           SafeArea(
@@ -153,66 +184,73 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
-class _Bubble extends ConsumerWidget {
-  const _Bubble(this.m);
+/// The KeyChange warning: a signed IDENT for this node ID carried a different
+/// key. The node keeps the old key; the contact is unverified until the user
+/// decides.
+class _KeyChangeBanner extends ConsumerWidget {
+  const _KeyChangeBanner({required this.contact});
 
-  final ChatMessage m;
+  final Contact contact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    final (IconData icon, String label) = switch (m.state) {
-      MsgState.pending => (Icons.schedule, 'queued'),
-      MsgState.sent => (Icons.done, 'sent'),
-      MsgState.delivered => (Icons.done_all, 'delivered'),
-      MsgState.failed => (Icons.error_outline, 'failed'),
-    };
-    final meta = Theme.of(context).textTheme.labelSmall;
-    return Align(
-      alignment: m.outgoing ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onTap: m.state == MsgState.failed ? () => ref.read(meshProvider.notifier).retry(m) : null,
-        child: Container(
-          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
-          margin: const EdgeInsets.symmetric(vertical: 3),
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-          decoration: BoxDecoration(
-            color: m.outgoing ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
+    final ctl = ref.read(meshProvider.notifier);
+    final pending = contact.pendingKeyHex;
+    return Container(
+      width: double.infinity,
+      color: GwColors.alertContainer,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Align(alignment: Alignment.centerLeft, child: Text(m.text)),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (m.replayed) Text('held · ', style: meta),
-                  Text(clockTime(m.at), style: meta),
-                  if (m.outgoing) ...[
-                    const SizedBox(width: 6),
-                    Icon(
-                      icon,
-                      size: 14,
-                      color: m.state == MsgState.failed
-                          ? scheme.error
-                          : m.state == MsgState.delivered
-                          ? GwColors.success
-                          : null,
-                      semanticLabel: label,
-                    ),
-                    const SizedBox(width: 2),
-                    Text(label, style: meta),
-                  ],
-                ],
+              const Icon(Icons.gpp_maybe, color: GwColors.onAlertContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Key changed: this contact is unverified',
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(color: GwColors.onAlertContainer, fontWeight: FontWeight.w700),
+                ),
               ),
-              if (m.state == MsgState.failed)
-                Text('${m.error ?? 'Failed'} · tap to retry', style: meta?.copyWith(color: scheme.error)),
             ],
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            'Someone announced a different key for ${nodeIdHex(contact.nodeId)}. An honest node cannot do this '
+            '(its ID is a hash of its key), so it may be an impersonation attempt. Your node still uses the '
+            'old key. Accept the new key only if you checked it with the person, ideally by scanning their QR code.',
+            style: const TextStyle(color: GwColors.onAlertContainer),
+          ),
+          if (pending != null) ...[
+            const SizedBox(height: 6),
+            Text('New key ${pending.substring(0, 16)}…', style: GwText.mono.copyWith(color: GwColors.onAlertContainer)),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => ctl.rejectKeyChange(contact.nodeId),
+                child: const Text('Keep old key', style: TextStyle(color: GwColors.onAlertContainer)),
+              ),
+              if (pending != null)
+                TextButton(
+                  onPressed: () async {
+                    try {
+                      await ctl.acceptKeyChange(contact.nodeId);
+                      if (context.mounted) showSnack(context, 'New key accepted');
+                    } on NodeError catch (e) {
+                      if (context.mounted) showSnack(context, e.message);
+                    } on Object catch (e) {
+                      if (context.mounted) showSnack(context, '$e');
+                    }
+                  },
+                  child: const Text('Accept new key', style: TextStyle(color: GwColors.onAlertContainer)),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

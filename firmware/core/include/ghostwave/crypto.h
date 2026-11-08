@@ -35,6 +35,11 @@ uint32_t nodeIdOf(const uint8_t edPub[kKeySize]);
 // False for IDs a key may not own: 0, broadcast, or short ID 0 (= anycast).
 bool nodeIdUsable(uint32_t id);
 
+// Group channel ID (DESIGN §9.3): the first 4 bytes of
+// SHA-512("ghostwave-chan-v1" || key), little-endian, never 0. Lets the host
+// tell channels apart without handling keys; it never goes on the air.
+uint32_t groupChannelId(const uint8_t key[kKeySize]);
+
 // IDENT body (DESIGN §4.5): pub (32) || Ed25519 signature (64) || name (0..9).
 // The signature covers "ghostwave-ident-v1" || pub || name. False if the name
 // is too long.

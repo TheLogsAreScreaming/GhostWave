@@ -189,6 +189,11 @@ class SerialApp : public gw::AppPort {
     Serial.printf("WARNING: %08x (\"%s\") sent a different signed key; keeping the old one\n", id, name.c_str());
     GW_LINK(onKeyChange(id, edPub, name));
   }
+  void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& p) override {
+    Serial.printf("CHAN %08x from %08x id %08x: %.*s\n", chanId, src, msgId, static_cast<int>(p.size()),
+                  reinterpret_cast<const char*>(p.data()));
+    GW_LINK(onChannelMessage(chanId, src, msgId, p));
+  }
 };
 
 gw::mcu::Settings g_set;
@@ -210,6 +215,9 @@ std::string g_cmdLine, g_gpsLine;
 gw::mcu::BleLink g_ble;
 std::unique_ptr<gw::client::Handler> g_handler;
 std::map<uint32_t, std::array<uint8_t, 32>> g_edKeys;   // Ed25519 keys the app pinned (RAM only)
+// Group channels joined from the app (protocol 1.1). RAM only for now: they
+// are gone after a reboot, and the app joins them again.
+std::unique_ptr<gw::ChannelBook> g_channels;
 uint64_t g_bootMs = 0;
 #endif
 
@@ -526,6 +534,9 @@ void startBle() {
     g_router->setPosition(g_pos, nowMs());
   };
   hooks.edKeys = &g_edKeys;
+  g_channels.reset(new gw::ChannelBook(*g_router));
+  hooks.channels = g_channels.get();
+  // no setName hook: this X25519 identity sends no IDENT, so it has no name to change (NO_IDENTITY)
   // 32 held events, not ghostwaved's 64: each can hold a 128-byte text in RAM.
   g_handler.reset(new gw::client::Handler(*g_router, self, g_pos, hooks, g_bootMs, g_ble, 32));
   g_ble.attach(g_handler.get());

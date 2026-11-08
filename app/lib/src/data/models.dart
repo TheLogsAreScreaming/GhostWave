@@ -112,6 +112,7 @@ class Contact {
     this.lastSeen,
     this.pos,
     this.keyChanged = false,
+    this.pendingKeyHex,
   });
 
   /// From [toJson].
@@ -123,6 +124,7 @@ class Contact {
     lastSeen: j['seen'] == null ? null : DateTime.fromMillisecondsSinceEpoch(j['seen']! as int),
     pos: j['pos'] == null ? null : LatLon.fromJson((j['pos']! as Map<Object?, Object?>).cast<String, Object?>()),
     keyChanged: (j['keyChanged'] as bool?) ?? false,
+    pendingKeyHex: j['pendingKey'] as String?,
   );
 
   /// Node ID.
@@ -144,7 +146,15 @@ class Contact {
   final LatLon? pos;
 
   /// A signed IDENT carried a different key (the node kept the old one).
+  /// The contact counts as unverified until the user accepts or rejects it.
   final bool keyChanged;
+
+  /// The new Ed25519 key from that IDENT (hex), offered for acceptance.
+  final String? pendingKeyHex;
+
+  /// Whether the key has been checked: pinned from a card, and no key change
+  /// is waiting for a decision.
+  bool get verified => pinned && !keyChanged;
 
   /// A copy with some fields changed.
   Contact copyWith({
@@ -154,6 +164,8 @@ class Contact {
     DateTime? lastSeen,
     LatLon? pos,
     bool? keyChanged,
+    String? pendingKeyHex,
+    bool clearPendingKey = false,
   }) => Contact(
     nodeId: nodeId,
     name: name ?? this.name,
@@ -162,6 +174,7 @@ class Contact {
     lastSeen: lastSeen ?? this.lastSeen,
     pos: pos ?? this.pos,
     keyChanged: keyChanged ?? this.keyChanged,
+    pendingKeyHex: clearPendingKey ? null : (pendingKeyHex ?? this.pendingKeyHex),
   );
 
   /// JSON form.
@@ -173,6 +186,116 @@ class Contact {
     if (lastSeen != null) 'seen': lastSeen!.millisecondsSinceEpoch,
     if (pos != null) 'pos': pos!.toJson(),
     if (keyChanged) 'keyChanged': true,
+    if (pendingKeyHex != null) 'pendingKey': pendingKeyHex,
+  };
+}
+
+/// A group channel joined on the node (protocol 1.1).
+class GroupChannel {
+  /// Creates an entry.
+  const GroupChannel({required this.name, required this.pskHex});
+
+  /// From [toJson].
+  factory GroupChannel.fromJson(Map<String, Object?> j) =>
+      GroupChannel(name: j['name']! as String, pskHex: j['psk']! as String);
+
+  /// Channel name.
+  final String name;
+
+  /// Pre-shared key, hex (for the share QR code).
+  final String pskHex;
+
+  /// JSON form.
+  Map<String, Object?> toJson() => {'name': name, 'psk': pskHex};
+}
+
+/// One group channel message, either way. Channels have no delivery receipt,
+/// so outgoing messages end at [MsgState.sent].
+class ChannelMessage {
+  /// Creates a message.
+  const ChannelMessage({
+    required this.channel,
+    required this.outgoing,
+    required this.text,
+    required this.at,
+    this.src = 0,
+    this.state = MsgState.delivered,
+    this.clientMsgId = 0,
+    this.msgId = 0,
+    this.error,
+    this.replayed = false,
+  });
+
+  /// From [toJson].
+  factory ChannelMessage.fromJson(Map<String, Object?> j) => ChannelMessage(
+    channel: j['ch']! as String,
+    outgoing: j['out']! as bool,
+    text: j['text']! as String,
+    at: DateTime.fromMillisecondsSinceEpoch(j['at']! as int),
+    src: (j['src'] as int?) ?? 0,
+    state: MsgState.values.byName(j['state']! as String),
+    clientMsgId: (j['cmid'] as int?) ?? 0,
+    msgId: (j['mid'] as int?) ?? 0,
+    error: j['err'] as String?,
+    replayed: (j['replayed'] as bool?) ?? false,
+  );
+
+  /// Channel name.
+  final String channel;
+
+  /// Sent by us.
+  final bool outgoing;
+
+  /// The text.
+  final String text;
+
+  /// When it was written (outgoing) or received (incoming).
+  final DateTime at;
+
+  /// Sender (incoming).
+  final int src;
+
+  /// pending / sent / failed (outgoing); delivered for incoming.
+  final MsgState state;
+
+  /// App-chosen ID (outgoing).
+  final int clientMsgId;
+
+  /// Mesh message ID.
+  final int msgId;
+
+  /// Why it failed.
+  final String? error;
+
+  /// Held by the node while no app was connected.
+  final bool replayed;
+
+  /// A copy with some fields changed.
+  ChannelMessage copyWith({MsgState? state, int? msgId, String? error, bool clearError = false}) => ChannelMessage(
+    channel: channel,
+    outgoing: outgoing,
+    text: text,
+    at: at,
+    src: src,
+    state: state ?? this.state,
+    clientMsgId: clientMsgId,
+    msgId: msgId ?? this.msgId,
+    error: clearError ? null : (error ?? this.error),
+    replayed: replayed,
+  );
+
+  /// JSON form.
+  Map<String, Object?> toJson() => {
+    'ch': channel,
+    'out': outgoing,
+    'text': text,
+    'at': at.millisecondsSinceEpoch,
+    if (src != 0) 'src': src,
+    'state': state.name,
+    if (clientMsgId != 0) 'cmid': clientMsgId,
+    if (msgId != 0) 'mid': msgId,
+    if (error != null) 'err': error,
+    if (replayed) 'replayed': true,
   };
 }
 

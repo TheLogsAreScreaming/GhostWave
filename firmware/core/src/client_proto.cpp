@@ -258,6 +258,18 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
       break;
     case ToKind::SosAck: s.fx32(1, m.nodeId); break;
     case ToKind::SetOwnPosition: s.pos(1, m.pos); break;
+    case ToKind::SendChannelText:
+      s.str(1, m.channel);
+      s.bytes(2, m.text);
+      s.u32(3, m.clientMsgId);
+      break;
+    case ToKind::AddChannel:
+      s.str(1, m.channel);
+      s.bytes(2, m.psk);
+      break;
+    case ToKind::RemoveChannel: s.str(1, m.channel); break;
+    case ToKind::SetName: s.str(1, m.name); break;
+    case ToKind::ListChannels:
     case ToKind::ListContacts:
     case ToKind::SosStop:
     case ToKind::GetStatus:
@@ -272,7 +284,7 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
   m = ToRadio{};
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
-    if (f < 10 || f > 20) return 0;
+    if (f < 10 || f > 25) return 0;
     if (v.wt != kLen) return -1;
     ToKind k = static_cast<ToKind>(f);
     m.kind = k;
@@ -308,6 +320,21 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
         case ToKind::SetOwnPosition:
           if (g == 1) return ok(parsePos(x, m.pos));
           return 0;
+        case ToKind::SendChannelText:
+          if (g == 1) return ok(x.str(m.channel));
+          if (g == 2) return ok(x.bytes(m.text));
+          if (g == 3) return ok(x.u32(m.clientMsgId));
+          return 0;
+        case ToKind::AddChannel:
+          if (g == 1) return ok(x.str(m.channel));
+          if (g == 2) return ok(x.bytes(m.psk));
+          return 0;
+        case ToKind::RemoveChannel:
+          if (g == 1) return ok(x.str(m.channel));
+          return 0;
+        case ToKind::SetName:
+          if (g == 1) return ok(x.str(m.name));
+          return 0;
         default: return 0;
       }
     }));
@@ -334,6 +361,8 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.boolean(6, m.legacy);
       s.str(7, m.firmware);
       s.u32(8, m.maxTextBytes);
+      s.u32(9, m.protocolMinor);
+      s.u32(10, m.maxChannelTextBytes);
       break;
     case FromKind::Text:
       s.fx32(1, m.src);
@@ -407,6 +436,18 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.bytes(2, m.ed25519Pub);
       s.str(3, m.name);
       break;
+    case FromKind::ChannelMessage:
+      s.str(1, m.channel);
+      s.fx32(2, m.src);
+      s.fx32(3, m.msgId);
+      s.bytes(4, m.text);
+      s.pos(5, m.pos);
+      break;
+    case FromKind::Channel:
+      s.str(1, m.channel);
+      s.bytes(2, m.psk);
+      break;
+    case FromKind::ChannelsEnd: s.u32(1, m.count); break;
     default: return false;
   }
   w.msg(static_cast<uint32_t>(m.kind), sub);
@@ -418,7 +459,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
     if (f == 2) return ok(v.boolean(m.replayed));
-    if (f < 10 || f > 24) return 0;
+    if (f < 10 || f > 27) return 0;
     if (v.wt != kLen) return -1;
     FromKind k = static_cast<FromKind>(f);
     m.kind = k;
@@ -435,6 +476,8 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 6: return ok(x.boolean(m.legacy));
             case 7: return ok(x.str(m.firmware));
             case 8: return ok(x.u32(m.maxTextBytes));
+            case 9: return ok(x.u32(m.protocolMinor));
+            case 10: return ok(x.u32(m.maxChannelTextBytes));
           }
           return 0;
         case FromKind::Text:
@@ -524,6 +567,22 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
           if (g == 1) return ok(x.fx32(m.nodeId));
           if (g == 2) return ok(x.bytes(m.ed25519Pub));
           if (g == 3) return ok(x.str(m.name));
+          return 0;
+        case FromKind::ChannelMessage:
+          switch (g) {
+            case 1: return ok(x.str(m.channel));
+            case 2: return ok(x.fx32(m.src));
+            case 3: return ok(x.fx32(m.msgId));
+            case 4: return ok(x.bytes(m.text));
+            case 5: return ok(parsePos(x, m.pos));
+          }
+          return 0;
+        case FromKind::Channel:
+          if (g == 1) return ok(x.str(m.channel));
+          if (g == 2) return ok(x.bytes(m.psk));
+          return 0;
+        case FromKind::ChannelsEnd:
+          if (g == 1) return ok(x.u32(m.count));
           return 0;
         default: return 0;
       }

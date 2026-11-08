@@ -53,6 +53,14 @@ void main() {
       expect(back.delivered.clientMsgId, 42);
     });
 
+    test('ToRadio{req_id 3, SendChannelText{"ops", "hi", 7}} (protocol 1.1)', () {
+      final m = pb.ToRadio(
+        reqId: 3,
+        sendChannelText: pb.SendChannelText(channel: 'ops', text: 'hi'.codeUnits, clientMsgId: 7),
+      );
+      expect(encodeFrame(m.writeToBuffer()), hex('94c3110001 0803 aa010b 0a036f7073 12026869 1807'));
+    });
+
     test('negative coordinates are zigzag varints (sint32)', () {
       final m = pb.FromRadio(position: pb.OwnPosition(pos: pb.Position(latE7: -1, lonE7: 1)));
       expect(m.writeToBuffer(), hex('8a01 06 0a04 0801 1002'));

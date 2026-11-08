@@ -1,14 +1,17 @@
 // Host tests for the transport-independent client-link handler
 // (firmware/core/src/client_handler.cpp), which ghostwaved's TCP link and the
 // MCU firmware's BLE link share: Hello gating, replies, the offline event
-// queue and its replay on Hello, bad frames, multi-connection fan-out.
+// queue and its replay on Hello, bad frames, multi-connection fan-out, and the
+// protocol 1.1 requests (group channels, SetName).
 #include <cstdio>
 #include <cstring>
 #include <deque>
 #include <string>
 #include <vector>
 
+#include "ghostwave/channel_book.h"
 #include "ghostwave/client_handler.h"
+#include "ghostwave/crypto.h"
 #include "ghostwave/client_proto.h"
 #include "ghostwave/router.h"
 
@@ -403,6 +406,123 @@ void testBadFrames() {
 
 }  // namespace
 
+// Protocol 1.1 on the shared handler: what TCP (ghostwaved) and BLE (MCU)
+// clients both get. A node without a ChannelBook / setName hook says so.
+void testProtocol11() {
+  std::printf("client handler: protocol 1.1 (channels, SetName)\n");
+  NullRadio radio;
+  NullApp app;
+  gw::Config cfg = Rig::mkCfg();
+  gw::Router router(cfg, radio, app);
+  gw::Position pos;
+  FakeTransport t;
+  gw::ChannelBook book(router);   // RAM only, as on the MCU
+  std::string renamed;
+  Handler::Hooks hooks;
+  hooks.channels = &book;
+  hooks.setName = [&](const std::string& n, std::string& err) -> ErrorCode {
+    if (n.size() > 9) {
+      err = "too long";
+      return ErrorCode::BadArgument;
+    }
+    renamed = n;
+    return ErrorCode::None;
+  };
+  Handler h(router, Rig::ident(), pos, hooks, 0, t);
+  auto& c = t.add("ble");
+  auto send = [&](const ToRadio& m) {
+    Bytes f;
+    frameTo(m, f);
+    FrameReader in;
+    in.push(f.data(), f.size());
+    h.receive(c.conn, in, 1000);
+    return FakeTransport::drain(c);
+  };
+  ToRadio m;
+  m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
+  auto v = send(m);
+  CHECK(v.size() == 1 && v[0].protocolMinor == 1 && v[0].maxChannelTextBytes == 86);
+
+  Bytes psk(32);
+  for (int i = 0; i < 32; ++i) psk[i] = static_cast<uint8_t>(i * 3 + 1);
+  m = {}, m.reqId = 2, m.kind = ToKind::AddChannel, m.channel = "crew", m.psk = psk;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 2);
+  CHECK(router.hasGroupChannel(gw::groupChannelId(psk.data())));
+  v = send(m);   // again, same key
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Ok);
+  m.psk[0] ^= 1;   // same name, other key
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument);
+  m = {}, m.reqId = 3, m.kind = ToKind::AddChannel, m.channel = "short", m.psk = Bytes(31, 1);
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument);
+  for (int i = 0; i < 7; ++i) {
+    m = {}, m.kind = ToKind::AddChannel, m.channel = "c" + std::to_string(i), m.psk = Bytes(32, static_cast<uint8_t>(50 + i));
+    v = send(m);
+    CHECK(v.size() == 1 && v[0].kind == FromKind::Ok);
+  }
+  m = {}, m.reqId = 4, m.kind = ToKind::AddChannel, m.channel = "ninth", m.psk = Bytes(32, 99);
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::ChannelLimit);
+
+  m = {}, m.reqId = 5, m.kind = ToKind::ListChannels;
+  v = send(m);
+  CHECK(v.size() == 9 && v.back().kind == FromKind::ChannelsEnd && v.back().count == 8 && v.back().reqId == 5);
+  CHECK(v[0].kind == FromKind::Channel && v[0].channel == "crew" && v[0].psk == psk);
+
+  m = {}, m.reqId = 6, m.kind = ToKind::SendChannelText, m.channel = "crew", m.text = {'h', 'i'}, m.clientMsgId = 77;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::SendQueued && v[0].dest == gw::kBroadcast && v[0].clientMsgId == 77 &&
+        v[0].msgId != 0);
+  m.text = Bytes(87, 'x');
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::TooLong);
+  m.channel = "nope", m.text = {'h'};
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NotFound);
+
+  // a channel message from the router reaches the app under the channel's name
+  h.onChannelMessage(gw::groupChannelId(psk.data()), 0x22222222, 0x1234, {'y', 'o'});
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::ChannelMessage && v[0].channel == "crew" && v[0].src == 0x22222222 &&
+        v[0].msgId == 0x1234 && v[0].text == Bytes({'y', 'o'}));
+  h.onChannelMessage(0xDEADBEEF, 1, 1, {'x'});   // not a channel we know: dropped
+  CHECK(FakeTransport::drain(c).empty());
+
+  m = {}, m.reqId = 7, m.kind = ToKind::RemoveChannel, m.channel = "crew";
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && !router.hasGroupChannel(gw::groupChannelId(psk.data())));
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NotFound);
+
+  m = {}, m.reqId = 8, m.kind = ToKind::SetName, m.name = "toolongname";
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument && renamed.empty());
+  m.name = "Ridge1";
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && renamed == "Ridge1");
+  m = {}, m.reqId = 9, m.kind = ToKind::Hello, m.protocolVersion = 1;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].name == "Ridge1");   // the next NodeInfo has it
+
+  // a node without channels or renaming (no hooks): says so, NodeInfo shows no channel limit
+  Rig plain;
+  auto& pc = plain.t.add("tcp");
+  plain.hello(pc);
+  v = FakeTransport::drain(pc);
+  CHECK(v.size() == 1 && v[0].protocolMinor == 1 && v[0].maxChannelTextBytes == 0);
+  ToRadio q;
+  q.reqId = 10, q.kind = ToKind::ListChannels;
+  plain.req(pc, q);
+  v = FakeTransport::drain(pc);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::UnknownRequest);
+  q.kind = ToKind::SetName, q.name = "x";
+  plain.req(pc, q);
+  v = FakeTransport::drain(pc);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NoIdentity);
+}
+
 int main() {
   testHelloGate();
   testQueueAndReplay();
@@ -410,6 +530,7 @@ int main() {
   testFanOut();
   testRequests();
   testBadFrames();
+  testProtocol11();
   std::printf("client handler: %d passed, %d failed\n", g_pass, g_fail);
   return g_fail ? 1 : 0;
 }

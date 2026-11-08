@@ -5,6 +5,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -33,6 +34,9 @@ class MeshState {
     this.ownSos = const OwnSos(),
     this.ownPos,
     this.unread = const {},
+    this.channels = const {},
+    this.channelMessages = const {},
+    this.channelUnread = const {},
   });
 
   /// The node this history belongs to (null before the first connect).
@@ -59,6 +63,18 @@ class MeshState {
   /// Unread incoming DMs by peer.
   final Map<int, int> unread;
 
+  /// Group channels joined on the node, by name.
+  final Map<String, GroupChannel> channels;
+
+  /// Channel messages by channel, oldest first.
+  final Map<String, List<ChannelMessage>> channelMessages;
+
+  /// Unread channel messages by channel.
+  final Map<String, int> channelUnread;
+
+  /// All unread DMs and channel messages.
+  int get totalUnread => unread.values.fold(0, (a, b) => a + b) + channelUnread.values.fold(0, (a, b) => a + b);
+
   /// Alerts that still want the banner.
   List<SosAlertEntry> get activeAlerts => [
     for (final a in alerts)
@@ -82,6 +98,9 @@ class MeshState {
     LatLon? ownPos,
     bool clearOwnPos = false,
     Map<int, int>? unread,
+    Map<String, GroupChannel>? channels,
+    Map<String, List<ChannelMessage>>? channelMessages,
+    Map<String, int>? channelUnread,
   }) => MeshState(
     nodeId: nodeId ?? this.nodeId,
     contacts: contacts ?? this.contacts,
@@ -91,6 +110,9 @@ class MeshState {
     ownSos: ownSos ?? this.ownSos,
     ownPos: clearOwnPos ? null : (ownPos ?? this.ownPos),
     unread: unread ?? this.unread,
+    channels: channels ?? this.channels,
+    channelMessages: channelMessages ?? this.channelMessages,
+    channelUnread: channelUnread ?? this.channelUnread,
   );
 }
 
@@ -148,6 +170,8 @@ class MeshController extends Notifier<MeshState> {
         messages: saved.messages,
         alerts: saved.alerts,
         ownSos: saved.ownSos,
+        channels: saved.channels,
+        channelMessages: saved.channelMessages,
       );
     }
     await _sync(s.session);
@@ -159,6 +183,8 @@ class MeshController extends Notifier<MeshState> {
     _syncing = true;
     try {
       await refreshContacts();
+      if (!ref.mounted) return;
+      await refreshChannels();
       if (!ref.mounted) return;
       try {
         final r = await session.request(pb.ToRadio(getPosition: pb.GetPosition()));
@@ -236,6 +262,8 @@ class MeshController extends Notifier<MeshState> {
         _onPeerIdent(e.peerIdent);
       case pb.FromRadio_Event.keyChange:
         _onKeyChange(e.keyChange);
+      case pb.FromRadio_Event.channelMessage:
+        _onChannelMessage(e.channelMessage, replayed: e.replayed);
       case pb.FromRadio_Event.position:
         state = e.position.hasPos()
             ? state.copyWith(ownPos: LatLon.fromProto(e.position.pos))
@@ -380,8 +408,51 @@ class MeshController extends Notifier<MeshState> {
 
   void _onKeyChange(pb.KeyChange k) {
     final old = state.contacts[k.nodeId] ?? Contact(nodeId: k.nodeId, name: decodeLenient(k.name));
-    state = state.copyWith(contacts: {...state.contacts, k.nodeId: old.copyWith(keyChanged: true)});
+    state = state.copyWith(
+      contacts: {
+        ...state.contacts,
+        k.nodeId: old.copyWith(
+          keyChanged: true,
+          pendingKeyHex: k.ed25519Pub.length == 32 ? hexEncode(k.ed25519Pub) : null,
+        ),
+      },
+    );
     _save();
+  }
+
+  void _onChannelMessage(pb.ChannelMessage c, {required bool replayed}) {
+    final thread = state.channelMessages[c.channel] ?? const <ChannelMessage>[];
+    if (thread.any((m) => !m.outgoing && m.src == c.src && m.msgId == c.msgId)) return;
+    final msg = ChannelMessage(
+      channel: c.channel,
+      outgoing: false,
+      src: c.src,
+      text: decodeLenient(c.text),
+      at: _now(),
+      msgId: c.msgId,
+      replayed: replayed,
+    );
+    state = state.copyWith(
+      channelMessages: {
+        ...state.channelMessages,
+        c.channel: [...thread, msg],
+      },
+      channelUnread: {...state.channelUnread, c.channel: (state.channelUnread[c.channel] ?? 0) + 1},
+    );
+    _save();
+    if (!ref.read(appForegroundProvider)) {
+      unawaited(
+        ref
+            .read(meshAlertsProvider)
+            .textReceived(
+              // one notification per channel, kept apart from the sender's DMs
+              peer: c.channel.hashCode | 0x20000000,
+              from: '#${c.channel} · ${state.nameOf(c.src)}',
+              text: msg.text,
+            )
+            .catchError((Object _) {}),
+      );
+    }
   }
 
   // --------------------------------------------------------------- actions --
@@ -406,6 +477,7 @@ class MeshController extends Notifier<MeshState> {
           ed25519Hex: hexEncode(card.ed25519Pub),
           pinned: true,
           keyChanged: false,
+          clearPendingKey: true,
         ),
       },
     );
@@ -453,6 +525,15 @@ class MeshController extends Notifier<MeshState> {
       if (session.isClosed || !ref.mounted) return;
       await _deliver(session, m);
     }
+    final pendingChannel = [
+      for (final l in state.channelMessages.values)
+        for (final m in l)
+          if (m.outgoing && m.state == MsgState.pending) m,
+    ]..sort((a, b) => a.at.compareTo(b.at));
+    for (final m in pendingChannel) {
+      if (session.isClosed || !ref.mounted) return;
+      await _deliverChannel(session, m);
+    }
   }
 
   Future<void> _deliver(LinkSession session, ChatMessage m) async {
@@ -486,6 +567,221 @@ class MeshController extends Notifier<MeshState> {
   }
 
   void _replace(ChatMessage old, ChatMessage now) => _update(old, (_) => now);
+
+  /// Removes one DM from the history (on this phone only).
+  void deleteMessage(ChatMessage m) {
+    final thread = state.messages[m.peer];
+    if (thread == null) return;
+    state = state.copyWith(
+      messages: {
+        ...state.messages,
+        m.peer: [
+          for (final x in thread)
+            if (!identical(x, m)) x,
+        ],
+      },
+    );
+    _save();
+  }
+
+  /// Deletes the whole conversation with [peer] (on this phone only).
+  void deleteThread(int peer) {
+    state = state.copyWith(messages: {...state.messages}..remove(peer), unread: {...state.unread}..remove(peer));
+    _save();
+  }
+
+  /// Accepts the new key a contact announced (KeyChange): the node pins it.
+  /// Throws [NodeError] or [StateError] when not connected.
+  Future<void> acceptKeyChange(int peer) async {
+    final c = state.contacts[peer];
+    final key = c?.pendingKeyHex == null ? null : hexDecode(c!.pendingKeyHex!);
+    if (c == null || key == null || key.length != 32) throw StateError('No new key to accept');
+    await addContact(ContactCard(nodeId: peer, ed25519Pub: key, name: c.name));
+  }
+
+  /// Keeps the old key (the node already does) and hides the warning. The
+  /// contact stays unverified until its QR code is scanned again.
+  void rejectKeyChange(int peer) {
+    final c = state.contacts[peer];
+    if (c == null) return;
+    state = state.copyWith(
+      contacts: {...state.contacts, peer: c.copyWith(keyChanged: false, pinned: false, clearPendingKey: true)},
+    );
+    _save();
+  }
+
+  // -------------------------------------------------------------- channels --
+
+  /// Whether the connected node speaks protocol 1.1 (channels, SetName).
+  bool get nodeSupportsChannels {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 1;
+  }
+
+  /// Reloads the node's channel list (protocol 1.1 nodes only).
+  Future<void> refreshChannels() async {
+    final session = _link.session;
+    if (session == null || !nodeSupportsChannels) return;
+    final List<pb.Channel> list;
+    try {
+      list = await session.listChannels();
+    } on Object {
+      return;
+    }
+    if (!ref.mounted) return;
+    state = state.copyWith(
+      channels: {for (final c in list) c.name: GroupChannel(name: c.name, pskHex: hexEncode(c.psk))},
+    );
+    _save();
+  }
+
+  /// Joins [card]'s channel on the node. Throws [NodeError] / [StateError].
+  Future<void> joinChannel(ChannelCard card) async {
+    final session = _link.session;
+    if (session == null) throw StateError('Not connected to a node');
+    if (!nodeSupportsChannels) throw StateError('This node is too old for channels; update ghostwaved');
+    await session.request(
+      pb.ToRadio(
+        addChannel: pb.AddChannel(name: card.name, psk: card.psk),
+      ),
+    );
+    if (!ref.mounted) return;
+    state = state.copyWith(
+      channels: {
+        ...state.channels,
+        card.name: GroupChannel(name: card.name, pskHex: hexEncode(card.psk)),
+      },
+    );
+    _save();
+    unawaited(refreshChannels());
+  }
+
+  /// Makes a new channel with a random key and joins it.
+  Future<ChannelCard> createChannel(String name) async {
+    final psk = Uint8List.fromList(List<int>.generate(32, (_) => _rng.nextInt(256)));
+    final card = ChannelCard(name: name, psk: psk);
+    await joinChannel(card);
+    return card;
+  }
+
+  /// Leaves [name] on the node; the history on this phone is deleted too.
+  Future<void> leaveChannel(String name) async {
+    final session = _link.session;
+    if (session == null) throw StateError('Not connected to a node');
+    try {
+      await session.request(pb.ToRadio(removeChannel: pb.RemoveChannel(name: name)));
+    } on NodeError catch (e) {
+      if (e.code != pb.Error_Code.NOT_FOUND) rethrow;
+    }
+    if (!ref.mounted) return;
+    state = state.copyWith(
+      channels: {...state.channels}..remove(name),
+      channelMessages: {...state.channelMessages}..remove(name),
+      channelUnread: {...state.channelUnread}..remove(name),
+    );
+    _save();
+  }
+
+  /// Queues a channel message; sent now if the link is up, else on reconnect.
+  Future<void> sendChannelText(String channel, String text) async {
+    final msg = ChannelMessage(
+      channel: channel,
+      outgoing: true,
+      text: text,
+      at: _now(),
+      state: MsgState.pending,
+      clientMsgId: 1 + _rng.nextInt(0x7FFFFFFE),
+    );
+    state = state.copyWith(
+      channelMessages: {
+        ...state.channelMessages,
+        channel: [...?state.channelMessages[channel], msg],
+      },
+    );
+    _save();
+    final session = _link.session;
+    if (session != null) await _deliverChannel(session, msg);
+  }
+
+  /// Sends a failed channel message again.
+  Future<void> retryChannel(ChannelMessage m) async {
+    _updateChannel(m, (cur) => cur.copyWith(state: MsgState.pending, clearError: true));
+    final session = _link.session;
+    if (session != null) await _deliverChannel(session, m);
+  }
+
+  Future<void> _deliverChannel(LinkSession session, ChannelMessage m) async {
+    if (!_inFlight.add(m.clientMsgId)) return;
+    try {
+      final r = await session.request(
+        pb.ToRadio(
+          sendChannelText: pb.SendChannelText(
+            channel: m.channel,
+            text: utf8.encode(m.text),
+            clientMsgId: m.clientMsgId,
+          ),
+        ),
+      );
+      _updateChannel(m, (cur) => cur.copyWith(state: MsgState.sent, msgId: r.sendQueued.msgId));
+    } on NodeError catch (e) {
+      _updateChannel(m, (cur) => cur.copyWith(state: MsgState.failed, error: e.message));
+    } on Object {
+      // link dropped or timed out: stays pending, sent again on reconnect
+    } finally {
+      _inFlight.remove(m.clientMsgId);
+    }
+  }
+
+  void _updateChannel(ChannelMessage m, ChannelMessage Function(ChannelMessage) f) {
+    if (!ref.mounted) return;
+    final thread = state.channelMessages[m.channel];
+    if (thread == null) return;
+    final updated = [for (final x in thread) x.clientMsgId == m.clientMsgId && x.outgoing ? f(x) : x];
+    state = state.copyWith(channelMessages: {...state.channelMessages, m.channel: updated});
+    _save();
+  }
+
+  /// Clears [channel]'s unread count.
+  void markChannelRead(String channel) {
+    if ((state.channelUnread[channel] ?? 0) == 0) return;
+    state = state.copyWith(channelUnread: {...state.channelUnread, channel: 0});
+  }
+
+  /// Removes one channel message from the history (on this phone only).
+  void deleteChannelMessage(ChannelMessage m) {
+    final thread = state.channelMessages[m.channel];
+    if (thread == null) return;
+    state = state.copyWith(
+      channelMessages: {
+        ...state.channelMessages,
+        m.channel: [
+          for (final x in thread)
+            if (!identical(x, m)) x,
+        ],
+      },
+    );
+    _save();
+  }
+
+  /// Deletes [channel]'s history on this phone (stays joined).
+  void clearChannelHistory(String channel) {
+    state = state.copyWith(
+      channelMessages: {...state.channelMessages}..remove(channel),
+      channelUnread: {...state.channelUnread}..remove(channel),
+    );
+    _save();
+  }
+
+  // ------------------------------------------------------------ node name --
+
+  /// Renames the node (`SetName`, protocol 1.1) and refreshes its `NodeInfo`.
+  Future<void> setNodeName(String name) async {
+    final session = _link.session;
+    if (session == null) throw StateError('Not connected to a node');
+    if (!nodeSupportsChannels) throw StateError('This node is too old to rename from the app; update ghostwaved');
+    await session.request(pb.ToRadio(setName: pb.SetName(name: name)));
+    await _link.rehello();
+  }
 
   /// Records our own position after the app sent it (`SetOwnPosition`).
   void noteOwnPosition(LatLon p) => state = state.copyWith(ownPos: p);
@@ -563,6 +859,8 @@ class MeshController extends Notifier<MeshState> {
       messages: _snap.messages,
       alerts: _snap.alerts,
       ownSos: _snap.ownSos,
+      channels: _snap.channels,
+      channelMessages: _snap.channelMessages,
     );
     // a failed write (disk full, app dir gone) must not crash the app; the
     // next change tries again
@@ -571,4 +869,14 @@ class MeshController extends Notifier<MeshState> {
 
   /// Writes pending changes now (app going to background).
   void flush() => _flushSave();
+
+  /// Forgets everything on this phone (app data reset): saved histories are
+  /// deleted and the state is emptied. The node keeps its own data.
+  Future<void> resetLocalData() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    await _store?.deleteAll();
+    if (!ref.mounted) return;
+    state = const MeshState();
+  }
 }

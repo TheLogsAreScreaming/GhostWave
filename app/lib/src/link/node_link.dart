@@ -159,6 +159,17 @@ class NodeLink {
     }
   }
 
+  /// Asks the node for its `NodeInfo` again on the live session (after a
+  /// rename) and republishes [LinkUp] with it. No-op without a link.
+  Future<void> rehello() async {
+    final s = _state;
+    if (s is! LinkUp) return;
+    final gen = _generation;
+    final info = await s.session.hello(clientName);
+    if (gen != _generation || _state is! LinkUp) return;
+    _set(LinkUp(s.target, info, s.session));
+  }
+
   /// Retries now if waiting or failed.
   void retryNow() {
     final t = _transport;

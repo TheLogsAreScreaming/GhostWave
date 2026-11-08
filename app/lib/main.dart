@@ -10,10 +10,12 @@ import 'src/app/providers.dart';
 import 'src/data/mesh_store.dart';
 import 'src/ui/connect_screen.dart';
 import 'src/ui/home_shell.dart';
+import 'src/ui/settings_screen.dart';
 import 'src/ui/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerFontLicenses();
   final prefs = await SharedPreferences.getInstance();
   final dir = await getApplicationSupportDirectory();
   MeshAlerts alerts = const NoMeshAlerts();

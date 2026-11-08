@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "ghostwave/channel_book.h"
 #include "ghostwave/client_proto.h"
 #include "ghostwave/router.h"
 
@@ -62,6 +63,12 @@ class Handler {
     std::function<void(const gw::Position&)> setOwnPosition;
     // Ed25519 keys of pinned peers, for ListContacts.
     const std::map<uint32_t, std::array<uint8_t, 32>>* edKeys = nullptr;
+    // Group channels (protocol 1.1, DESIGN §9.3); null = channel requests get
+    // UNKNOWN_REQUEST and NodeInfo.max_channel_text_bytes is 0.
+    gw::ChannelBook* channels = nullptr;
+    // Renames the node (SetName, 1.1): ErrorCode::None, or an error with `err`
+    // set. Unset: NO_IDENTITY.
+    std::function<ErrorCode(const std::string&, std::string&)> setName;
   };
 
   static constexpr size_t kDefaultQueueMax = 64;
@@ -94,10 +101,13 @@ class Handler {
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen);
   void onKeyChange(uint32_t id, const uint8_t edPub[32], const std::string& name);
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew);
+  void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& payload);
 
  private:
   // Sends to every connection past Hello, or holds it if there is none (`hold`).
   void event(const FromRadio& m, bool hold);
+  // Protocol 1.1 requests (channels, SetName); false if `m` is not one.
+  bool handleV11(Conn& c, const ToRadio& m, uint64_t now);
 
   gw::Router& r_;
   NodeIdentity self_;

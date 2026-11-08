@@ -102,6 +102,11 @@ enum ToRadio_Request {
   getStatus,
   getPosition,
   setOwnPosition,
+  sendChannelText,
+  addChannel,
+  removeChannel,
+  listChannels,
+  setName,
   notSet
 }
 
@@ -119,6 +124,11 @@ class ToRadio extends $pb.GeneratedMessage {
     GetStatus? getStatus,
     GetPosition? getPosition,
     SetOwnPosition? setOwnPosition,
+    SendChannelText? sendChannelText,
+    AddChannel? addChannel,
+    RemoveChannel? removeChannel,
+    ListChannels? listChannels,
+    SetName? setName,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -133,6 +143,11 @@ class ToRadio extends $pb.GeneratedMessage {
     if (getStatus != null) result.getStatus = getStatus;
     if (getPosition != null) result.getPosition = getPosition;
     if (setOwnPosition != null) result.setOwnPosition = setOwnPosition;
+    if (sendChannelText != null) result.sendChannelText = sendChannelText;
+    if (addChannel != null) result.addChannel = addChannel;
+    if (removeChannel != null) result.removeChannel = removeChannel;
+    if (listChannels != null) result.listChannels = listChannels;
+    if (setName != null) result.setName = setName;
     return result;
   }
 
@@ -157,6 +172,11 @@ class ToRadio extends $pb.GeneratedMessage {
     18: ToRadio_Request.getStatus,
     19: ToRadio_Request.getPosition,
     20: ToRadio_Request.setOwnPosition,
+    21: ToRadio_Request.sendChannelText,
+    22: ToRadio_Request.addChannel,
+    23: ToRadio_Request.removeChannel,
+    24: ToRadio_Request.listChannels,
+    25: ToRadio_Request.setName,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -164,7 +184,7 @@ class ToRadio extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: ToRadio.$_createMessage)
-    ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
         subBuilder: Hello.$_createMessage)
@@ -188,6 +208,16 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: GetPosition.$_createMessage)
     ..aOM<SetOwnPosition>(20, _omitFieldNames ? '' : 'setOwnPosition',
         subBuilder: SetOwnPosition.$_createMessage)
+    ..aOM<SendChannelText>(21, _omitFieldNames ? '' : 'sendChannelText',
+        subBuilder: SendChannelText.$_createMessage)
+    ..aOM<AddChannel>(22, _omitFieldNames ? '' : 'addChannel',
+        subBuilder: AddChannel.$_createMessage)
+    ..aOM<RemoveChannel>(23, _omitFieldNames ? '' : 'removeChannel',
+        subBuilder: RemoveChannel.$_createMessage)
+    ..aOM<ListChannels>(24, _omitFieldNames ? '' : 'listChannels',
+        subBuilder: ListChannels.$_createMessage)
+    ..aOM<SetName>(25, _omitFieldNames ? '' : 'setName',
+        subBuilder: SetName.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -221,6 +251,11 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(18)
   @$pb.TagNumber(19)
   @$pb.TagNumber(20)
+  @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
+  @$pb.TagNumber(24)
+  @$pb.TagNumber(25)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -233,6 +268,11 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(18)
   @$pb.TagNumber(19)
   @$pb.TagNumber(20)
+  @$pb.TagNumber(21)
+  @$pb.TagNumber(22)
+  @$pb.TagNumber(23)
+  @$pb.TagNumber(24)
+  @$pb.TagNumber(25)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -365,6 +405,62 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearSetOwnPosition() => $_clearField(20);
   @$pb.TagNumber(20)
   SetOwnPosition ensureSetOwnPosition() => $_ensure(11);
+
+  /// protocol 1.1 (NodeInfo.protocol_minor >= 1)
+  @$pb.TagNumber(21)
+  SendChannelText get sendChannelText => $_getN(12);
+  @$pb.TagNumber(21)
+  set sendChannelText(SendChannelText value) => $_setField(21, value);
+  @$pb.TagNumber(21)
+  $core.bool hasSendChannelText() => $_has(12);
+  @$pb.TagNumber(21)
+  void clearSendChannelText() => $_clearField(21);
+  @$pb.TagNumber(21)
+  SendChannelText ensureSendChannelText() => $_ensure(12);
+
+  @$pb.TagNumber(22)
+  AddChannel get addChannel => $_getN(13);
+  @$pb.TagNumber(22)
+  set addChannel(AddChannel value) => $_setField(22, value);
+  @$pb.TagNumber(22)
+  $core.bool hasAddChannel() => $_has(13);
+  @$pb.TagNumber(22)
+  void clearAddChannel() => $_clearField(22);
+  @$pb.TagNumber(22)
+  AddChannel ensureAddChannel() => $_ensure(13);
+
+  @$pb.TagNumber(23)
+  RemoveChannel get removeChannel => $_getN(14);
+  @$pb.TagNumber(23)
+  set removeChannel(RemoveChannel value) => $_setField(23, value);
+  @$pb.TagNumber(23)
+  $core.bool hasRemoveChannel() => $_has(14);
+  @$pb.TagNumber(23)
+  void clearRemoveChannel() => $_clearField(23);
+  @$pb.TagNumber(23)
+  RemoveChannel ensureRemoveChannel() => $_ensure(14);
+
+  @$pb.TagNumber(24)
+  ListChannels get listChannels => $_getN(15);
+  @$pb.TagNumber(24)
+  set listChannels(ListChannels value) => $_setField(24, value);
+  @$pb.TagNumber(24)
+  $core.bool hasListChannels() => $_has(15);
+  @$pb.TagNumber(24)
+  void clearListChannels() => $_clearField(24);
+  @$pb.TagNumber(24)
+  ListChannels ensureListChannels() => $_ensure(15);
+
+  @$pb.TagNumber(25)
+  SetName get setName => $_getN(16);
+  @$pb.TagNumber(25)
+  set setName(SetName value) => $_setField(25, value);
+  @$pb.TagNumber(25)
+  $core.bool hasSetName() => $_has(16);
+  @$pb.TagNumber(25)
+  void clearSetName() => $_clearField(25);
+  @$pb.TagNumber(25)
+  SetName ensureSetName() => $_ensure(16);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -1057,6 +1153,324 @@ class SetOwnPosition extends $pb.GeneratedMessage {
   Position ensurePos() => $_ensure(0);
 }
 
+/// Reply: SendQueued (dest = 0xFFFFFFFF). Errors: NOT_FOUND (no such channel),
+/// TOO_LONG (over NodeInfo.max_channel_text_bytes), BAD_ARGUMENT, SEND_FAILED.
+class SendChannelText extends $pb.GeneratedMessage {
+  factory SendChannelText({
+    $core.String? channel,
+    $core.List<$core.int>? text,
+    $core.int? clientMsgId,
+  }) {
+    final result = SendChannelText._();
+    if (channel != null) result.channel = channel;
+    if (text != null) result.text = text;
+    if (clientMsgId != null) result.clientMsgId = clientMsgId;
+    return result;
+  }
+
+  SendChannelText._();
+
+  factory SendChannelText.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SendChannelText()..mergeFromBuffer(data, registry);
+  factory SendChannelText.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SendChannelText()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SendChannelText',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: SendChannelText.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'channel')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
+    ..aI(3, _omitFieldNames ? '' : 'clientMsgId',
+        fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendChannelText clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendChannelText copyWith(void Function(SendChannelText) updates) =>
+      super.copyWith((message) => updates(message as SendChannelText))
+          as SendChannelText;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SendChannelText() / SendChannelText.new instead')
+  static SendChannelText create() => SendChannelText._();
+  static $pb.GeneratedMessage $_createMessage() => SendChannelText._();
+  @$core.override
+  SendChannelText createEmptyInstance() => SendChannelText._();
+  @$core.pragma('dart2js:noInline')
+  static SendChannelText getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SendChannelText>(
+          SendChannelText.$_createMessage);
+  static SendChannelText? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get channel => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set channel($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasChannel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearChannel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get text => $_getN(1);
+  @$pb.TagNumber(2)
+  set text($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasText() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearText() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get clientMsgId => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set clientMsgId($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasClientMsgId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearClientMsgId() => $_clearField(3);
+}
+
+/// Joins a channel (kept across node restarts). Reply: Ok; adding the same
+/// name with the same key again is Ok too. Errors: BAD_ARGUMENT (name or key
+/// malformed, name taken by another key, key joined under another name),
+/// CHANNEL_LIMIT (the node holds the most it can).
+class AddChannel extends $pb.GeneratedMessage {
+  factory AddChannel({
+    $core.String? name,
+    $core.List<$core.int>? psk,
+  }) {
+    final result = AddChannel._();
+    if (name != null) result.name = name;
+    if (psk != null) result.psk = psk;
+    return result;
+  }
+
+  AddChannel._();
+
+  factory AddChannel.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AddChannel()..mergeFromBuffer(data, registry);
+  factory AddChannel.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AddChannel()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AddChannel',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: AddChannel.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'psk', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AddChannel clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AddChannel copyWith(void Function(AddChannel) updates) =>
+      super.copyWith((message) => updates(message as AddChannel)) as AddChannel;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AddChannel() / AddChannel.new instead')
+  static AddChannel create() => AddChannel._();
+  static $pb.GeneratedMessage $_createMessage() => AddChannel._();
+  @$core.override
+  AddChannel createEmptyInstance() => AddChannel._();
+  @$core.pragma('dart2js:noInline')
+  static AddChannel getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AddChannel>(AddChannel.$_createMessage);
+  static AddChannel? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get psk => $_getN(1);
+  @$pb.TagNumber(2)
+  set psk($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPsk() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPsk() => $_clearField(2);
+}
+
+class RemoveChannel extends $pb.GeneratedMessage {
+  factory RemoveChannel({
+    $core.String? name,
+  }) {
+    final result = RemoveChannel._();
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  RemoveChannel._();
+
+  factory RemoveChannel.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoveChannel()..mergeFromBuffer(data, registry);
+  factory RemoveChannel.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoveChannel()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoveChannel',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: RemoveChannel.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoveChannel clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoveChannel copyWith(void Function(RemoveChannel) updates) =>
+      super.copyWith((message) => updates(message as RemoveChannel))
+          as RemoveChannel;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RemoveChannel() / RemoveChannel.new instead')
+  static RemoveChannel create() => RemoveChannel._();
+  static $pb.GeneratedMessage $_createMessage() => RemoveChannel._();
+  @$core.override
+  RemoveChannel createEmptyInstance() => RemoveChannel._();
+  @$core.pragma('dart2js:noInline')
+  static RemoveChannel getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RemoveChannel>(
+          RemoveChannel.$_createMessage);
+  static RemoveChannel? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+}
+
+/// Reply: one Channel per joined channel, then ChannelsEnd.
+class ListChannels extends $pb.GeneratedMessage {
+  factory ListChannels() => ListChannels._();
+
+  ListChannels._();
+
+  factory ListChannels.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListChannels()..mergeFromBuffer(data, registry);
+  factory ListChannels.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListChannels()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListChannels',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: ListChannels.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListChannels clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListChannels copyWith(void Function(ListChannels) updates) =>
+      super.copyWith((message) => updates(message as ListChannels))
+          as ListChannels;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListChannels() / ListChannels.new instead')
+  static ListChannels create() => ListChannels._();
+  static $pb.GeneratedMessage $_createMessage() => ListChannels._();
+  @$core.override
+  ListChannels createEmptyInstance() => ListChannels._();
+  @$core.pragma('dart2js:noInline')
+  static ListChannels getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListChannels>(
+          ListChannels.$_createMessage);
+  static ListChannels? _defaultInstance;
+}
+
+/// Sets the node's name (IDENT, <= 9 bytes UTF-8), kept across restarts, and
+/// announces it. Reply: Ok. Errors: BAD_ARGUMENT, NO_IDENTITY (legacy node).
+class SetName extends $pb.GeneratedMessage {
+  factory SetName({
+    $core.String? name,
+  }) {
+    final result = SetName._();
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  SetName._();
+
+  factory SetName.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetName()..mergeFromBuffer(data, registry);
+  factory SetName.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetName()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetName',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: SetName.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetName clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetName copyWith(void Function(SetName) updates) =>
+      super.copyWith((message) => updates(message as SetName)) as SetName;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SetName() / SetName.new instead')
+  static SetName create() => SetName._();
+  static $pb.GeneratedMessage $_createMessage() => SetName._();
+  @$core.override
+  SetName createEmptyInstance() => SetName._();
+  @$core.pragma('dart2js:noInline')
+  static SetName getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetName>(SetName.$_createMessage);
+  static SetName? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+}
+
 enum FromRadio_Event {
   nodeInfo,
   text,
@@ -1073,6 +1487,9 @@ enum FromRadio_Event {
   ok,
   peerIdent,
   keyChange,
+  channelMessage,
+  channel,
+  channelsEnd,
   notSet
 }
 
@@ -1095,6 +1512,9 @@ class FromRadio extends $pb.GeneratedMessage {
     Ok? ok,
     PeerIdent? peerIdent,
     KeyChange? keyChange,
+    ChannelMessage? channelMessage,
+    Channel? channel,
+    ChannelsEnd? channelsEnd,
   }) {
     final result = FromRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -1114,6 +1534,9 @@ class FromRadio extends $pb.GeneratedMessage {
     if (ok != null) result.ok = ok;
     if (peerIdent != null) result.peerIdent = peerIdent;
     if (keyChange != null) result.keyChange = keyChange;
+    if (channelMessage != null) result.channelMessage = channelMessage;
+    if (channel != null) result.channel = channel;
+    if (channelsEnd != null) result.channelsEnd = channelsEnd;
     return result;
   }
 
@@ -1142,6 +1565,9 @@ class FromRadio extends $pb.GeneratedMessage {
     22: FromRadio_Event.ok,
     23: FromRadio_Event.peerIdent,
     24: FromRadio_Event.keyChange,
+    25: FromRadio_Event.channelMessage,
+    26: FromRadio_Event.channel,
+    27: FromRadio_Event.channelsEnd,
     0: FromRadio_Event.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1149,7 +1575,26 @@ class FromRadio extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: FromRadio.$_createMessage)
-    ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24])
+    ..oo(0, [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27
+    ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'replayed')
     ..aOM<NodeInfo>(10, _omitFieldNames ? '' : 'nodeInfo',
@@ -1181,6 +1626,12 @@ class FromRadio extends $pb.GeneratedMessage {
         subBuilder: PeerIdent.$_createMessage)
     ..aOM<KeyChange>(24, _omitFieldNames ? '' : 'keyChange',
         subBuilder: KeyChange.$_createMessage)
+    ..aOM<ChannelMessage>(25, _omitFieldNames ? '' : 'channelMessage',
+        subBuilder: ChannelMessage.$_createMessage)
+    ..aOM<Channel>(26, _omitFieldNames ? '' : 'channel',
+        subBuilder: Channel.$_createMessage)
+    ..aOM<ChannelsEnd>(27, _omitFieldNames ? '' : 'channelsEnd',
+        subBuilder: ChannelsEnd.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1218,6 +1669,9 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(22)
   @$pb.TagNumber(23)
   @$pb.TagNumber(24)
+  @$pb.TagNumber(25)
+  @$pb.TagNumber(26)
+  @$pb.TagNumber(27)
   FromRadio_Event whichEvent() => _FromRadio_EventByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -1234,6 +1688,9 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(22)
   @$pb.TagNumber(23)
   @$pb.TagNumber(24)
+  @$pb.TagNumber(25)
+  @$pb.TagNumber(26)
+  @$pb.TagNumber(27)
   void clearEvent() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -1418,6 +1875,40 @@ class FromRadio extends $pb.GeneratedMessage {
   void clearKeyChange() => $_clearField(24);
   @$pb.TagNumber(24)
   KeyChange ensureKeyChange() => $_ensure(16);
+
+  /// protocol 1.1
+  @$pb.TagNumber(25)
+  ChannelMessage get channelMessage => $_getN(17);
+  @$pb.TagNumber(25)
+  set channelMessage(ChannelMessage value) => $_setField(25, value);
+  @$pb.TagNumber(25)
+  $core.bool hasChannelMessage() => $_has(17);
+  @$pb.TagNumber(25)
+  void clearChannelMessage() => $_clearField(25);
+  @$pb.TagNumber(25)
+  ChannelMessage ensureChannelMessage() => $_ensure(17);
+
+  @$pb.TagNumber(26)
+  Channel get channel => $_getN(18);
+  @$pb.TagNumber(26)
+  set channel(Channel value) => $_setField(26, value);
+  @$pb.TagNumber(26)
+  $core.bool hasChannel() => $_has(18);
+  @$pb.TagNumber(26)
+  void clearChannel() => $_clearField(26);
+  @$pb.TagNumber(26)
+  Channel ensureChannel() => $_ensure(18);
+
+  @$pb.TagNumber(27)
+  ChannelsEnd get channelsEnd => $_getN(19);
+  @$pb.TagNumber(27)
+  set channelsEnd(ChannelsEnd value) => $_setField(27, value);
+  @$pb.TagNumber(27)
+  $core.bool hasChannelsEnd() => $_has(19);
+  @$pb.TagNumber(27)
+  void clearChannelsEnd() => $_clearField(27);
+  @$pb.TagNumber(27)
+  ChannelsEnd ensureChannelsEnd() => $_ensure(19);
 }
 
 class NodeInfo extends $pb.GeneratedMessage {
@@ -1430,6 +1921,8 @@ class NodeInfo extends $pb.GeneratedMessage {
     $core.bool? legacy,
     $core.String? firmware,
     $core.int? maxTextBytes,
+    $core.int? protocolMinor,
+    $core.int? maxChannelTextBytes,
   }) {
     final result = NodeInfo._();
     if (protocolVersion != null) result.protocolVersion = protocolVersion;
@@ -1440,6 +1933,9 @@ class NodeInfo extends $pb.GeneratedMessage {
     if (legacy != null) result.legacy = legacy;
     if (firmware != null) result.firmware = firmware;
     if (maxTextBytes != null) result.maxTextBytes = maxTextBytes;
+    if (protocolMinor != null) result.protocolMinor = protocolMinor;
+    if (maxChannelTextBytes != null)
+      result.maxChannelTextBytes = maxChannelTextBytes;
     return result;
   }
 
@@ -1469,6 +1965,10 @@ class NodeInfo extends $pb.GeneratedMessage {
     ..aOB(6, _omitFieldNames ? '' : 'legacy')
     ..aOS(7, _omitFieldNames ? '' : 'firmware')
     ..aI(8, _omitFieldNames ? '' : 'maxTextBytes',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aI(9, _omitFieldNames ? '' : 'protocolMinor',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aI(10, _omitFieldNames ? '' : 'maxChannelTextBytes',
         fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
@@ -1563,6 +2063,24 @@ class NodeInfo extends $pb.GeneratedMessage {
   $core.bool hasMaxTextBytes() => $_has(7);
   @$pb.TagNumber(8)
   void clearMaxTextBytes() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get protocolMinor => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set protocolMinor($core.int value) => $_setUnsignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasProtocolMinor() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearProtocolMinor() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.int get maxChannelTextBytes => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set maxChannelTextBytes($core.int value) => $_setUnsignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasMaxChannelTextBytes() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearMaxChannelTextBytes() => $_clearField(10);
 }
 
 class TextMessage extends $pb.GeneratedMessage {
@@ -2823,6 +3341,244 @@ class KeyChange extends $pb.GeneratedMessage {
   $core.bool hasName() => $_has(2);
   @$pb.TagNumber(3)
   void clearName() => $_clearField(3);
+}
+
+/// A group channel message, on a channel this node joined (protocol 1.1).
+class ChannelMessage extends $pb.GeneratedMessage {
+  factory ChannelMessage({
+    $core.String? channel,
+    $core.int? src,
+    $core.int? msgId,
+    $core.List<$core.int>? text,
+    Position? pos,
+  }) {
+    final result = ChannelMessage._();
+    if (channel != null) result.channel = channel;
+    if (src != null) result.src = src;
+    if (msgId != null) result.msgId = msgId;
+    if (text != null) result.text = text;
+    if (pos != null) result.pos = pos;
+    return result;
+  }
+
+  ChannelMessage._();
+
+  factory ChannelMessage.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ChannelMessage()..mergeFromBuffer(data, registry);
+  factory ChannelMessage.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ChannelMessage()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ChannelMessage',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: ChannelMessage.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'channel')
+    ..aI(2, _omitFieldNames ? '' : 'src', fieldType: $pb.PbFieldType.OF3)
+    ..aI(3, _omitFieldNames ? '' : 'msgId', fieldType: $pb.PbFieldType.OF3)
+    ..a<$core.List<$core.int>>(
+        4, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
+    ..aOM<Position>(5, _omitFieldNames ? '' : 'pos',
+        subBuilder: Position.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChannelMessage clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChannelMessage copyWith(void Function(ChannelMessage) updates) =>
+      super.copyWith((message) => updates(message as ChannelMessage))
+          as ChannelMessage;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ChannelMessage() / ChannelMessage.new instead')
+  static ChannelMessage create() => ChannelMessage._();
+  static $pb.GeneratedMessage $_createMessage() => ChannelMessage._();
+  @$core.override
+  ChannelMessage createEmptyInstance() => ChannelMessage._();
+  @$core.pragma('dart2js:noInline')
+  static ChannelMessage getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ChannelMessage>(
+          ChannelMessage.$_createMessage);
+  static ChannelMessage? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get channel => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set channel($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasChannel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearChannel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get src => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set src($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSrc() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSrc() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get msgId => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set msgId($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMsgId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMsgId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.List<$core.int> get text => $_getN(3);
+  @$pb.TagNumber(4)
+  set text($core.List<$core.int> value) => $_setBytes(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasText() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearText() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  Position get pos => $_getN(4);
+  @$pb.TagNumber(5)
+  set pos(Position value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPos() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPos() => $_clearField(5);
+  @$pb.TagNumber(5)
+  Position ensurePos() => $_ensure(4);
+}
+
+class Channel extends $pb.GeneratedMessage {
+  factory Channel({
+    $core.String? name,
+    $core.List<$core.int>? psk,
+  }) {
+    final result = Channel._();
+    if (name != null) result.name = name;
+    if (psk != null) result.psk = psk;
+    return result;
+  }
+
+  Channel._();
+
+  factory Channel.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Channel()..mergeFromBuffer(data, registry);
+  factory Channel.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Channel()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Channel',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: Channel.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'psk', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Channel clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Channel copyWith(void Function(Channel) updates) =>
+      super.copyWith((message) => updates(message as Channel)) as Channel;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Channel() / Channel.new instead')
+  static Channel create() => Channel._();
+  static $pb.GeneratedMessage $_createMessage() => Channel._();
+  @$core.override
+  Channel createEmptyInstance() => Channel._();
+  @$core.pragma('dart2js:noInline')
+  static Channel getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Channel>(Channel.$_createMessage);
+  static Channel? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get psk => $_getN(1);
+  @$pb.TagNumber(2)
+  set psk($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPsk() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPsk() => $_clearField(2);
+}
+
+class ChannelsEnd extends $pb.GeneratedMessage {
+  factory ChannelsEnd({
+    $core.int? count,
+  }) {
+    final result = ChannelsEnd._();
+    if (count != null) result.count = count;
+    return result;
+  }
+
+  ChannelsEnd._();
+
+  factory ChannelsEnd.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ChannelsEnd()..mergeFromBuffer(data, registry);
+  factory ChannelsEnd.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ChannelsEnd()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ChannelsEnd',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: ChannelsEnd.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'count', fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChannelsEnd clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChannelsEnd copyWith(void Function(ChannelsEnd) updates) =>
+      super.copyWith((message) => updates(message as ChannelsEnd))
+          as ChannelsEnd;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ChannelsEnd() / ChannelsEnd.new instead')
+  static ChannelsEnd create() => ChannelsEnd._();
+  static $pb.GeneratedMessage $_createMessage() => ChannelsEnd._();
+  @$core.override
+  ChannelsEnd createEmptyInstance() => ChannelsEnd._();
+  @$core.pragma('dart2js:noInline')
+  static ChannelsEnd getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ChannelsEnd>(
+          ChannelsEnd.$_createMessage);
+  static ChannelsEnd? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get count => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set count($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCount() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCount() => $_clearField(1);
 }
 
 const $core.bool _omitFieldNames =

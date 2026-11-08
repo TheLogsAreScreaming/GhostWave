@@ -16,6 +16,11 @@ Usage:
   gwclient.py [HOST:]PORT setpos LAT LON       our own position (phone GPS)
   gwclient.py [HOST:]PORT sos TEXT | sosstop | sosack NODE
   gwclient.py [HOST:]PORT listen               print events until Ctrl-C (or --wait s)
+  gwclient.py [HOST:]PORT channels             group channels joined (protocol 1.1)
+  gwclient.py [HOST:]PORT join NAME [PSK_HEX]  join (new random key if none); prints the share text
+  gwclient.py [HOST:]PORT leave NAME
+  gwclient.py [HOST:]PORT chsend NAME TEXT     message a group channel
+  gwclient.py [HOST:]PORT name NAME            rename the node (IDENT, <= 9 bytes)
 Import it for scripted use: see clientlink_e2e.py.
 """
 import argparse
@@ -49,12 +54,19 @@ TO_REQUESTS = {
     18: ("get_status", {}),
     19: ("get_position", {}),
     20: ("set_own_position", {1: ("pos", "pos")}),
+    # protocol 1.1
+    21: ("send_channel_text", {1: ("channel", "str"), 2: ("text", "bytes"), 3: ("client_msg_id", "u32")}),
+    22: ("add_channel", {1: ("name", "str"), 2: ("psk", "bytes")}),
+    23: ("remove_channel", {1: ("name", "str")}),
+    24: ("list_channels", {}),
+    25: ("set_name", {1: ("name", "str")}),
 }
 
 FROM_EVENTS = {
     10: ("node_info", {1: ("protocol_version", "u32"), 2: ("node_id", "fx32"), 3: ("name", "bytes"),
                        4: ("ed25519_pub", "bytes"), 5: ("x25519_pub", "bytes"), 6: ("legacy", "bool"),
-                       7: ("firmware", "str"), 8: ("max_text_bytes", "u32")}),
+                       7: ("firmware", "str"), 8: ("max_text_bytes", "u32"), 9: ("protocol_minor", "u32"),
+                       10: ("max_channel_text_bytes", "u32")}),
     11: ("text", {1: ("src", "fx32"), 2: ("msg_id", "fx32"), 3: ("text", "bytes"), 4: ("src_pos", "pos")}),
     12: ("delivered", {1: ("dest", "fx32"), 2: ("msg_id", "fx32"), 3: ("client_msg_id", "u32")}),
     13: ("sos", {1: ("src", "fx32"), 2: ("seq", "u32"), 3: ("pos", "pos"), 4: ("accuracy_m", "opt"),
@@ -75,11 +87,16 @@ FROM_EVENTS = {
     22: ("ok", {}),
     23: ("peer_ident", {1: ("node_id", "fx32"), 2: ("name", "bytes"), 3: ("is_new", "bool")}),
     24: ("key_change", {1: ("node_id", "fx32"), 2: ("ed25519_pub", "bytes"), 3: ("name", "bytes")}),
+    # protocol 1.1
+    25: ("channel_message", {1: ("channel", "str"), 2: ("src", "fx32"), 3: ("msg_id", "fx32"),
+                             4: ("text", "bytes"), 5: ("src_pos", "pos")}),
+    26: ("channel", {1: ("name", "str"), 2: ("psk", "bytes")}),
+    27: ("channels_end", {1: ("count", "u32")}),
 }
 
 ERRORS = ["NONE", "BAD_FRAME", "BAD_VERSION", "UNKNOWN_REQUEST", "NEED_HELLO", "BAD_ARGUMENT",
           "TOO_LONG", "RATE_LIMITED", "NOT_FOUND", "KEY_REJECTED", "SEND_FAILED",
-          "TOO_MANY_CLIENTS", "NO_IDENTITY"]
+          "TOO_MANY_CLIENTS", "NO_IDENTITY", "CHANNEL_LIMIT"]
 
 # ------------------------------------------------------------- protobuf --
 
@@ -312,7 +329,7 @@ class Client:
     def request(self, kind, timeout=5.0, **values):
         """Sends a request; returns its replies (a list; ends at the first final one)."""
         req = self.send(kind, **values)
-        final = {"list_contacts": ("contacts_end", "error")}.get(kind)
+        final = {"list_contacts": ("contacts_end", "error"), "list_channels": ("channels_end", "error")}.get(kind)
         end = time.time() + timeout
         while time.time() < end:
             got = self.replies.get(req, [])
@@ -334,6 +351,12 @@ class Client:
                 return None
             if not self.pump(min(left, 0.5)):
                 raise ClientError("node closed the connection")
+
+
+def share_text(name, psk):
+    """The channel share format (text and QR): ghostwave-ch:<name, percent-encoded>:<psk hex>."""
+    from urllib.parse import quote
+    return "ghostwave-ch:%s:%s" % (quote(name, safe=""), psk.hex())
 
 
 def fmt(m):
@@ -367,6 +390,11 @@ def fmt(m):
     if k == "peer_ident":
         return "IDENT %s %08x \"%s\"" % ("new peer" if m["is_new"] else "renamed", m["node_id"],
                                          m["name"].decode("utf-8", "replace"))
+    if k == "channel_message":
+        return "CHAN #%s from %08x id %08x: %s%s" % (m["channel"], m["src"], m["msg_id"],
+                                                     m["text"].decode("utf-8", "replace"), tag)
+    if k == "channel":
+        return "CHANNEL #%s share: %s" % (m["name"], share_text(m["name"], m["psk"]))
     if k == "key_change":
         return "KEY CHANGE %08x ed25519 %s" % (m["node_id"], m["ed25519_pub"].hex())
     fields = " ".join("%s=%s" % (a, b) for a, b in m.items() if a not in ("kind", "req_id", "replayed"))
@@ -423,6 +451,20 @@ def main():
         rc = show(c.request("sos_stop"))
     elif cmd == "sosack" and len(args) == 1:
         rc = show(c.request("sos_ack", node_id=hexid(args[0])))
+    elif cmd == "channels":
+        rc = show(c.request("list_channels"))
+    elif cmd == "join" and 1 <= len(args) <= 2:
+        import os
+        psk = bytes.fromhex(args[1]) if len(args) == 2 else os.urandom(32)
+        rc = show(c.request("add_channel", name=args[0], psk=psk))
+        if not rc:
+            print("share: " + share_text(args[0], psk))
+    elif cmd == "leave" and len(args) == 1:
+        rc = show(c.request("remove_channel", name=args[0]))
+    elif cmd == "chsend" and len(args) >= 2:
+        rc = show(c.request("send_channel_text", channel=args[0], text=" ".join(args[1:]).encode(), client_msg_id=1))
+    elif cmd == "name" and len(args) == 1:
+        rc = show(c.request("set_name", name=args[0]))
     elif cmd != "listen":
         ap.error("unknown command or wrong arguments: %s" % cmd)
     if cmd == "listen" or (a.wait and cmd != "send"):

@@ -64,7 +64,15 @@ class AppPort {
   // A neighbor's beacon: its position, and whether it was new or had not been
   // heard for a while (client link, docs/CLIENT_PROTOCOL.md).
   virtual void onNeighbor(uint32_t id, const Position& pos, bool isNew) { (void)id, (void)pos, (void)isNew; }
+  // A group channel message (DESIGN §9.3) on a channel we joined; `chanId` is
+  // groupChannelId(key) as returned by Router::addGroupChannel.
+  virtual void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& payload) {
+    (void)chanId, (void)src, (void)msgId, (void)payload;
+  }
 };
+
+// Group channels a node can join at once (DESIGN §9.3).
+constexpr size_t kMaxGroupChannels = 8;
 
 // A peer key the router holds (pinned, or learned from IDENT).
 struct PeerInfo {
@@ -82,6 +90,7 @@ struct Config {
   size_t areaMinNeighbors = 10;     // ...used only when this crowded
   int contentionK = 3;
   uint8_t hopLimit = 15;
+  uint8_t channelHops = 3;          // group channel messages: scoped-flood radius (DESIGN §9.3)
   uint8_t sprayCopiesLog2 = 3;      // 8 copies
   size_t storeCapacity = 64;
   uint64_t storeTtlMs = 6ull * 3600 * 1000;
@@ -159,6 +168,23 @@ class Router {
 
   // Queue a message; returns its msg_id, or 0 if it cannot be sealed (too big).
   uint32_t send(uint32_t dst, const std::vector<uint8_t>& payload, uint64_t nowMs);
+
+  // Group channels (DESIGN §9.3): a pre-shared 256-bit key per channel.
+  // addGroupChannel returns the channel ID (groupChannelId(key)); adding the
+  // same key again returns the same ID. 0 when kMaxGroupChannels are joined.
+  uint32_t addGroupChannel(const uint8_t key[32]);
+  bool removeGroupChannel(uint32_t chanId);
+  bool hasGroupChannel(uint32_t chanId) const;
+  // Floods a message to everyone holding the channel key, cfg.channelHops
+  // hops out; best effort (no store-and-forward, no receipt). Hearing a
+  // neighbor relay it counts as sent; otherwise, with a neighbor around, it
+  // is re-sent up to twice (~4 s, then ~8 s after going out). Returns its
+  // msg_id, or 0 for an unknown channel or a payload over kChannelPayloadMax.
+  uint32_t sendChannel(uint32_t chanId, const std::vector<uint8_t>& payload, uint64_t nowMs);
+  // Largest channel payload: 128-byte frame - 19 header - 7 sender position - 16 tag.
+  static constexpr size_t kChannelPayloadMax = 86;
+  // Broadcast our IDENT soon (after a name change via setSigningKey).
+  void announceIdent(uint64_t nowMs);
 
   // SOS lane (DESIGN §8). Sends now and re-sends every sosRepeatMs with the
   // current position and a new seq; re-sends a seq early (up to twice, ~15 s
@@ -281,6 +307,7 @@ class Router {
   void wantIdent(uint32_t id, uint64_t now);
   void askIdent(uint32_t id, uint64_t now);
   void identTick(uint64_t now);
+  void onChannelData(const Packet& p, uint64_t now);
 
   Config cfg_;
   RadioPort& radio_;
@@ -330,6 +357,14 @@ class Router {
   bool identSent_ = false;
   std::map<uint32_t, uint64_t> identWant_;    // neighbor -> when to ask for its IDENT
   std::map<uint32_t, uint64_t> identAsked_;   // neighbor -> last time we asked
+
+  struct GroupChan { uint32_t id; std::array<uint8_t, 32> key; };
+  std::vector<GroupChan> chans_;
+  struct ChanFlood { TxPtr item; uint8_t dups; uint64_t t; };
+  std::map<Key, ChanFlood> chanFlood_;   // pending relays of channel frames, for duplicate suppression
+  struct ChanOwn { Packet pkt; TxPtr item; uint64_t sentAt; uint8_t resends; bool echoed; uint64_t created; };
+  std::map<uint32_t, ChanOwn> chanOwn_;   // our channel frames by msg_id, until a relay is heard
+  void chanResendTick(uint64_t now);
 
   std::map<uint32_t, SosEntry> sos_;   // by originator; newest seq only
   std::map<uint16_t, uint64_t> sosProbe_;   // neighbor we offered to -> when to ask for its beacon

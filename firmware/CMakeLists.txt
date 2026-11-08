@@ -24,6 +24,7 @@ add_library(ghostwave_core
   core/src/router.cpp
   core/src/client_proto.cpp
   core/src/client_handler.cpp
+  core/src/channel_book.cpp
   core/src/frame_chunker.cpp)
 target_include_directories(ghostwave_core PUBLIC core/include)
 target_link_libraries(ghostwave_core PRIVATE monocypher)
@@ -31,7 +32,7 @@ target_compile_options(ghostwave_core PRIVATE -Wall -Wextra)
 
 if(GHOSTWAVE_BUILD_TESTS)
   enable_testing()
-  add_executable(ghostwave_tests tests/test_main.cpp pi/vchannel.cpp)
+  add_executable(ghostwave_tests tests/test_main.cpp pi/vchannel.cpp pi/channel_store.cpp)
   target_include_directories(ghostwave_tests PRIVATE pi)
   target_link_libraries(ghostwave_tests ghostwave_core monocypher)
   target_compile_options(ghostwave_tests PRIVATE -Wall -Wextra)
@@ -68,9 +69,9 @@ if(GHOSTWAVE_BUILD_TESTS)
 endif()
 
 if(GHOSTWAVE_BUILD_PI OR GHOSTWAVE_BUILD_VIRT)
-  add_executable(ghostwaved pi/main.cpp pi/client_link.cpp pi/radio_udp.cpp pi/vchannel.cpp)
+  add_executable(ghostwaved pi/main.cpp pi/client_link.cpp pi/channel_store.cpp pi/radio_udp.cpp pi/vchannel.cpp)
   target_link_libraries(ghostwaved ghostwave_core)
-  set_source_files_properties(pi/main.cpp pi/client_link.cpp pi/radio_udp.cpp pi/vchannel.cpp
+  set_source_files_properties(pi/main.cpp pi/client_link.cpp pi/channel_store.cpp pi/radio_udp.cpp pi/vchannel.cpp
     TARGET_DIRECTORY ghostwaved PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra")
 endif()
 

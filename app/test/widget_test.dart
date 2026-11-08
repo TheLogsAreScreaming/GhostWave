@@ -47,7 +47,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('Online'), findsWidgets);
-    expect(find.text('Contacts'), findsWidgets);
+    expect(find.text('Chats'), findsWidgets);
     expect(find.text('Map'), findsWidgets);
     expect(find.text('SOS'), findsWidgets);
     expect(find.text('Me'), findsWidgets);

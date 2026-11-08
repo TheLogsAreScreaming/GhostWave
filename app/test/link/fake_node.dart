@@ -46,10 +46,16 @@ class FakeConnection implements TransportConnection {
 }
 
 class FakeNode implements Transport {
-  FakeNode({this.nodeId = 0x11223344, this.autoHello = true});
+  FakeNode({this.nodeId = 0x11223344, this.autoHello = true, this.protocolMinor = 0});
 
   final int nodeId;
   final bool autoHello;
+
+  /// NodeInfo.protocol_minor (1 = channels, SetName).
+  int protocolMinor;
+
+  /// NodeInfo.name.
+  String name = 'N1';
   final List<FakeConnection> connections = <FakeConnection>[];
   final List<pb.ToRadio> requests = <pb.ToRadio>[];
   final StreamController<(FakeConnection, pb.ToRadio)> _reqs = StreamController.broadcast(sync: true);
@@ -63,11 +69,13 @@ class FakeNode implements Transport {
   pb.NodeInfo get info => pb.NodeInfo(
     protocolVersion: 1,
     nodeId: nodeId,
-    name: 'N1'.codeUnits,
+    name: name.codeUnits,
     ed25519Pub: List.filled(32, 7),
     x25519Pub: List.filled(32, 8),
     firmware: 'fake',
     maxTextBytes: 73,
+    protocolMinor: protocolMinor,
+    maxChannelTextBytes: protocolMinor >= 1 ? 86 : 0,
   );
 
   @override
