@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "ghostwave/crypto.h"
 #include "ghostwave/packet.h"
 #include "ghostwave/util.h"
 
@@ -109,6 +110,7 @@ struct Config {
   double budgetDepthMs = 8000;
   uint64_t rngSeed = 0;
   bool requireEncryption = false;   // drop plaintext DATA addressed to us
+  bool requireBeaconMac = false;    // with a channel key: drop beacons without a valid MAC
   bool responder = false;           // auto-reply SOS_ACK to every new SOS seq
   uint64_t sosTtlMs = 24ull * 3600 * 1000;
   uint32_t sosRepeatMs = 5 * 60 * 1000;
@@ -135,6 +137,7 @@ struct RouterStats {
   uint32_t tx = 0, rx = 0, rxBad = 0, delivered = 0, forwarded = 0, stored = 0;
   uint32_t rxAuthFail = 0, sosHeard = 0, sosTx = 0;
   uint32_t identTx = 0, identRx = 0, identBad = 0, keyChanges = 0;
+  uint32_t beaconMacBad = 0;   // beacons with a wrong MAC, or none when one is required
   uint64_t airMs = 0;
 };
 
@@ -294,6 +297,8 @@ class Router {
   void storeMsg(const Packet& f, bool spray, int copies, uint64_t now);
   void unicast(const Packet& f, uint16_t nh, int copies, uint64_t now);
   void onBeacon(const Packet& p, uint64_t now);
+  void macBeacon(const Packet& p, size_t bodyLen, uint8_t out[kBeaconMacSize]) const;
+  bool checkBeaconMac(Packet& p);
   void updateVelocity(const Position& p, uint64_t now);
   void onLinkAck(const Packet& p, uint64_t now);
   void onAck(const Packet& p, uint64_t now);
