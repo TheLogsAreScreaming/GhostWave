@@ -1,0 +1,4 @@
+tags:
+  integration:
+    # needs a ghostwaved binary (GHOSTWAVED=...); skipped without one
+    timeout: 3m
