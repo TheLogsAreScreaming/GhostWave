@@ -6,7 +6,7 @@
 //                          [--gps /dev/serial0] [--lat L --lon L]  (fixed position, no GPS)
 //                          [--nmea FILE]      (NMEA from a file or FIFO, followed like tail -f)
 //                          [--key FILE] [--psk FILE] [--peers FILE] [--legacy-x25519]
-//                          [--require-enc] [--responder]
+//                          [--require-enc] [--require-beacon-mac] [--responder]
 //        ./ghostwaved --radio udp [--mcast 239.77.0.1:47700] [--vif ADDR] [--vtx-dbm 24]
 //                     [--vgain 2] [--vfade 5] [--vlog] ...   (virtual radio, no hardware)
 //        [--beacon-min-s N] [--beacon-max-s N]   testing only: never beacon more
@@ -94,7 +94,7 @@ struct Options {
   bool fixedPos = false;
   std::string keyFile = "/var/lib/ghostwave/identity.key";
   std::string pskFile, peersFile;
-  bool requireEnc = false, responder = false, legacyX25519 = false;
+  bool requireEnc = false, requireBeaconMac = false, responder = false, legacyX25519 = false;
   std::string clientTcp;   // empty = no client link
   std::string clientPin;   // empty = automatic: required unless on loopback
   uint32_t beaconMinS = 0, beaconMaxS = 0;   // 0 = Config defaults
@@ -611,6 +611,7 @@ int main(int argc, char** argv) {
     else if (a == "--psk") o.pskFile = next();
     else if (a == "--peers") o.peersFile = next();
     else if (a == "--require-enc") o.requireEnc = true;
+    else if (a == "--require-beacon-mac") o.requireBeaconMac = true;
     else if (a == "--responder") o.responder = true;
     else if (a == "--legacy-x25519") o.legacyX25519 = true;
     else if (a == "--beacon-min-s" || a == "--beacon-max-s") {
@@ -692,6 +693,10 @@ int main(int argc, char** argv) {
     o.id = keyId;
   }
   bool havePsk = false;
+  if (o.requireBeaconMac && o.pskFile.empty()) {
+    std::fprintf(stderr, "--require-beacon-mac needs --psk: the MAC is under the channel key\n");
+    return 1;
+  }
   if (!o.pskFile.empty()) {
     if (!readKeyFile(o.pskFile, psk)) {
       std::fprintf(stderr, "bad channel key in %s (want 64 hex chars or 32 raw bytes)\n", o.pskFile.c_str());
@@ -707,6 +712,7 @@ int main(int argc, char** argv) {
     std::printf("beacon timing (testing): min %u s, max %u s\n", cfg.beaconMinMs / 1000, cfg.beaconMaxMs / 1000);
   }
   cfg.requireEncryption = o.requireEnc;
+  cfg.requireBeaconMac = o.requireBeaconMac;
   cfg.responder = o.responder;
   std::unique_ptr<HostRadio> radio;
 #ifdef GHOSTWAVE_HAVE_E22P

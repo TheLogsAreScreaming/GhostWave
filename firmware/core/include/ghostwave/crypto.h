@@ -48,6 +48,10 @@ bool pinProofEqual(const uint8_t a[kPinProofSize], const uint8_t b[kPinProofSize
 // tell channels apart without handling keys; it never goes on the air.
 uint32_t groupChannelId(const uint8_t key[kKeySize]);
 
+// Truncated keyed BLAKE2b over a beacon's fields, under the channel key (DESIGN §9.1).
+constexpr size_t kBeaconMacSize = 4;
+void beaconMac(const uint8_t key[kKeySize], const uint8_t* msg, size_t len, uint8_t out[kBeaconMacSize]);
+
 // IDENT body (DESIGN §4.5): pub (32) || Ed25519 signature (64) || name (0..9).
 // The signature covers "ghostwave-ident-v1" || pub || name. False if the name
 // is too long.

@@ -26,6 +26,7 @@ constexpr double kVelNoiseM = 10;
 constexpr double kPi = 3.14159265358979323846;
 constexpr uint8_t kBeaconSos = 0x10;  // sender holds at least one SOS
 constexpr uint8_t kBeaconSeek = 0x20;  // sender heard nobody: please answer (DESIGN §6.2)
+constexpr uint8_t kBeaconMac = 0x40;   // body ends in a MAC under the channel key (DESIGN §9.1)
 // Beacon recovery (DESIGN §6.2). Retries after a boot/move beacon nobody answered.
 constexpr uint64_t kSeekBaseMs = 20 * 1000;     // first retry; doubles each time
 constexpr uint8_t kSeekRetries = 3;             // per episode
@@ -45,7 +46,7 @@ constexpr uint8_t kSosRetryMax = 4;           // probes after an offer: 60, 120,
 constexpr size_t kSosProbeCapacity = 8;
 constexpr uint64_t kSosRelayGapMs = 15 * 60 * 1000;   // re-flood a superseding seq at most this often
 constexpr uint64_t kBeaconReplyMinMs = 10 * 1000;
-constexpr size_t kMaxBeaconBytes = 75;   // with three gossip entries (DESIGN §4.4)
+constexpr size_t kMaxBeaconBytes = 79;   // three gossip entries and a MAC (DESIGN §4.4)
 constexpr uint8_t kSosDupCancel = 2;  // counter-based flood suppression
 constexpr uint64_t kSosEchoWaitMs = 15 * 1000;   // re-send our SOS if no relay is heard by then
 constexpr uint32_t kSosEchoJitterMs = 5 * 1000;
@@ -315,7 +316,9 @@ void Router::onReceive(const uint8_t* buf, size_t len, float rssi, uint64_t now)
     learn(p.src, p.srcPos, now > age ? now - age : 0);
   }
   switch (p.type) {
-    case PType::Beacon: onBeacon(p, now); break;
+    case PType::Beacon:
+      if (checkBeaconMac(p)) onBeacon(p, now);
+      break;
     case PType::LinkAck: onLinkAck(p, now); break;
     case PType::Ack: onAck(p, now); break;
     case PType::Data: onData(p, rssi, now); break;
@@ -1129,6 +1132,45 @@ void Router::seekTick(uint64_t now) {
   }
 }
 
+// Covers the fields a forger would change; hop-by-hop header bytes do not apply
+// to a beacon, which is never forwarded.
+void Router::macBeacon(const Packet& p, size_t bodyLen, uint8_t out[kBeaconMacSize]) const {
+  std::vector<uint8_t> msg;
+  put32(msg, p.src);
+  put32(msg, p.msgId);
+  msg.push_back(static_cast<uint8_t>(p.nextHop));
+  msg.push_back(static_cast<uint8_t>(p.nextHop >> 8));
+  uint8_t pos[kPosSize];
+  packPos(p.fwdPos, pos);
+  msg.insert(msg.end(), pos, pos + kPosSize);
+  msg.insert(msg.end(), p.payload.begin(), p.payload.begin() + static_cast<std::ptrdiff_t>(bodyLen));
+  beaconMac(chanKey_.data(), msg.data(), msg.size(), out);
+}
+
+// Strips a beacon's MAC and checks it if we hold the channel key. A node with
+// another key (or none) is still a usable relay, so a bad or missing MAC only
+// costs the beacon when requireBeaconMac is set. False = drop it.
+bool Router::checkBeaconMac(Packet& p) {
+  bool required = cfg_.requireBeaconMac && haveChanKey_;
+  bool tagged = !p.payload.empty() && (p.payload[0] & kBeaconMac) &&
+                p.payload.size() >= kBeaconFixed + kBeaconMacSize;
+  if (!tagged) {
+    if (required) ++stats_.beaconMacBad;
+    return !required;
+  }
+  size_t body = p.payload.size() - kBeaconMacSize;
+  bool ok = true;
+  if (haveChanKey_) {
+    uint8_t mac[kBeaconMacSize], diff = 0;
+    macBeacon(p, body, mac);
+    for (size_t i = 0; i < sizeof mac; ++i) diff |= mac[i] ^ p.payload[body + i];
+    ok = diff == 0;
+    if (!ok) ++stats_.beaconMacBad;
+  }
+  p.payload.resize(body);
+  return ok || !required;
+}
+
 void Router::sendBeacon(uint64_t now, uint16_t to, bool seek) {
   Packet b;
   b.type = PType::Beacon;
@@ -1163,6 +1205,12 @@ void Router::sendBeacon(uint64_t now, uint16_t to, bool seek) {
     pl.insert(pl.end(), pp, pp + kPosSize);
     pl.push_back(ageEncode(static_cast<uint32_t>((now - fresh[j].second.obsMs) / 1000)));
     fresh.erase(fresh.begin() + j);
+  }
+  if (haveChanKey_) {
+    pl[0] |= kBeaconMac;
+    uint8_t mac[kBeaconMacSize];
+    macBeacon(b, pl.size(), mac);
+    pl.insert(pl.end(), mac, mac + sizeof mac);
   }
   enqueue(b, true, now);
   lastBeaconT_ = now;

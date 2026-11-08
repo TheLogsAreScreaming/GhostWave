@@ -127,7 +127,8 @@ UNICAST and add `dst_pos` en route. Everything else is authenticated end to end 
 
 ```
  0   1    beacon_flags   bit0 has_gps, bit1 stationary, bit2 mains_power, bit3 gateway,
-                         bit4 carrying_sos, bit5 seek (heard nobody: please answer, §6.2)
+                         bit4 carrying_sos, bit5 seek (heard nobody: please answer, §6.2),
+                         bit6 has_mac (body ends in a 4-byte MAC, §9.1)
  1   2    velocity       u16 LE: heading (top 7 bits, 2.8° steps) + speed (low 9 bits, 0.1 m/s);
                          measured over ≥ 20 s of position fixes, 0 = stopped or not measured
  3   1    util           channel utilization this node measures, 0..255 = 0..100 %
@@ -135,6 +136,7 @@ UNICAST and add `dst_pos` en route. Everything else is authenticated end to end 
  5   8    dtn_summary    64-bit Bloom filter over carried (src,msg_id) keys, k = 2
                          (DTN store entries and held SOS frames)
  13  11×n gossip         up to 3 entries: node ID (4) + pos (6) + age (1)
+  …  4       mac            only if has_mac (§9.1)
 ```
 
 A beacon is anycast (`next_hop = 0`), except when an SOS holder checks an offer it made (§8) or
@@ -142,7 +144,7 @@ a node asks a peer it knows only from IDENT (§6.2): then `next_hop` is that nei
 answers with its own beacon.
 
 The beacon's own position is in `fwd_pos`. Size with 3 gossip entries: 19 + 6 + 13 + 33 + 4 =
-**75 bytes**. (The simulator models 64 B; the 11 extra bytes don't change any conclusion.)
+**75 bytes**, or 79 with a MAC. (The simulator models 64 B; the 11 extra bytes don't change any conclusion.)
 
 ### 4.5 IDENT body
 
@@ -444,8 +446,13 @@ benefit**.
   `requireEncryption` drops plaintext DATA.
 - Only DATA is encrypted. ACK, LINK_ACK, BEACON and SOS keep the CRC32-C MIC. IDENT is
   signed (Ed25519) instead.
-- **Beacons:** 4-byte truncated MAC under the channel key (cheap; prevents casual spoofing,
-  not a strong guarantee).
+- **Beacons:** a node with a channel key sets `has_mac` and appends a 4-byte MAC: keyed
+  BLAKE2b, truncated, over `src`, `msg_id`, `next_hop`, `fwd_pos` and the body before the MAC.
+  It is cheap and stops casual spoofing, nothing stronger: 32 bits can be brute-forced on the
+  air given enough attempts, and a captured beacon can be replayed. Beacons still carry the
+  CRC MIC, so nodes without the key decode them normally. By default a wrong or missing MAC is
+  only counted, because a node with another channel key (or none) is still a usable relay.
+  With `requireBeaconMac` (`--require-beacon-mac`) and a channel key, such beacons are dropped.
 - **Replay:** dedup cache plus the per-source msg_id window.
 - Library: Monocypher 4.0.2 core plus its optional SHA-512/Ed25519 add-on
   (`monocypher-ed25519`), vendored and pinned in `firmware/third_party/monocypher` (hashes in
@@ -558,11 +565,12 @@ Identity mapping is explicit (the user pairs contacts). The bridge never forward
    The 10-neighbor gate is a first guess.
 5. Bridge identity model.
 6. Not yet implemented in firmware: client protocol, the
-   regulatory duty-cycle cap, the beacon MAC (§9.1), Bloom-filter use on receive for DTN
+   regulatory duty-cycle cap, Bloom-filter use on receive for DTN
    *data* (it is used for SOS), and IDENT in the Pi daemon (it still loads an X25519 secret
    and peer keys from files). Implemented since v0.1: ChaCha20-Poly1305 AEAD for DATA (DM +
    channel keys), the SOS lane (§8), IDENT (§4.5), Ed25519 → X25519 secret-key conversion and
-   velocity in beacons (sent and stored; no forwarding decision uses it yet).
+   velocity in beacons (sent and stored; no forwarding decision uses it yet) and the beacon
+   MAC (§9.1).
 7. SOS cost: in backcountry with 6 concurrent SOS events the lane spends ~3× flood3's SOS
    airtime, because every node holds and re-offers every SOS. Its reach to fixed nodes beats flood3 in the
    tail but not flood7 (§14). Worth trying: coarser (per-15-min) Bloom keys for updates,
