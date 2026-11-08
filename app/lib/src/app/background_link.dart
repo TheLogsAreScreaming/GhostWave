@@ -53,8 +53,16 @@ abstract interface class BackgroundPlatform {
   /// Whether this phone can run the service.
   bool get supported;
 
-  /// Starts the service. False if Android refused.
-  Future<bool> start(BackgroundNotice notice);
+  /// Starts the service, or re-promotes it if it is running. False if Android
+  /// refused. With [withLocation] it also asks to read the GPS in the
+  /// background; [locationGrants] reports whether that was allowed.
+  Future<bool> start(BackgroundNotice notice, {bool withLocation = false});
+
+  /// Fires each time the service enters the foreground: whether it may read the GPS.
+  Stream<bool> get locationGrants;
+
+  /// Fires when the activity is gone but the engine stays (app swiped away).
+  Stream<void> get activityGone;
 
   /// Changes the notification of the running service.
   Future<void> update(BackgroundNotice notice);
@@ -81,7 +89,13 @@ class NoBackgroundPlatform implements BackgroundPlatform {
   bool get supported => false;
 
   @override
-  Future<bool> start(BackgroundNotice notice) async => false;
+  Future<bool> start(BackgroundNotice notice, {bool withLocation = false}) async => false;
+
+  @override
+  Stream<bool> get locationGrants => const Stream<bool>.empty();
+
+  @override
+  Stream<void> get activityGone => const Stream<void>.empty();
 
   @override
   Future<void> update(BackgroundNotice notice) async {}
@@ -106,11 +120,15 @@ class AndroidBackgroundPlatform implements BackgroundPlatform {
     assert(Platform.isAndroid, 'Android only');
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'disconnectRequested') _disconnects.add(null);
+      if (call.method == 'locationGrant') _grants.add(call.arguments == true);
+      if (call.method == 'activityGone') _activityGone.add(null);
     });
   }
 
   static const _channel = MethodChannel('org.ghostwave/background_link');
   final StreamController<void> _disconnects = StreamController<void>.broadcast();
+  final StreamController<bool> _grants = StreamController<bool>.broadcast();
+  final StreamController<void> _activityGone = StreamController<void>.broadcast();
 
   static Map<String, String> _args(BackgroundNotice n) => {'title': n.title, 'text': n.text};
 
@@ -118,8 +136,14 @@ class AndroidBackgroundPlatform implements BackgroundPlatform {
   bool get supported => true;
 
   @override
-  Future<bool> start(BackgroundNotice notice) async =>
-      await _channel.invokeMethod<bool>('start', _args(notice)) ?? false;
+  Future<bool> start(BackgroundNotice notice, {bool withLocation = false}) async =>
+      await _channel.invokeMethod<bool>('start', {..._args(notice), 'location': withLocation}) ?? false;
+
+  @override
+  Stream<bool> get locationGrants => _grants.stream;
+
+  @override
+  Stream<void> get activityGone => _activityGone.stream;
 
   @override
   Future<void> update(BackgroundNotice notice) => _channel.invokeMethod<void>('update', _args(notice));
@@ -169,7 +193,8 @@ class BackgroundLinkManager {
   BackgroundLinkManager({required this.link, required this.platform, required this.alerts}) {
     _subs
       ..add(link.states.listen((_) => _apply()))
-      ..add(platform.disconnectRequests.listen((_) => link.disconnect()));
+      ..add(platform.disconnectRequests.listen((_) => link.disconnect()))
+      ..add(platform.locationGrants.listen(_setGrant));
   }
 
   /// The one link.
@@ -187,6 +212,31 @@ class BackgroundLinkManager {
   bool _foreground = true;
   bool _running = false;
   BackgroundNotice? _shown;
+  bool _locationWanted = false;
+  bool _locationRequested = false;
+  bool _locationGranted = false;
+  final StreamController<void> _grantChanges = StreamController<void>.broadcast(sync: true);
+
+  /// Whether the running service may read the GPS in the background.
+  bool get locationGranted => _locationGranted;
+
+  /// Fires when [locationGranted] changes.
+  Stream<void> get locationGrantChanges => _grantChanges.stream;
+
+  /// Asks for (or gives up) background GPS. Android only grants it while the
+  /// app is on screen, so a change made in the background waits for the return.
+  set locationWanted(bool value) {
+    if (_locationWanted == value) return;
+    _locationWanted = value;
+    _apply();
+  }
+
+  void _setGrant(bool granted) {
+    if (_locationGranted == granted) return;
+    _locationGranted = granted;
+    _apply(); // the notification says so
+    if (!_grantChanges.isClosed) _grantChanges.add(null);
+  }
 
   /// Whether this phone has the service at all.
   bool get supported => platform.supported;
@@ -212,18 +262,28 @@ class BackgroundLinkManager {
   }
 
   Future<void> _step(LinkState state) async {
-    final notice = _enabled ? backgroundNoticeFor(state) : null;
+    final base = _enabled ? backgroundNoticeFor(state) : null;
+    final notice = base == null || !_locationGranted
+        ? base
+        : BackgroundNotice(base.title, '${base.text} · sharing your location');
     if (notice == null) {
       if (!_running) return;
       _running = false;
       _shown = null;
+      _locationRequested = false;
+      _setGrant(false);
       await platform.stop();
       if (_enabled && !_foreground) await _tellUser(state);
     } else if (!_running) {
-      if (_foreground && await platform.start(notice)) {
+      if (_foreground && await platform.start(notice, withLocation: _locationWanted)) {
         _running = true;
         _shown = notice;
+        _locationRequested = _locationWanted;
       }
+    } else if (_locationRequested != _locationWanted && _foreground) {
+      _shown = notice;
+      _locationRequested = _locationWanted;
+      await platform.start(notice, withLocation: _locationWanted);
     } else if (notice != _shown) {
       _shown = notice;
       await platform.update(notice);
@@ -244,6 +304,7 @@ class BackgroundLinkManager {
     for (final s in _subs) {
       unawaited(s.cancel());
     }
+    unawaited(_grantChanges.close());
   }
 }
 

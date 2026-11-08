@@ -54,6 +54,16 @@ object GhostWaveEngine {
         channel?.invokeMethod("disconnectRequested", null)
     }
 
+    /** The UI is gone but the engine stays: the GPS plugin drops its updates with the activity. */
+    fun reportActivityGone() {
+        channel?.invokeMethod("activityGone", null)
+    }
+
+    /** Tells Dart whether the service may read the GPS in the background. */
+    fun reportLocationGrant(granted: Boolean) {
+        channel?.invokeMethod("locationGrant", granted)
+    }
+
     /** After the service stops: with no UI left, nothing needs the engine. */
     fun destroyIfIdle() {
         Handler(Looper.getMainLooper()).postDelayed({
@@ -64,7 +74,12 @@ object GhostWaveEngine {
     private fun handle(app: Context, call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "start" -> try {
-                LinkForegroundService.start(app, call.argument("title") ?: "", call.argument("text") ?: "")
+                LinkForegroundService.start(
+                    app,
+                    call.argument("title") ?: "",
+                    call.argument("text") ?: "",
+                    call.argument("location") ?: false,
+                )
                 result.success(true)
             } catch (e: IllegalStateException) {
                 // Android refuses to start a foreground service from the background.

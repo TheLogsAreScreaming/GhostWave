@@ -35,6 +35,7 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         super.onDestroy()
         GhostWaveEngine.activityAttached = false
+        if (!isChangingConfigurations && LinkForegroundService.isRunning) GhostWaveEngine.reportActivityGone()
     }
 
     // The system's document picker: no storage permission, and the user chooses the place.

@@ -25,7 +25,7 @@ any other mesh app.
 | **SOS:** hold 3 s to raise, "SOS active" with acks received, stop; incoming SOS banner on every tab with Ack | done |
 | **Status:** every `Status` field, refreshed every 10 s | done |
 | **Recent nodes:** one-tap reconnect on the Connect screen; "Connected to N1 (9d66916b)" bar above the tabs | done |
-| **Share phone location:** opt-in switch on the Me tab sends the phone's GPS to the node (`SetOwnPosition`) on 50 m of movement, at most every 30 s, only while the app is open | done |
+| **Share phone location:** opt-in switch on the Me tab sends the phone's GPS to the node (`SetOwnPosition`) on 50 m of movement, at most every 30 s, while the app is open, and optionally in the background (a second switch, off by default) | done |
 | **Notifications:** new DMs and SOS alerts while the app is in the background and still connected | done |
 | **Background connection (Android, optional):** foreground service keeps the link up with the screen off | built, not tried on a phone |
 | **PIN:** a node on a network asks for its PIN once; the app keeps it in the phone's secure storage, proves it without sending it, and encrypts the link with it | done |
@@ -188,7 +188,10 @@ happens. Not tried on a phone yet.
   or if the phone's vendor kills the app anyway, the link closes once the app is stopped. Nothing more arrives until
   it's opened again. There is no push service. The node holds DMs and SOS alerts and replays them on reconnect.
   **It hasn't been tried on a real phone.** See "Background connection checks" below.
-- **Location sharing is foreground only.** It pauses when the app goes to the background.
+- **Location sharing in the background is a separate choice.** It needs the location switch, the background connection,
+  and "Keep sharing in the background" on the Me tab, which is off by default. It uses a foreground service, so it needs
+  only the "while using the app" permission, and the notification says "sharing your location". Android only allows this
+  when it's turned on with the app open. **It hasn't been tried on a real phone.**
 - **Contacts come from the node.** A node in radio range becomes a contact on its own once your node
   hears its identity (IDENT; trust on first use, marked with a radio icon). Until then it shows under
   "Heard nearby, waiting for their key" and cannot be messaged: the client protocol carries no key

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../app/background_link.dart';
+import '../app/location_share.dart';
 import '../app/backup.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
@@ -230,6 +231,7 @@ class SettingsScreen extends ConsumerWidget {
       ..invalidate(recentNodesProvider)
       ..invalidate(unitsProvider)
       ..invalidate(backgroundEnabledProvider)
+      ..invalidate(locationShareProvider)
       ..invalidate(tileSourceProvider)
       ..invalidate(walkthroughDoneProvider);
     // back to the first screen: with no saved address, the app shows Connect

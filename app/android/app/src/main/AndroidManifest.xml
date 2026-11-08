@@ -1,7 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- TCP client link to a GhostWave node on the local network -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Opt-in "share phone location with node", foreground only -->
+    <!-- Opt-in "share phone location with node". In the background only with a
+         second opt-in, through the foreground service below (no background permission). -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <!-- Bluetooth client link. Android 12+ asks for Nearby devices only; on older
@@ -16,6 +17,7 @@
          that Android 14+ accepts for this type, so a TCP-only user needs no Bluetooth grant. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
@@ -50,7 +52,7 @@
         <service
             android:name=".LinkForegroundService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice"/>
+            android:foregroundServiceType="connectedDevice|location"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

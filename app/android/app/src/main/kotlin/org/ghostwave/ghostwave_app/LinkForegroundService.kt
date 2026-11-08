@@ -1,5 +1,6 @@
 package org.ghostwave.ghostwave_app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
@@ -8,6 +9,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -31,15 +33,37 @@ class LinkForegroundService : Service() {
         title = intent?.getStringExtra(EXTRA_TITLE) ?: title
         text = intent?.getStringExtra(EXTRA_TEXT) ?: text
         createChannel()
-        val notification = build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+        val granted = promote(build(), intent?.getBooleanExtra(EXTRA_LOCATION, false) ?: false)
         running = this
+        GhostWaveEngine.reportLocationGrant(granted)
         acquireWakeLock()
         return START_NOT_STICKY
+    }
+
+    /**
+     * Enters the foreground, with the location type if asked. That type lets the app read the
+     * GPS with only "while in use" permission, but Android refuses it unless the permission is
+     * held and the app is on screen. A refusal must not crash the link, so it falls back.
+     * Returns whether location is covered.
+     */
+    private fun promote(notification: Notification, wantLocation: Boolean): Boolean {
+        val mayLocate = wantLocation &&
+            checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification)
+            return mayLocate
+        }
+        val link = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+        if (mayLocate) {
+            try {
+                startForeground(NOTIFICATION_ID, notification, link or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+                return true
+            } catch (e: RuntimeException) {
+                // SecurityException, or ForegroundServiceStartNotAllowedException on Android 12+
+            }
+        }
+        startForeground(NOTIFICATION_ID, notification, link)
+        return false
     }
 
     override fun onDestroy() {
@@ -106,6 +130,7 @@ class LinkForegroundService : Service() {
         private const val ACTION_DISCONNECT = "org.ghostwave.action.DISCONNECT"
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_TEXT = "text"
+        private const val EXTRA_LOCATION = "location"
 
         private var running: LinkForegroundService? = null
         private var title = "GhostWave connected"
@@ -115,10 +140,11 @@ class LinkForegroundService : Service() {
         val isRunning: Boolean get() = running != null
 
         /** Starts it; Android throws if the app may not start one from the background. */
-        fun start(context: Context, title: String, text: String) {
+        fun start(context: Context, title: String, text: String, location: Boolean) {
             val intent = Intent(context, LinkForegroundService::class.java)
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_TEXT, text)
+                .putExtra(EXTRA_LOCATION, location)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
