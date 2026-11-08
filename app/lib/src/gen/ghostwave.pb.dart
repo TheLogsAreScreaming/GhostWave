@@ -38,11 +38,14 @@ class Position extends $pb.GeneratedMessage {
   factory Position.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Position()..mergeFromBuffer(data, registry);
-  factory Position.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory Position.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Position()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Position',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Position',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: Position.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'latE7', fieldType: $pb.PbFieldType.OS3)
     ..aI(2, _omitFieldNames ? '' : 'lonE7', fieldType: $pb.PbFieldType.OS3)
@@ -64,8 +67,8 @@ class Position extends $pb.GeneratedMessage {
   @$core.override
   Position createEmptyInstance() => Position._();
   @$core.pragma('dart2js:noInline')
-  static Position getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Position>(Position.$_createMessage);
+  static Position getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Position>(Position.$_createMessage);
   static Position? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -138,7 +141,8 @@ class ToRadio extends $pb.GeneratedMessage {
   factory ToRadio.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       ToRadio()..mergeFromBuffer(data, registry);
-  factory ToRadio.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory ToRadio.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       ToRadio()..mergeFromJson(json, registry);
 
   static const $core.Map<$core.int, ToRadio_Request> _ToRadio_RequestByTag = {
@@ -155,22 +159,35 @@ class ToRadio extends $pb.GeneratedMessage {
     20: ToRadio_Request.setOwnPosition,
     0: ToRadio_Request.notSet
   };
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ToRadio',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ToRadio',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: ToRadio.$_createMessage)
     ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
-    ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello', subBuilder: Hello.$_createMessage)
-    ..aOM<SendText>(11, _omitFieldNames ? '' : 'sendText', subBuilder: SendText.$_createMessage)
-    ..aOM<AddContact>(12, _omitFieldNames ? '' : 'addContact', subBuilder: AddContact.$_createMessage)
-    ..aOM<ListContacts>(13, _omitFieldNames ? '' : 'listContacts', subBuilder: ListContacts.$_createMessage)
-    ..aOM<SetKnownPosition>(14, _omitFieldNames ? '' : 'setKnownPosition', subBuilder: SetKnownPosition.$_createMessage)
-    ..aOM<SosStart>(15, _omitFieldNames ? '' : 'sosStart', subBuilder: SosStart.$_createMessage)
-    ..aOM<SosStop>(16, _omitFieldNames ? '' : 'sosStop', subBuilder: SosStop.$_createMessage)
-    ..aOM<SosAck>(17, _omitFieldNames ? '' : 'sosAck', subBuilder: SosAck.$_createMessage)
-    ..aOM<GetStatus>(18, _omitFieldNames ? '' : 'getStatus', subBuilder: GetStatus.$_createMessage)
-    ..aOM<GetPosition>(19, _omitFieldNames ? '' : 'getPosition', subBuilder: GetPosition.$_createMessage)
-    ..aOM<SetOwnPosition>(20, _omitFieldNames ? '' : 'setOwnPosition', subBuilder: SetOwnPosition.$_createMessage)
+    ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
+        subBuilder: Hello.$_createMessage)
+    ..aOM<SendText>(11, _omitFieldNames ? '' : 'sendText',
+        subBuilder: SendText.$_createMessage)
+    ..aOM<AddContact>(12, _omitFieldNames ? '' : 'addContact',
+        subBuilder: AddContact.$_createMessage)
+    ..aOM<ListContacts>(13, _omitFieldNames ? '' : 'listContacts',
+        subBuilder: ListContacts.$_createMessage)
+    ..aOM<SetKnownPosition>(14, _omitFieldNames ? '' : 'setKnownPosition',
+        subBuilder: SetKnownPosition.$_createMessage)
+    ..aOM<SosStart>(15, _omitFieldNames ? '' : 'sosStart',
+        subBuilder: SosStart.$_createMessage)
+    ..aOM<SosStop>(16, _omitFieldNames ? '' : 'sosStop',
+        subBuilder: SosStop.$_createMessage)
+    ..aOM<SosAck>(17, _omitFieldNames ? '' : 'sosAck',
+        subBuilder: SosAck.$_createMessage)
+    ..aOM<GetStatus>(18, _omitFieldNames ? '' : 'getStatus',
+        subBuilder: GetStatus.$_createMessage)
+    ..aOM<GetPosition>(19, _omitFieldNames ? '' : 'getPosition',
+        subBuilder: GetPosition.$_createMessage)
+    ..aOM<SetOwnPosition>(20, _omitFieldNames ? '' : 'setOwnPosition',
+        subBuilder: SetOwnPosition.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -189,8 +206,8 @@ class ToRadio extends $pb.GeneratedMessage {
   @$core.override
   ToRadio createEmptyInstance() => ToRadio._();
   @$core.pragma('dart2js:noInline')
-  static ToRadio getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ToRadio>(ToRadio.$_createMessage);
+  static ToRadio getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ToRadio>(ToRadio.$_createMessage);
   static ToRadio? _defaultInstance;
 
   @$pb.TagNumber(10)
@@ -367,20 +384,25 @@ class Hello extends $pb.GeneratedMessage {
   factory Hello.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Hello()..mergeFromBuffer(data, registry);
-  factory Hello.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory Hello.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Hello()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Hello',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Hello',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: Hello.$_createMessage)
-    ..aI(1, _omitFieldNames ? '' : 'protocolVersion', fieldType: $pb.PbFieldType.OU3)
+    ..aI(1, _omitFieldNames ? '' : 'protocolVersion',
+        fieldType: $pb.PbFieldType.OU3)
     ..aOS(2, _omitFieldNames ? '' : 'clientName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   Hello clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Hello copyWith(void Function(Hello) updates) => super.copyWith((message) => updates(message as Hello)) as Hello;
+  Hello copyWith(void Function(Hello) updates) =>
+      super.copyWith((message) => updates(message as Hello)) as Hello;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -392,7 +414,8 @@ class Hello extends $pb.GeneratedMessage {
   @$core.override
   Hello createEmptyInstance() => Hello._();
   @$core.pragma('dart2js:noInline')
-  static Hello getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Hello>(Hello.$_createMessage);
+  static Hello getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Hello>(Hello.$_createMessage);
   static Hello? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -434,15 +457,20 @@ class SendText extends $pb.GeneratedMessage {
   factory SendText.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SendText()..mergeFromBuffer(data, registry);
-  factory SendText.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory SendText.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SendText()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SendText',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SendText',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: SendText.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'dest', fieldType: $pb.PbFieldType.OF3)
-    ..a<$core.List<$core.int>>(2, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
-    ..aI(3, _omitFieldNames ? '' : 'clientMsgId', fieldType: $pb.PbFieldType.OU3)
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
+    ..aI(3, _omitFieldNames ? '' : 'clientMsgId',
+        fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -461,8 +489,8 @@ class SendText extends $pb.GeneratedMessage {
   @$core.override
   SendText createEmptyInstance() => SendText._();
   @$core.pragma('dart2js:noInline')
-  static SendText getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SendText>(SendText.$_createMessage);
+  static SendText getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SendText>(SendText.$_createMessage);
   static SendText? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -514,15 +542,20 @@ class AddContact extends $pb.GeneratedMessage {
   factory AddContact.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       AddContact()..mergeFromBuffer(data, registry);
-  factory AddContact.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory AddContact.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       AddContact()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'AddContact',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AddContact',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: AddContact.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
-    ..a<$core.List<$core.int>>(2, _omitFieldNames ? '' : 'ed25519Pub', $pb.PbFieldType.OY)
-    ..a<$core.List<$core.int>>(3, _omitFieldNames ? '' : 'x25519Pub', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'ed25519Pub', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        3, _omitFieldNames ? '' : 'x25519Pub', $pb.PbFieldType.OY)
     ..aOS(4, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -542,8 +575,8 @@ class AddContact extends $pb.GeneratedMessage {
   @$core.override
   AddContact createEmptyInstance() => AddContact._();
   @$core.pragma('dart2js:noInline')
-  static AddContact getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AddContact>(AddContact.$_createMessage);
+  static AddContact getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AddContact>(AddContact.$_createMessage);
   static AddContact? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -592,11 +625,14 @@ class ListContacts extends $pb.GeneratedMessage {
   factory ListContacts.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       ListContacts()..mergeFromBuffer(data, registry);
-  factory ListContacts.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory ListContacts.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       ListContacts()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ListContacts',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListContacts',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: ListContacts.$_createMessage)
     ..hasRequiredFields = false;
 
@@ -604,7 +640,8 @@ class ListContacts extends $pb.GeneratedMessage {
   ListContacts clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   ListContacts copyWith(void Function(ListContacts) updates) =>
-      super.copyWith((message) => updates(message as ListContacts)) as ListContacts;
+      super.copyWith((message) => updates(message as ListContacts))
+          as ListContacts;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -617,7 +654,8 @@ class ListContacts extends $pb.GeneratedMessage {
   ListContacts createEmptyInstance() => ListContacts._();
   @$core.pragma('dart2js:noInline')
   static ListContacts getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListContacts>(ListContacts.$_createMessage);
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListContacts>(
+          ListContacts.$_createMessage);
   static ListContacts? _defaultInstance;
 }
 
@@ -642,18 +680,22 @@ class SetKnownPosition extends $pb.GeneratedMessage {
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SetKnownPosition()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SetKnownPosition',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetKnownPosition',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: SetKnownPosition.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
-    ..aOM<Position>(2, _omitFieldNames ? '' : 'pos', subBuilder: Position.$_createMessage)
+    ..aOM<Position>(2, _omitFieldNames ? '' : 'pos',
+        subBuilder: Position.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   SetKnownPosition clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   SetKnownPosition copyWith(void Function(SetKnownPosition) updates) =>
-      super.copyWith((message) => updates(message as SetKnownPosition)) as SetKnownPosition;
+      super.copyWith((message) => updates(message as SetKnownPosition))
+          as SetKnownPosition;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -666,7 +708,8 @@ class SetKnownPosition extends $pb.GeneratedMessage {
   SetKnownPosition createEmptyInstance() => SetKnownPosition._();
   @$core.pragma('dart2js:noInline')
   static SetKnownPosition getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetKnownPosition>(SetKnownPosition.$_createMessage);
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetKnownPosition>(
+          SetKnownPosition.$_createMessage);
   static SetKnownPosition? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -709,13 +752,17 @@ class SosStart extends $pb.GeneratedMessage {
   factory SosStart.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosStart()..mergeFromBuffer(data, registry);
-  factory SosStart.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory SosStart.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosStart()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SosStart',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SosStart',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: SosStart.$_createMessage)
-    ..a<$core.List<$core.int>>(1, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        1, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
     ..aI(2, _omitFieldNames ? '' : 'batteryPct', fieldType: $pb.PbFieldType.OU3)
     ..aI(3, _omitFieldNames ? '' : 'accuracyM', fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
@@ -736,8 +783,8 @@ class SosStart extends $pb.GeneratedMessage {
   @$core.override
   SosStart createEmptyInstance() => SosStart._();
   @$core.pragma('dart2js:noInline')
-  static SosStart getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SosStart>(SosStart.$_createMessage);
+  static SosStart getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SosStart>(SosStart.$_createMessage);
   static SosStart? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -776,11 +823,14 @@ class SosStop extends $pb.GeneratedMessage {
   factory SosStop.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosStop()..mergeFromBuffer(data, registry);
-  factory SosStop.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory SosStop.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosStop()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SosStop',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SosStop',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: SosStop.$_createMessage)
     ..hasRequiredFields = false;
 
@@ -800,8 +850,8 @@ class SosStop extends $pb.GeneratedMessage {
   @$core.override
   SosStop createEmptyInstance() => SosStop._();
   @$core.pragma('dart2js:noInline')
-  static SosStop getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SosStop>(SosStop.$_createMessage);
+  static SosStop getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SosStop>(SosStop.$_createMessage);
   static SosStop? _defaultInstance;
 }
 
@@ -820,11 +870,14 @@ class SosAck extends $pb.GeneratedMessage {
   factory SosAck.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosAck()..mergeFromBuffer(data, registry);
-  factory SosAck.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory SosAck.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosAck()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SosAck',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SosAck',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: SosAck.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
     ..hasRequiredFields = false;
@@ -832,7 +885,8 @@ class SosAck extends $pb.GeneratedMessage {
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   SosAck clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SosAck copyWith(void Function(SosAck) updates) => super.copyWith((message) => updates(message as SosAck)) as SosAck;
+  SosAck copyWith(void Function(SosAck) updates) =>
+      super.copyWith((message) => updates(message as SosAck)) as SosAck;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -844,7 +898,8 @@ class SosAck extends $pb.GeneratedMessage {
   @$core.override
   SosAck createEmptyInstance() => SosAck._();
   @$core.pragma('dart2js:noInline')
-  static SosAck getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SosAck>(SosAck.$_createMessage);
+  static SosAck getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SosAck>(SosAck.$_createMessage);
   static SosAck? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -865,11 +920,14 @@ class GetStatus extends $pb.GeneratedMessage {
   factory GetStatus.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       GetStatus()..mergeFromBuffer(data, registry);
-  factory GetStatus.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory GetStatus.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       GetStatus()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetStatus',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetStatus',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: GetStatus.$_createMessage)
     ..hasRequiredFields = false;
 
@@ -889,8 +947,8 @@ class GetStatus extends $pb.GeneratedMessage {
   @$core.override
   GetStatus createEmptyInstance() => GetStatus._();
   @$core.pragma('dart2js:noInline')
-  static GetStatus getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetStatus>(GetStatus.$_createMessage);
+  static GetStatus getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetStatus>(GetStatus.$_createMessage);
   static GetStatus? _defaultInstance;
 }
 
@@ -902,11 +960,14 @@ class GetPosition extends $pb.GeneratedMessage {
   factory GetPosition.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       GetPosition()..mergeFromBuffer(data, registry);
-  factory GetPosition.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory GetPosition.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       GetPosition()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetPosition',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetPosition',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: GetPosition.$_createMessage)
     ..hasRequiredFields = false;
 
@@ -914,7 +975,8 @@ class GetPosition extends $pb.GeneratedMessage {
   GetPosition clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   GetPosition copyWith(void Function(GetPosition) updates) =>
-      super.copyWith((message) => updates(message as GetPosition)) as GetPosition;
+      super.copyWith((message) => updates(message as GetPosition))
+          as GetPosition;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -927,7 +989,8 @@ class GetPosition extends $pb.GeneratedMessage {
   GetPosition createEmptyInstance() => GetPosition._();
   @$core.pragma('dart2js:noInline')
   static GetPosition getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetPosition>(GetPosition.$_createMessage);
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetPosition>(
+          GetPosition.$_createMessage);
   static GetPosition? _defaultInstance;
 }
 
@@ -947,20 +1010,25 @@ class SetOwnPosition extends $pb.GeneratedMessage {
   factory SetOwnPosition.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SetOwnPosition()..mergeFromBuffer(data, registry);
-  factory SetOwnPosition.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory SetOwnPosition.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SetOwnPosition()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SetOwnPosition',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetOwnPosition',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: SetOwnPosition.$_createMessage)
-    ..aOM<Position>(1, _omitFieldNames ? '' : 'pos', subBuilder: Position.$_createMessage)
+    ..aOM<Position>(1, _omitFieldNames ? '' : 'pos',
+        subBuilder: Position.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   SetOwnPosition clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   SetOwnPosition copyWith(void Function(SetOwnPosition) updates) =>
-      super.copyWith((message) => updates(message as SetOwnPosition)) as SetOwnPosition;
+      super.copyWith((message) => updates(message as SetOwnPosition))
+          as SetOwnPosition;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -973,7 +1041,8 @@ class SetOwnPosition extends $pb.GeneratedMessage {
   SetOwnPosition createEmptyInstance() => SetOwnPosition._();
   @$core.pragma('dart2js:noInline')
   static SetOwnPosition getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetOwnPosition>(SetOwnPosition.$_createMessage);
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetOwnPosition>(
+          SetOwnPosition.$_createMessage);
   static SetOwnPosition? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1053,7 +1122,8 @@ class FromRadio extends $pb.GeneratedMessage {
   factory FromRadio.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       FromRadio()..mergeFromBuffer(data, registry);
-  factory FromRadio.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory FromRadio.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       FromRadio()..mergeFromJson(json, registry);
 
   static const $core.Map<$core.int, FromRadio_Event> _FromRadio_EventByTag = {
@@ -1074,27 +1144,43 @@ class FromRadio extends $pb.GeneratedMessage {
     24: FromRadio_Event.keyChange,
     0: FromRadio_Event.notSet
   };
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'FromRadio',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FromRadio',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: FromRadio.$_createMessage)
     ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'replayed')
-    ..aOM<NodeInfo>(10, _omitFieldNames ? '' : 'nodeInfo', subBuilder: NodeInfo.$_createMessage)
-    ..aOM<TextMessage>(11, _omitFieldNames ? '' : 'text', subBuilder: TextMessage.$_createMessage)
-    ..aOM<Delivered>(12, _omitFieldNames ? '' : 'delivered', subBuilder: Delivered.$_createMessage)
-    ..aOM<SosAlert>(13, _omitFieldNames ? '' : 'sos', subBuilder: SosAlert.$_createMessage)
-    ..aOM<SosAckReceived>(14, _omitFieldNames ? '' : 'sosAck', subBuilder: SosAckReceived.$_createMessage)
-    ..aOM<Neighbor>(15, _omitFieldNames ? '' : 'neighbor', subBuilder: Neighbor.$_createMessage)
-    ..aOM<Status>(16, _omitFieldNames ? '' : 'status', subBuilder: Status.$_createMessage)
-    ..aOM<OwnPosition>(17, _omitFieldNames ? '' : 'position', subBuilder: OwnPosition.$_createMessage)
-    ..aOM<Error>(18, _omitFieldNames ? '' : 'error', subBuilder: Error.$_createMessage)
-    ..aOM<Contact>(19, _omitFieldNames ? '' : 'contact', subBuilder: Contact.$_createMessage)
-    ..aOM<ContactsEnd>(20, _omitFieldNames ? '' : 'contactsEnd', subBuilder: ContactsEnd.$_createMessage)
-    ..aOM<SendQueued>(21, _omitFieldNames ? '' : 'sendQueued', subBuilder: SendQueued.$_createMessage)
+    ..aOM<NodeInfo>(10, _omitFieldNames ? '' : 'nodeInfo',
+        subBuilder: NodeInfo.$_createMessage)
+    ..aOM<TextMessage>(11, _omitFieldNames ? '' : 'text',
+        subBuilder: TextMessage.$_createMessage)
+    ..aOM<Delivered>(12, _omitFieldNames ? '' : 'delivered',
+        subBuilder: Delivered.$_createMessage)
+    ..aOM<SosAlert>(13, _omitFieldNames ? '' : 'sos',
+        subBuilder: SosAlert.$_createMessage)
+    ..aOM<SosAckReceived>(14, _omitFieldNames ? '' : 'sosAck',
+        subBuilder: SosAckReceived.$_createMessage)
+    ..aOM<Neighbor>(15, _omitFieldNames ? '' : 'neighbor',
+        subBuilder: Neighbor.$_createMessage)
+    ..aOM<Status>(16, _omitFieldNames ? '' : 'status',
+        subBuilder: Status.$_createMessage)
+    ..aOM<OwnPosition>(17, _omitFieldNames ? '' : 'position',
+        subBuilder: OwnPosition.$_createMessage)
+    ..aOM<Error>(18, _omitFieldNames ? '' : 'error',
+        subBuilder: Error.$_createMessage)
+    ..aOM<Contact>(19, _omitFieldNames ? '' : 'contact',
+        subBuilder: Contact.$_createMessage)
+    ..aOM<ContactsEnd>(20, _omitFieldNames ? '' : 'contactsEnd',
+        subBuilder: ContactsEnd.$_createMessage)
+    ..aOM<SendQueued>(21, _omitFieldNames ? '' : 'sendQueued',
+        subBuilder: SendQueued.$_createMessage)
     ..aOM<Ok>(22, _omitFieldNames ? '' : 'ok', subBuilder: Ok.$_createMessage)
-    ..aOM<PeerIdent>(23, _omitFieldNames ? '' : 'peerIdent', subBuilder: PeerIdent.$_createMessage)
-    ..aOM<KeyChange>(24, _omitFieldNames ? '' : 'keyChange', subBuilder: KeyChange.$_createMessage)
+    ..aOM<PeerIdent>(23, _omitFieldNames ? '' : 'peerIdent',
+        subBuilder: PeerIdent.$_createMessage)
+    ..aOM<KeyChange>(24, _omitFieldNames ? '' : 'keyChange',
+        subBuilder: KeyChange.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1113,8 +1199,8 @@ class FromRadio extends $pb.GeneratedMessage {
   @$core.override
   FromRadio createEmptyInstance() => FromRadio._();
   @$core.pragma('dart2js:noInline')
-  static FromRadio getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<FromRadio>(FromRadio.$_createMessage);
+  static FromRadio getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FromRadio>(FromRadio.$_createMessage);
   static FromRadio? _defaultInstance;
 
   @$pb.TagNumber(10)
@@ -1362,20 +1448,28 @@ class NodeInfo extends $pb.GeneratedMessage {
   factory NodeInfo.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       NodeInfo()..mergeFromBuffer(data, registry);
-  factory NodeInfo.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory NodeInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       NodeInfo()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'NodeInfo',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeInfo',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: NodeInfo.$_createMessage)
-    ..aI(1, _omitFieldNames ? '' : 'protocolVersion', fieldType: $pb.PbFieldType.OU3)
+    ..aI(1, _omitFieldNames ? '' : 'protocolVersion',
+        fieldType: $pb.PbFieldType.OU3)
     ..aI(2, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
-    ..a<$core.List<$core.int>>(3, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
-    ..a<$core.List<$core.int>>(4, _omitFieldNames ? '' : 'ed25519Pub', $pb.PbFieldType.OY)
-    ..a<$core.List<$core.int>>(5, _omitFieldNames ? '' : 'x25519Pub', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        3, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        4, _omitFieldNames ? '' : 'ed25519Pub', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        5, _omitFieldNames ? '' : 'x25519Pub', $pb.PbFieldType.OY)
     ..aOB(6, _omitFieldNames ? '' : 'legacy')
     ..aOS(7, _omitFieldNames ? '' : 'firmware')
-    ..aI(8, _omitFieldNames ? '' : 'maxTextBytes', fieldType: $pb.PbFieldType.OU3)
+    ..aI(8, _omitFieldNames ? '' : 'maxTextBytes',
+        fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1394,8 +1488,8 @@ class NodeInfo extends $pb.GeneratedMessage {
   @$core.override
   NodeInfo createEmptyInstance() => NodeInfo._();
   @$core.pragma('dart2js:noInline')
-  static NodeInfo getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<NodeInfo>(NodeInfo.$_createMessage);
+  static NodeInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeInfo>(NodeInfo.$_createMessage);
   static NodeInfo? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1491,23 +1585,29 @@ class TextMessage extends $pb.GeneratedMessage {
   factory TextMessage.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       TextMessage()..mergeFromBuffer(data, registry);
-  factory TextMessage.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory TextMessage.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       TextMessage()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TextMessage',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TextMessage',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: TextMessage.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'src', fieldType: $pb.PbFieldType.OF3)
     ..aI(2, _omitFieldNames ? '' : 'msgId', fieldType: $pb.PbFieldType.OF3)
-    ..a<$core.List<$core.int>>(3, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
-    ..aOM<Position>(4, _omitFieldNames ? '' : 'srcPos', subBuilder: Position.$_createMessage)
+    ..a<$core.List<$core.int>>(
+        3, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
+    ..aOM<Position>(4, _omitFieldNames ? '' : 'srcPos',
+        subBuilder: Position.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   TextMessage clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   TextMessage copyWith(void Function(TextMessage) updates) =>
-      super.copyWith((message) => updates(message as TextMessage)) as TextMessage;
+      super.copyWith((message) => updates(message as TextMessage))
+          as TextMessage;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -1520,7 +1620,8 @@ class TextMessage extends $pb.GeneratedMessage {
   TextMessage createEmptyInstance() => TextMessage._();
   @$core.pragma('dart2js:noInline')
   static TextMessage getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TextMessage>(TextMessage.$_createMessage);
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TextMessage>(
+          TextMessage.$_createMessage);
   static TextMessage? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1580,15 +1681,19 @@ class Delivered extends $pb.GeneratedMessage {
   factory Delivered.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Delivered()..mergeFromBuffer(data, registry);
-  factory Delivered.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory Delivered.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Delivered()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Delivered',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Delivered',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: Delivered.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'dest', fieldType: $pb.PbFieldType.OF3)
     ..aI(2, _omitFieldNames ? '' : 'msgId', fieldType: $pb.PbFieldType.OF3)
-    ..aI(3, _omitFieldNames ? '' : 'clientMsgId', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'clientMsgId',
+        fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1607,8 +1712,8 @@ class Delivered extends $pb.GeneratedMessage {
   @$core.override
   Delivered createEmptyInstance() => Delivered._();
   @$core.pragma('dart2js:noInline')
-  static Delivered getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Delivered>(Delivered.$_createMessage);
+  static Delivered getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Delivered>(Delivered.$_createMessage);
   static Delivered? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1657,15 +1762,19 @@ class SendQueued extends $pb.GeneratedMessage {
   factory SendQueued.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SendQueued()..mergeFromBuffer(data, registry);
-  factory SendQueued.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory SendQueued.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SendQueued()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SendQueued',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SendQueued',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: SendQueued.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'dest', fieldType: $pb.PbFieldType.OF3)
     ..aI(2, _omitFieldNames ? '' : 'msgId', fieldType: $pb.PbFieldType.OF3)
-    ..aI(3, _omitFieldNames ? '' : 'clientMsgId', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'clientMsgId',
+        fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1684,8 +1793,8 @@ class SendQueued extends $pb.GeneratedMessage {
   @$core.override
   SendQueued createEmptyInstance() => SendQueued._();
   @$core.pragma('dart2js:noInline')
-  static SendQueued getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SendQueued>(SendQueued.$_createMessage);
+  static SendQueued getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SendQueued>(SendQueued.$_createMessage);
   static SendQueued? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1740,18 +1849,23 @@ class SosAlert extends $pb.GeneratedMessage {
   factory SosAlert.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosAlert()..mergeFromBuffer(data, registry);
-  factory SosAlert.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory SosAlert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosAlert()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SosAlert',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SosAlert',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: SosAlert.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'src', fieldType: $pb.PbFieldType.OF3)
     ..aI(2, _omitFieldNames ? '' : 'seq', fieldType: $pb.PbFieldType.OU3)
-    ..aOM<Position>(3, _omitFieldNames ? '' : 'pos', subBuilder: Position.$_createMessage)
+    ..aOM<Position>(3, _omitFieldNames ? '' : 'pos',
+        subBuilder: Position.$_createMessage)
     ..aI(4, _omitFieldNames ? '' : 'accuracyM', fieldType: $pb.PbFieldType.OU3)
     ..aI(5, _omitFieldNames ? '' : 'batteryPct', fieldType: $pb.PbFieldType.OU3)
-    ..a<$core.List<$core.int>>(6, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        6, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1770,8 +1884,8 @@ class SosAlert extends $pb.GeneratedMessage {
   @$core.override
   SosAlert createEmptyInstance() => SosAlert._();
   @$core.pragma('dart2js:noInline')
-  static SosAlert getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SosAlert>(SosAlert.$_createMessage);
+  static SosAlert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SosAlert>(SosAlert.$_createMessage);
   static SosAlert? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1847,11 +1961,14 @@ class SosAckReceived extends $pb.GeneratedMessage {
   factory SosAckReceived.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosAckReceived()..mergeFromBuffer(data, registry);
-  factory SosAckReceived.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory SosAckReceived.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       SosAckReceived()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SosAckReceived',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SosAckReceived',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: SosAckReceived.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'responder', fieldType: $pb.PbFieldType.OF3)
     ..aI(2, _omitFieldNames ? '' : 'seq', fieldType: $pb.PbFieldType.OU3)
@@ -1861,7 +1978,8 @@ class SosAckReceived extends $pb.GeneratedMessage {
   SosAckReceived clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   SosAckReceived copyWith(void Function(SosAckReceived) updates) =>
-      super.copyWith((message) => updates(message as SosAckReceived)) as SosAckReceived;
+      super.copyWith((message) => updates(message as SosAckReceived))
+          as SosAckReceived;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -1874,7 +1992,8 @@ class SosAckReceived extends $pb.GeneratedMessage {
   SosAckReceived createEmptyInstance() => SosAckReceived._();
   @$core.pragma('dart2js:noInline')
   static SosAckReceived getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SosAckReceived>(SosAckReceived.$_createMessage);
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SosAckReceived>(
+          SosAckReceived.$_createMessage);
   static SosAckReceived? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1915,14 +2034,18 @@ class Neighbor extends $pb.GeneratedMessage {
   factory Neighbor.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Neighbor()..mergeFromBuffer(data, registry);
-  factory Neighbor.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory Neighbor.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Neighbor()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Neighbor',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Neighbor',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: Neighbor.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
-    ..aOM<Position>(2, _omitFieldNames ? '' : 'pos', subBuilder: Position.$_createMessage)
+    ..aOM<Position>(2, _omitFieldNames ? '' : 'pos',
+        subBuilder: Position.$_createMessage)
     ..aOB(3, _omitFieldNames ? '' : 'isNew')
     ..hasRequiredFields = false;
 
@@ -1942,8 +2065,8 @@ class Neighbor extends $pb.GeneratedMessage {
   @$core.override
   Neighbor createEmptyInstance() => Neighbor._();
   @$core.pragma('dart2js:noInline')
-  static Neighbor getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Neighbor>(Neighbor.$_createMessage);
+  static Neighbor getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Neighbor>(Neighbor.$_createMessage);
   static Neighbor? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2018,11 +2141,14 @@ class Status extends $pb.GeneratedMessage {
   factory Status.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Status()..mergeFromBuffer(data, registry);
-  factory Status.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory Status.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Status()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Status',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Status',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: Status.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'tx', fieldType: $pb.PbFieldType.OU3)
     ..aI(2, _omitFieldNames ? '' : 'rx', fieldType: $pb.PbFieldType.OU3)
@@ -2031,7 +2157,8 @@ class Status extends $pb.GeneratedMessage {
     ..aI(5, _omitFieldNames ? '' : 'delivered', fieldType: $pb.PbFieldType.OU3)
     ..aI(6, _omitFieldNames ? '' : 'forwarded', fieldType: $pb.PbFieldType.OU3)
     ..aI(7, _omitFieldNames ? '' : 'stored', fieldType: $pb.PbFieldType.OU3)
-    ..a<$fixnum.Int64>(8, _omitFieldNames ? '' : 'airMs', $pb.PbFieldType.OU6, defaultOrMaker: $fixnum.Int64.ZERO)
+    ..a<$fixnum.Int64>(8, _omitFieldNames ? '' : 'airMs', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
     ..aI(9, _omitFieldNames ? '' : 'storeSize', fieldType: $pb.PbFieldType.OU3)
     ..aI(10, _omitFieldNames ? '' : 'neighbors', fieldType: $pb.PbFieldType.OU3)
     ..aI(11, _omitFieldNames ? '' : 'sosHeld', fieldType: $pb.PbFieldType.OU3)
@@ -2044,7 +2171,8 @@ class Status extends $pb.GeneratedMessage {
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   Status clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Status copyWith(void Function(Status) updates) => super.copyWith((message) => updates(message as Status)) as Status;
+  Status copyWith(void Function(Status) updates) =>
+      super.copyWith((message) => updates(message as Status)) as Status;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -2056,7 +2184,8 @@ class Status extends $pb.GeneratedMessage {
   @$core.override
   Status createEmptyInstance() => Status._();
   @$core.pragma('dart2js:noInline')
-  static Status getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Status>(Status.$_createMessage);
+  static Status getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Status>(Status.$_createMessage);
   static Status? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2209,20 +2338,25 @@ class OwnPosition extends $pb.GeneratedMessage {
   factory OwnPosition.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       OwnPosition()..mergeFromBuffer(data, registry);
-  factory OwnPosition.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory OwnPosition.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       OwnPosition()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'OwnPosition',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'OwnPosition',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: OwnPosition.$_createMessage)
-    ..aOM<Position>(1, _omitFieldNames ? '' : 'pos', subBuilder: Position.$_createMessage)
+    ..aOM<Position>(1, _omitFieldNames ? '' : 'pos',
+        subBuilder: Position.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   OwnPosition clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   OwnPosition copyWith(void Function(OwnPosition) updates) =>
-      super.copyWith((message) => updates(message as OwnPosition)) as OwnPosition;
+      super.copyWith((message) => updates(message as OwnPosition))
+          as OwnPosition;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -2235,7 +2369,8 @@ class OwnPosition extends $pb.GeneratedMessage {
   OwnPosition createEmptyInstance() => OwnPosition._();
   @$core.pragma('dart2js:noInline')
   static OwnPosition getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<OwnPosition>(OwnPosition.$_createMessage);
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<OwnPosition>(
+          OwnPosition.$_createMessage);
   static OwnPosition? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2266,20 +2401,25 @@ class Error extends $pb.GeneratedMessage {
   factory Error.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Error()..mergeFromBuffer(data, registry);
-  factory Error.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory Error.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Error()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Error',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Error',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: Error.$_createMessage)
-    ..aE<Error_Code>(1, _omitFieldNames ? '' : 'code', enumValues: Error_Code.values)
+    ..aE<Error_Code>(1, _omitFieldNames ? '' : 'code',
+        enumValues: Error_Code.values)
     ..aOS(2, _omitFieldNames ? '' : 'detail')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   Error clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Error copyWith(void Function(Error) updates) => super.copyWith((message) => updates(message as Error)) as Error;
+  Error copyWith(void Function(Error) updates) =>
+      super.copyWith((message) => updates(message as Error)) as Error;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -2291,7 +2431,8 @@ class Error extends $pb.GeneratedMessage {
   @$core.override
   Error createEmptyInstance() => Error._();
   @$core.pragma('dart2js:noInline')
-  static Error getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Error>(Error.$_createMessage);
+  static Error getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Error>(Error.$_createMessage);
   static Error? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2335,16 +2476,22 @@ class Contact extends $pb.GeneratedMessage {
   factory Contact.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Contact()..mergeFromBuffer(data, registry);
-  factory Contact.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory Contact.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Contact()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Contact',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Contact',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: Contact.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
-    ..a<$core.List<$core.int>>(2, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
-    ..a<$core.List<$core.int>>(3, _omitFieldNames ? '' : 'x25519Pub', $pb.PbFieldType.OY)
-    ..a<$core.List<$core.int>>(4, _omitFieldNames ? '' : 'ed25519Pub', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        3, _omitFieldNames ? '' : 'x25519Pub', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        4, _omitFieldNames ? '' : 'ed25519Pub', $pb.PbFieldType.OY)
     ..aOB(5, _omitFieldNames ? '' : 'pinned')
     ..hasRequiredFields = false;
 
@@ -2364,8 +2511,8 @@ class Contact extends $pb.GeneratedMessage {
   @$core.override
   Contact createEmptyInstance() => Contact._();
   @$core.pragma('dart2js:noInline')
-  static Contact getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Contact>(Contact.$_createMessage);
+  static Contact getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Contact>(Contact.$_createMessage);
   static Contact? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2428,11 +2575,14 @@ class ContactsEnd extends $pb.GeneratedMessage {
   factory ContactsEnd.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       ContactsEnd()..mergeFromBuffer(data, registry);
-  factory ContactsEnd.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory ContactsEnd.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       ContactsEnd()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ContactsEnd',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ContactsEnd',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: ContactsEnd.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'count', fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
@@ -2441,7 +2591,8 @@ class ContactsEnd extends $pb.GeneratedMessage {
   ContactsEnd clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   ContactsEnd copyWith(void Function(ContactsEnd) updates) =>
-      super.copyWith((message) => updates(message as ContactsEnd)) as ContactsEnd;
+      super.copyWith((message) => updates(message as ContactsEnd))
+          as ContactsEnd;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -2454,7 +2605,8 @@ class ContactsEnd extends $pb.GeneratedMessage {
   ContactsEnd createEmptyInstance() => ContactsEnd._();
   @$core.pragma('dart2js:noInline')
   static ContactsEnd getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ContactsEnd>(ContactsEnd.$_createMessage);
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ContactsEnd>(
+          ContactsEnd.$_createMessage);
   static ContactsEnd? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2472,20 +2624,25 @@ class Ok extends $pb.GeneratedMessage {
 
   Ok._();
 
-  factory Ok.fromBuffer($core.List<$core.int> data, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory Ok.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Ok()..mergeFromBuffer(data, registry);
-  factory Ok.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory Ok.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       Ok()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Ok',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Ok',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: Ok.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   Ok clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Ok copyWith(void Function(Ok) updates) => super.copyWith((message) => updates(message as Ok)) as Ok;
+  Ok copyWith(void Function(Ok) updates) =>
+      super.copyWith((message) => updates(message as Ok)) as Ok;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
@@ -2497,7 +2654,8 @@ class Ok extends $pb.GeneratedMessage {
   @$core.override
   Ok createEmptyInstance() => Ok._();
   @$core.pragma('dart2js:noInline')
-  static Ok getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Ok>(Ok.$_createMessage);
+  static Ok getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Ok>(Ok.$_createMessage);
   static Ok? _defaultInstance;
 }
 
@@ -2520,14 +2678,18 @@ class PeerIdent extends $pb.GeneratedMessage {
   factory PeerIdent.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       PeerIdent()..mergeFromBuffer(data, registry);
-  factory PeerIdent.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory PeerIdent.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       PeerIdent()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'PeerIdent',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PeerIdent',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: PeerIdent.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
-    ..a<$core.List<$core.int>>(2, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
     ..aOB(3, _omitFieldNames ? '' : 'isNew')
     ..hasRequiredFields = false;
 
@@ -2547,8 +2709,8 @@ class PeerIdent extends $pb.GeneratedMessage {
   @$core.override
   PeerIdent createEmptyInstance() => PeerIdent._();
   @$core.pragma('dart2js:noInline')
-  static PeerIdent getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PeerIdent>(PeerIdent.$_createMessage);
+  static PeerIdent getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PeerIdent>(PeerIdent.$_createMessage);
   static PeerIdent? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2599,15 +2761,20 @@ class KeyChange extends $pb.GeneratedMessage {
   factory KeyChange.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       KeyChange()..mergeFromBuffer(data, registry);
-  factory KeyChange.fromJson($core.String json, [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+  factory KeyChange.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       KeyChange()..mergeFromJson(json, registry);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'KeyChange',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'KeyChange',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: KeyChange.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
-    ..a<$core.List<$core.int>>(2, _omitFieldNames ? '' : 'ed25519Pub', $pb.PbFieldType.OY)
-    ..a<$core.List<$core.int>>(3, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'ed25519Pub', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        3, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2626,8 +2793,8 @@ class KeyChange extends $pb.GeneratedMessage {
   @$core.override
   KeyChange createEmptyInstance() => KeyChange._();
   @$core.pragma('dart2js:noInline')
-  static KeyChange getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<KeyChange>(KeyChange.$_createMessage);
+  static KeyChange getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<KeyChange>(KeyChange.$_createMessage);
   static KeyChange? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2658,5 +2825,7 @@ class KeyChange extends $pb.GeneratedMessage {
   void clearName() => $_clearField(3);
 }
 
-const $core.bool _omitFieldNames = $core.bool.fromEnvironment('protobuf.omit_field_names');
-const $core.bool _omitMessageNames = $core.bool.fromEnvironment('protobuf.omit_message_names');
+const $core.bool _omitFieldNames =
+    $core.bool.fromEnvironment('protobuf.omit_field_names');
+const $core.bool _omitMessageNames =
+    $core.bool.fromEnvironment('protobuf.omit_message_names');
