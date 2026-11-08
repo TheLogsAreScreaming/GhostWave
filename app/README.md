@@ -13,12 +13,19 @@ any other mesh app.
 
 | Feature | State |
 |---|---|
-| Connect: host:port, remembered, Hello handshake, auto-reconnect with backoff | done |
-| Me: node ID, name, keys, contact-card QR code | done |
-| Status: every `Status` field, refreshed every 10 s | done |
-| Contacts (QR scan / paste), Chat with queued → sent → delivered, Map, SOS | next PR |
+| **Connect:** host:port, remembered, Hello handshake, auto-reconnect with backoff | done |
+| **Me:** node ID, name, keys, contact-card QR code (copy as text too) | done |
+| **Contacts:** scan a QR code or paste the card text → `AddContact`; last seen and position from `Neighbor` beacons; "heard nearby" list; key-change warning | done |
+| **Chat:** per-contact DM threads, queued → sent → delivered (`SendQueued` / `Delivered`), live UTF-8 byte counter against the node's 73-byte limit, saved on the phone, offline outbox sent on reconnect, failed messages retry on tap | done |
+| **Map:** own node, contacts, nearby nodes and SOS alerts on OpenStreetMap tiles (online) | done |
+| **SOS:** hold 3 s to raise, "SOS active" with acks received, stop; incoming SOS banner on every tab with Ack | done |
+| **Status:** every `Status` field, refreshed every 10 s | done |
 | BLE transport | later (needs the Heltec BLE service) |
+| Offline map tiles | follow-up |
 | iPhone install | blocked, see below |
+
+History (contacts, chats, SOS) is stored per node ID in the app's private storage, so connecting to a
+different node does not mix conversations.
 
 ## Try it without radios: the virtual mesh
 
@@ -62,7 +69,7 @@ that start with `app-` (for example `app-v0.1.0-dev.1`). Development builds are 
 Or with `adb` and the GitHub CLI on a computer:
 
 ```bash
-gh release download app-v0.1.0-dev.1 --repo TheLogsAreScreaming/GhostWave-Releases --pattern '*.apk' --dir apk
+gh release download app-v0.1.0-dev.2 --repo TheLogsAreScreaming/GhostWave-Releases --pattern '*.apk' --dir apk
 ```
 
 ```bash
@@ -108,8 +115,10 @@ flutter analyze --fatal-infos && flutter test
 ```
 
 The integration test (`test/integration/vmesh_dm_test.dart`) starts two real `ghostwaved` nodes on the
-UDP virtual radio and has two app link clients exchange a DM and get `Delivered`. It runs only when it
-finds the daemon, and is skipped otherwise:
+UDP virtual radio. One test has two app link clients exchange a DM and get `Delivered`; a second runs
+the full app state layer (two `MeshController`s): they add each other from encoded contact cards, and
+the DM goes queued → sent → delivered on one side and shows up unread on the other. It runs only when
+it finds the daemon, and is skipped otherwise:
 
 ```bash
 cd ../firmware && cmake -S . -B build -DGHOSTWAVE_BUILD_VIRT=ON && cmake --build build --target ghostwaved
@@ -129,8 +138,11 @@ that touches `app/` or `proto/`.
 lib/src/gen/              Dart generated from ../proto/ghostwave.proto (tool/gen_proto.sh); CI checks it is fresh
 lib/src/link/             plain Dart, no Flutter: frame codec, transports, session, reconnecting link
 lib/src/app/providers.dart  Riverpod providers (composition root)
+lib/src/app/mesh_controller.dart  mesh state: events in, actions out, saved per node
+lib/src/data/             models and the JSON history store
 lib/src/ui/               screens
 test/link/                codec (GhostWave golden frames), session, link, card tests
+test/app/                 mesh controller against a fake node (DM states, outbox, dedup, SOS, history)
 test/integration/         real-daemon test, skipped without ghostwaved
 ```
 

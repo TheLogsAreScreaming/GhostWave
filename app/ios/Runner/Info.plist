@@ -6,6 +6,8 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>GhostWave scans contact-card QR codes with the camera.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>GhostWave connects to your GhostWave node over the local network.</string>
 	<key>CFBundleDisplayName</key>
