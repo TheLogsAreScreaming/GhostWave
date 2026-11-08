@@ -3,6 +3,7 @@
 /// app, the link closes and nothing more arrives until it is opened again.
 library;
 
+import 'dart:async';
 import 'dart:ui' show Color;
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -42,6 +43,11 @@ final meshAlertsProvider = Provider<MeshAlerts>((ref) => const NoMeshAlerts());
 class LocalMeshAlerts implements MeshAlerts {
   LocalMeshAlerts._(this._plugin);
 
+  static final StreamController<int> _sosTaps = StreamController<int>.broadcast();
+
+  /// Node IDs of SOS notifications the user tapped.
+  static Stream<int> get sosTaps => _sosTaps.stream;
+
   final FlutterLocalNotificationsPlugin _plugin;
 
   static const _messages = AndroidNotificationDetails(
@@ -75,6 +81,11 @@ class LocalMeshAlerts implements MeshAlerts {
           requestSoundPermission: false,
         ),
       ),
+      onDidReceiveNotificationResponse: (r) {
+        final p = r.payload;
+        final src = p != null && p.startsWith('sos:') ? int.tryParse(p.substring(4)) : null;
+        if (src != null) _sosTaps.add(src);
+      },
     );
     return LocalMeshAlerts._(plugin);
   }
@@ -103,6 +114,7 @@ class LocalMeshAlerts implements MeshAlerts {
     id: (src & 0x3FFFFFFF) | 0x40000000,
     title: 'SOS from $from',
     body: text.isEmpty ? 'Open GhostWave to see the alert and ack it.' : text,
+    payload: 'sos:$src',
     notificationDetails: const NotificationDetails(
       android: _sos,
       iOS: DarwinNotificationDetails(interruptionLevel: InterruptionLevel.timeSensitive),

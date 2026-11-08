@@ -7,10 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../app/mesh_controller.dart';
+import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
+import 'offline_maps_screen.dart';
 import 'theme.dart';
+import 'walkthrough_screen.dart';
 import 'widgets.dart';
 
 /// Longest node name an IDENT carries, in UTF-8 bytes.
@@ -75,9 +78,35 @@ class SettingsScreen extends ConsumerWidget {
           ],
           const _Header('This phone'),
           ListTile(
+            leading: const Icon(Icons.straighten),
+            title: const Text('Distance units'),
+            trailing: SegmentedButton<Units>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: Units.metric, label: Text('km')),
+                ButtonSegment(value: Units.imperial, label: Text('mi')),
+              ],
+              selected: {ref.watch(unitsProvider)},
+              onSelectionChanged: (s) => ref.read(unitsProvider.notifier).set(s.first),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.download_for_offline_outlined),
+            title: const Text('Offline maps'),
+            subtitle: const Text('Tile source and saved regions'),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OfflineMapsScreen())),
+          ),
+          ListTile(
+            leading: const Icon(Icons.school_outlined),
+            title: const Text('Show the introduction'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (page) => WalkthroughScreen(onDone: () => Navigator.of(page).pop())),
+            ),
+          ),
+          ListTile(
             leading: Icon(Icons.delete_forever_outlined, color: Theme.of(context).colorScheme.error),
             title: const Text('Reset app data'),
-            subtitle: const Text('Deletes chats, contacts, channels list and settings on this phone'),
+            subtitle: const Text('Deletes chats, contacts, offline maps and settings on this phone'),
             onTap: () => unawaited(_reset(context, ref)),
           ),
           const _Header('About'),
@@ -177,10 +206,14 @@ class SettingsScreen extends ConsumerWidget {
     final navigator = Navigator.of(context);
     ref.read(nodeAddressProvider.notifier).disconnect();
     await ref.read(meshProvider.notifier).resetLocalData();
+    await ref.read(offlineMapsProvider.notifier).reset();
     await ref.read(sharedPrefsProvider).clear();
     ref
       ..invalidate(nodeAddressProvider)
-      ..invalidate(recentNodesProvider);
+      ..invalidate(recentNodesProvider)
+      ..invalidate(unitsProvider)
+      ..invalidate(tileSourceProvider)
+      ..invalidate(walkthroughDoneProvider);
     // back to the first screen: with no saved address, the app shows Connect
     navigator.popUntil((r) => r.isFirst);
   }

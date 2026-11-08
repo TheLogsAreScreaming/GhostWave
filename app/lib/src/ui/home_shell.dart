@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/mesh_alerts.dart';
 import '../app/mesh_controller.dart';
+import '../app/preferences.dart';
 import '../app/providers.dart';
 import 'contacts_screen.dart';
 import 'map_screen.dart';
@@ -21,7 +24,9 @@ class HomeShell extends ConsumerStatefulWidget {
 }
 
 class _HomeShellState extends ConsumerState<HomeShell> {
+  static const _mapTab = 1;
   static const _sosTab = 2;
+  StreamSubscription<int>? _sosTaps;
   static const _statusTab = 4;
   int _tab = 0;
 
@@ -32,6 +37,25 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     super.initState();
     // ask once for notification permission (Android 13+, iOS), after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _askNotificationsOnce());
+    _sosTaps = LocalMeshAlerts.sosTaps.listen(_openSos);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_sosTaps?.cancel());
+    super.dispose();
+  }
+
+  /// A tapped SOS notification: the sender on the map, or the SOS tab without a fix.
+  void _openSos(int src) {
+    if (!mounted) return;
+    final mesh = ref.read(meshProvider);
+    final pos = mesh.alerts.where((a) => a.src == src).firstOrNull?.pos;
+    if (pos == null) {
+      setState(() => _tab = _sosTab);
+    } else {
+      ref.read(mapFocusProvider.notifier).show(pos, 'SOS from ${mesh.nameOf(src)}');
+    }
   }
 
   Future<void> _askNotificationsOnce() async {
@@ -49,6 +73,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(mapFocusProvider, (_, f) {
+      if (f != null) setState(() => _tab = _mapTab);
+    });
     final mesh = ref.watch(meshProvider);
     final unread = mesh.totalUnread;
     final alerts = mesh.activeAlerts.length;

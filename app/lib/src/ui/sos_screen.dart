@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/mesh_controller.dart';
+import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
@@ -104,7 +105,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                     ),
                     const SizedBox(height: 8),
                     if (own.text.isNotEmpty) Text('"${own.text}"'),
-                    if (own.startedAt != null) Text('Raised ${timeAgo(own.startedAt!)} (${clockTime(own.startedAt!)})'),
+                    if (own.startedAt != null) SosClock(startedAt: own.startedAt!),
                     const Text('Your node repeats it until you stop it.'),
                   ],
                 ),
@@ -177,7 +178,10 @@ class AlertTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mesh = ref.watch(meshProvider);
+    final units = ref.watch(unitsProvider);
     final a = alert;
+    final own = mesh.ownPos;
+    final pos = a.pos;
     final details = <String>[
       if (a.text.isNotEmpty) '"${a.text}"',
       [
@@ -185,14 +189,31 @@ class AlertTile extends ConsumerWidget {
         'seq ${a.seq}',
         if (a.replayed) 'held by node while no app was connected: may be old',
       ].join(' · '),
-      if (a.pos != null) '${a.pos}${a.accuracyM != null ? ' ±${a.accuracyM} m' : ''}' else 'no position fix',
+      if (pos != null && own != null)
+        '${formatDistance(own.distanceTo(pos), units)} ${compassPoint(own.bearingTo(pos))} of you '
+            '(bearing ${own.bearingTo(pos).round()}°)',
+      if (pos != null)
+        '$pos${a.accuracyM != null ? ' ±${formatAccuracy(a.accuracyM!, units)}' : ''}'
+      else
+        'no position fix',
       if (a.batteryPct != null) 'battery ${a.batteryPct}%',
     ];
     return Card(
       child: ListTile(
         leading: Icon(Icons.sos, color: a.acked ? null : Theme.of(context).colorScheme.error),
         title: Text('${mesh.nameOf(a.src)} (${nodeIdHex(a.src)})'),
-        subtitle: Text(details.join('\n')),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(details.join('\n')),
+            if (pos != null)
+              TextButton.icon(
+                onPressed: () => ref.read(mapFocusProvider.notifier).show(pos, 'SOS from ${mesh.nameOf(a.src)}'),
+                icon: const Icon(Icons.map_outlined),
+                label: const Text('Show on map'),
+              ),
+          ],
+        ),
         isThreeLine: true,
         trailing: a.acked
             ? const Chip(label: Text('Acked'))
@@ -212,6 +233,52 @@ Future<void> ackAlert(BuildContext context, WidgetRef ref, int src) async {
     messenger.showSnackBar(SnackBar(content: Text(e.message)));
   } on Object catch (e) {
     messenger.showSnackBar(SnackBar(content: Text('$e')));
+  }
+}
+
+/// How often the node repeats our SOS (`Config::sosRepeatMs`).
+const Duration kSosRepeat = Duration(minutes: 5);
+
+/// Time since our SOS was raised and until the next repeat, updated each second.
+class SosClock extends StatefulWidget {
+  /// Creates the clock.
+  const SosClock({required this.startedAt, this.now, super.key});
+
+  /// When the SOS was raised.
+  final DateTime startedAt;
+
+  /// Clock override for tests.
+  final DateTime Function()? now;
+
+  @override
+  State<SosClock> createState() => _SosClockState();
+}
+
+class _SosClockState extends State<SosClock> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final elapsed = (widget.now?.call() ?? DateTime.now()).difference(widget.startedAt);
+    final sinceRepeat = Duration(seconds: elapsed.inSeconds % kSosRepeat.inSeconds);
+    return Text(
+      'Active for ${clockDuration(elapsed)} (since ${clockTime(widget.startedAt)})\n'
+      'Next repeat in about ${clockDuration(kSosRepeat - sinceRepeat)}',
+    );
   }
 }
 
@@ -384,9 +451,13 @@ class _HoldToConfirmButtonState extends State<HoldToConfirmButton> with SingleTi
                           height: 168,
                           decoration: BoxDecoration(shape: BoxShape.circle, color: color),
                           alignment: Alignment.center,
-                          child: Text(
-                            _c.value > 0 ? '${(kSosHold.inSeconds * (1 - _c.value)).ceil()}' : 'SOS',
-                            style: TextStyle(color: onColor, fontSize: 48, fontWeight: FontWeight.w900),
+                          // scales with the circle: large text settings must not overflow it
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _c.value > 0 ? '${(kSosHold.inSeconds * (1 - _c.value)).ceil()}' : 'SOS',
+                              style: TextStyle(color: onColor, fontSize: 48, fontWeight: FontWeight.w900),
+                            ),
                           ),
                         ),
                       ],
@@ -440,7 +511,14 @@ class SosAlertBanner extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: GestureDetector(
-                  onTap: onView,
+                  onTap: () {
+                    final p = a.pos;
+                    if (p == null) {
+                      onView();
+                    } else {
+                      ref.read(mapFocusProvider.notifier).show(p, 'SOS from ${mesh.nameOf(a.src)}');
+                    }
+                  },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

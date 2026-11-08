@@ -109,59 +109,63 @@ class MessageBubble extends StatelessWidget {
     final meta = Theme.of(context).textTheme.labelSmall;
     return Align(
       alignment: outgoing ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onTap: state == MsgState.failed && onRetry != null ? onRetry : null,
-        onLongPress: () => unawaited(_menu(context)),
-        child: Container(
-          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
-          margin: const EdgeInsets.symmetric(vertical: 3),
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-          decoration: BoxDecoration(
-            color: outgoing ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!outgoing && sender != null)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    sender!,
-                    style: meta?.copyWith(color: scheme.tertiary, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              Align(alignment: Alignment.centerLeft, child: Text(text)),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (replayed) Text('held · ', style: meta),
-                  Text(clockTime(at), style: meta),
-                  if (outgoing) ...[
-                    const SizedBox(width: 6),
-                    Icon(
-                      icon,
-                      size: 14,
-                      color: state == MsgState.failed
-                          ? scheme.error
-                          : state == MsgState.delivered
-                          ? GwColors.success
-                          : null,
-                      semanticLabel: label,
+      child: Semantics(
+        container: true,
+        onLongPressHint: 'Copy, delete or send again',
+        child: GestureDetector(
+          onTap: state == MsgState.failed && onRetry != null ? onRetry : null,
+          onLongPress: () => unawaited(_menu(context)),
+          child: Container(
+            constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+            decoration: BoxDecoration(
+              color: outgoing ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!outgoing && sender != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      sender!,
+                      style: meta?.copyWith(color: scheme.tertiary, fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(width: 2),
-                    Text(label, style: meta),
+                  ),
+                Align(alignment: Alignment.centerLeft, child: Text(text)),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (replayed) Text('held · ', style: meta),
+                    Text(clockTime(at), style: meta),
+                    if (outgoing) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        icon,
+                        size: 14,
+                        color: state == MsgState.failed
+                            ? scheme.error
+                            : state == MsgState.delivered
+                            ? GwColors.success
+                            : null,
+                        semanticLabel: label,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(label, style: meta),
+                    ],
                   ],
-                ],
-              ),
-              if (state == MsgState.failed)
-                Text(
-                  '${error ?? 'Failed'}${onRetry != null ? ' · tap to retry' : ''}',
-                  style: meta?.copyWith(color: scheme.error),
                 ),
-            ],
+                if (state == MsgState.failed)
+                  Text(
+                    '${error ?? 'Failed'}${onRetry != null ? ' · tap to retry' : ''}',
+                    style: meta?.copyWith(color: scheme.error),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

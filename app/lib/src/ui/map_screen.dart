@@ -4,13 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
 import '../app/mesh_controller.dart';
+import '../app/preferences.dart';
 import '../link/geo.dart';
+import '../map/offline_maps.dart';
 import 'format.dart';
+import 'offline_maps_screen.dart';
+import 'tile_provider.dart';
 import 'widgets.dart';
 import 'theme.dart';
 
 /// Own position, contacts, nodes heard nearby and SOS alerts on an
-/// OpenStreetMap base map (online tiles; offline tiles are a follow-up).
+/// base map: OpenStreetMap online, or saved regions from a configured source.
 class MapScreen extends ConsumerStatefulWidget {
   /// Creates the screen.
   const MapScreen({super.key});
@@ -33,6 +37,43 @@ class _Pin {
 class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _map = MapController();
   bool _fitted = false;
+  MapFocus? _focus;
+  OfflineFirstTileProvider? _tiles;
+  Object? _tilesKey;
+
+  OfflineFirstTileProvider _tileProvider(OfflineStore? store, String url, List<OfflineRegion> regions) {
+    final usable = [
+      for (final r in regions)
+        if (r.urlTemplate == url) r,
+    ];
+    final key = Object.hashAll([url, for (final r in usable) r.id]);
+    if (_tiles == null || key != _tilesKey) {
+      _tilesKey = key;
+      _tiles = OfflineFirstTileProvider(store: store, regions: usable);
+    }
+    return _tiles!;
+  }
+
+  void _showFocus(MapFocus f) {
+    _focus = f;
+    _fitted = true; // do not jump away from it
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _map.move(ll.LatLng(f.pos.lat, f.pos.lon), 15);
+    });
+  }
+
+  Future<void> _saveArea() async {
+    final b = _map.camera.visibleBounds;
+    await showDownloadRegionDialog(
+      context,
+      ref,
+      south: b.south,
+      west: b.west,
+      north: b.north,
+      east: b.east,
+      zoom: _map.camera.zoom.floor(),
+    );
+  }
 
   List<_Pin> _pins(MeshState m) {
     final pins = <_Pin>[];
@@ -81,6 +122,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final mesh = ref.watch(meshProvider);
     final pins = _pins(mesh);
+    final units = ref.watch(unitsProvider);
+    final source = ref.watch(tileSourceProvider);
+    final off = ref.watch(offlineMapsProvider);
+    ref.listen(mapFocusProvider, (_, f) {
+      if (f != null) setState(() => _showFocus(f));
+    });
+    final focus = _focus;
+    final own = mesh.ownPos;
     if (!_fitted && pins.isNotEmpty) {
       _fitted = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -104,6 +153,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       appBar: AppBar(
         title: const Text('Map'),
         actions: [
+          IconButton(
+            tooltip: 'Save this area for offline use',
+            onPressed: isForbiddenBulkSource(source.urlTemplate)
+                ? () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OfflineMapsScreen()))
+                : _saveArea,
+            icon: const Icon(Icons.download_for_offline_outlined),
+          ),
           IconButton(tooltip: 'Show all', onPressed: () => _fit(pins), icon: const Icon(Icons.fit_screen)),
           const LinkChip(),
         ],
@@ -115,8 +171,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             options: const MapOptions(initialCenter: ll.LatLng(46.87, -113.99), initialZoom: 11),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: source.urlTemplate,
                 userAgentPackageName: 'org.ghostwave.ghostwave_app',
+                tileProvider: _tileProvider(ref.read(offlineStoreProvider), source.urlTemplate, off.regions),
                 maxZoom: 19,
               ),
               MarkerLayer(
@@ -126,20 +183,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       point: ll.LatLng(p.pos.lat, p.pos.lon),
                       width: 44,
                       height: 44,
-                      child: GestureDetector(
-                        onTap: () => showSnack(context, '${p.title}: ${p.detail}'),
-                        child: Icon(iconOf(p.kind), color: colorOf(p.kind), size: p.kind == _Kind.sos ? 44 : 36),
+                      child: Semantics(
+                        button: true,
+                        label: '${p.title}. ${p.detail}',
+                        child: GestureDetector(
+                          onTap: () => showSnack(context, '${p.title}: ${p.detail}'),
+                          child: ExcludeSemantics(
+                            child: Icon(iconOf(p.kind), color: colorOf(p.kind), size: p.kind == _Kind.sos ? 44 : 36),
+                          ),
+                        ),
                       ),
                     ),
                 ],
               ),
-              const RichAttributionWidget(
-                alignment: AttributionAlignment.bottomLeft,
-                attributions: [TextSourceAttribution('OpenStreetMap contributors')],
-              ),
+              // always visible: the OSM policy does not allow it behind a toggle
+              SimpleAttributionWidget(source: Text(source.attributionText)),
             ],
           ),
-          if (pins.isEmpty)
+          if (pins.isEmpty && focus == null)
             Positioned(
               top: 12,
               left: 12,
@@ -154,8 +215,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             ),
+          if (focus != null)
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 12,
+              child: Card(
+                child: ListTile(
+                  leading: const Icon(Icons.location_searching),
+                  title: Text(focus.title),
+                  subtitle: Text(
+                    own == null
+                        ? 'Your position is not known yet, so no distance.'
+                        : '${formatDistance(own.distanceTo(focus.pos), units)} '
+                              '${compassPoint(own.bearingTo(focus.pos))} of you '
+                              '(bearing ${own.bearingTo(focus.pos).round()}°)',
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => setState(() => _focus = null),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
-            right: 12,
+            left: 12,
             bottom: 12,
             child: Card(
               child: Padding(
