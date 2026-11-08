@@ -12,6 +12,8 @@ import 'package:ghostwave_app/src/data/mesh_store.dart';
 import 'package:ghostwave_app/src/ui/backup_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/history_keys.dart';
+
 const pass = 'correct horse battery';
 const nodeHex = '11223344';
 const nodeId = 0x11223344;
@@ -44,7 +46,7 @@ void main() {
     dir = await Directory.systemTemp.createTemp('gwapp-backup.');
     files = FakeFiles();
     pins = MemoryPinStore();
-    store = MeshStore(dir);
+    store = MeshStore(dir, testHistoryKeys);
   });
   tearDown(() async {
     if (dir.existsSync()) await dir.delete(recursive: true);

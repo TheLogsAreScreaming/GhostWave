@@ -37,6 +37,7 @@ class MeshState {
     this.channels = const {},
     this.channelMessages = const {},
     this.channelUnread = const {},
+    this.historyProblem = HistoryProblem.none,
   });
 
   /// The node this history belongs to (null before the first connect).
@@ -71,6 +72,9 @@ class MeshState {
 
   /// Unread channel messages by channel.
   final Map<String, int> channelUnread;
+
+  /// Why this node's saved history did not load, if it didn't.
+  final HistoryProblem historyProblem;
 
   /// All unread DMs and channel messages.
   int get totalUnread => unread.values.fold(0, (a, b) => a + b) + channelUnread.values.fold(0, (a, b) => a + b);
@@ -113,6 +117,7 @@ class MeshState {
     channels: channels ?? this.channels,
     channelMessages: channelMessages ?? this.channelMessages,
     channelUnread: channelUnread ?? this.channelUnread,
+    historyProblem: historyProblem,
   );
 }
 
@@ -172,6 +177,7 @@ class MeshController extends Notifier<MeshState> {
         ownSos: saved.ownSos,
         channels: saved.channels,
         channelMessages: saved.channelMessages,
+        historyProblem: saved.problem,
       );
     }
     await _sync(s.session);

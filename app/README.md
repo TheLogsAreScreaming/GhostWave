@@ -37,7 +37,7 @@ any other mesh app.
 | iPhone install | blocked, see below |
 
 History (contacts, chats, SOS) is stored per node ID in the app's private storage, so connecting to a
-different node does not mix conversations.
+different node does not mix conversations. Each file is encrypted, see [History on the phone](#history-on-the-phone).
 
 ## Try it without radios: the virtual mesh
 
@@ -152,6 +152,21 @@ CI can't run a foreground service, so these are still to do, on Android 14 or ne
 6. Tap **Disconnect** on the notification, and separately disconnect in the app: the notification goes away both times.
 7. Check battery use over a few hours, and test a vendor with aggressive app killing (Samsung, Xiaomi) if you can.
 
+## History on the phone
+
+Contacts, chats, channels and their keys, and SOS records are encrypted on the phone with XChaCha20-Poly1305. The key is
+random, made on first use, and kept in Android's Keystore-backed secure storage. Files from older versions are encrypted
+the next time the app starts, and the plaintext copies are removed. Flash storage can keep deleted blocks for a while, so
+removing a file is not a guarantee that its old contents are gone.
+
+This protects the files if they are copied off the phone. It doesn't protect against someone using the unlocked phone or
+malware running as the app on a rooted phone, and there is no separate app passcode. Saved settings and the list of
+recent node addresses aren't encrypted by this.
+
+The key can't leave the phone, so Android's cloud backup and phone-to-phone transfer are turned off for this app. To move
+to a new phone, use Backup and restore. If the key is lost, the old files can't be opened. The Chats screen says so if that
+happens. Not tried on a phone yet.
+
 ## Known limits
 
 - **Bluetooth has not been tried on real radios.** CI has none: the tests use a fake radio layer. Radio
@@ -215,7 +230,7 @@ lib/src/gen/              Dart generated from ../proto/ghostwave.proto (tool/gen
 lib/src/link/             plain Dart, no Flutter: frame codec, transports, session, reconnecting link
 lib/src/app/providers.dart  Riverpod providers (composition root)
 lib/src/app/mesh_controller.dart  mesh state: events in, actions out, saved per node
-lib/src/data/             models and the JSON history store
+lib/src/data/             models and the encrypted history store
 lib/src/map/              offline regions: tile maths, limits, download, storage
 lib/src/ui/               screens
 test/link/                codec (GhostWave golden frames), session, link, card tests

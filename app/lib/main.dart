@@ -12,6 +12,7 @@ import 'src/app/mesh_alerts.dart';
 import 'src/app/mesh_controller.dart';
 import 'src/app/preferences.dart';
 import 'src/app/providers.dart';
+import 'src/data/history_crypto.dart';
 import 'src/data/mesh_store.dart';
 import 'src/map/offline_maps.dart';
 import 'src/ui/connect_screen.dart';
@@ -36,7 +37,7 @@ Future<void> main() async {
     ProviderScope(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
-        meshStoreProvider.overrideWithValue(MeshStore(dir)),
+        meshStoreProvider.overrideWithValue(MeshStore(dir, const SecureHistoryKeys())),
         meshAlertsProvider.overrideWithValue(alerts),
         offlineStoreProvider.overrideWithValue(OfflineStore(dir)),
         pinStoreProvider.overrideWithValue(const SecurePinStore()),
