@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "app_state.h"
 #include "board.h"
 #include "ghostwave/crypto.h"
 #include "ghostwave/router.h"
@@ -24,9 +25,6 @@
 #include "settings.h"
 #include "ui.h"
 #if GW_HAS_BLE
-#include <map>
-
-#include "app_state.h"
 #include "ble_link.h"
 #include "ghostwave/client_handler.h"
 #endif
