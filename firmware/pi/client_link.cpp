@@ -288,6 +288,7 @@ void ClientLink::handle(Client& c, const ToRadio& m, uint64_t now) {
     error(c, req, ErrorCode::NeedHello, "send Hello first");
     return;
   }
+  if (handleV11(c, m, now)) return;
   switch (m.kind) {
     case ToKind::Hello: {
       if (m.protocolVersion != kProtocolVersion) {
@@ -306,6 +307,8 @@ void ClientLink::handle(Client& c, const ToRadio& m, uint64_t now) {
       info.legacy = self_.legacy;
       info.firmware = "ghostwaved";
       info.maxTextBytes = kMaxTextBytes;
+      info.protocolMinor = gw::client::kProtocolMinor;
+      info.maxChannelTextBytes = hooks_.channels ? static_cast<uint32_t>(gw::Router::kChannelPayloadMax) : 0;
       send(c, info);
       bool first = !c.hello;
       c.hello = true;
@@ -559,4 +562,108 @@ void ClientLink::onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) {
   m.pos = toPos(pos);
   m.isNew = isNew;
   event(m, false);   // live view only: a stale neighbor list is worse than none
+}
+
+// ------------------------------------------------- protocol 1.1 (channels) --
+
+bool ClientLink::handleV11(Client& c, const ToRadio& m, uint64_t now) {
+  const uint32_t req = m.reqId;
+  ChannelStore* ch = hooks_.channels;
+  switch (m.kind) {
+    case ToKind::SendChannelText: {
+      const ChannelEntry* e = ch ? ch->byName(m.channel) : nullptr;
+      if (!e) {
+        error(c, req, ErrorCode::NotFound, "no such channel");
+      } else if (m.text.empty()) {
+        error(c, req, ErrorCode::BadArgument, "empty text");
+      } else if (m.text.size() > gw::Router::kChannelPayloadMax) {
+        error(c, req, ErrorCode::TooLong, "text over " + std::to_string(gw::Router::kChannelPayloadMax) + " bytes");
+      } else if (uint32_t mid = r_.sendChannel(e->id, m.text, now); !mid) {
+        error(c, req, ErrorCode::SendFailed, "router refused the message");
+      } else {
+        std::printf("client channel message %08x -> #%s\n", mid, e->name.c_str());
+        std::fflush(stdout);
+        FromRadio q;
+        q.reqId = req;
+        q.kind = FromKind::SendQueued;
+        q.dest = gw::kBroadcast;
+        q.msgId = mid;
+        q.clientMsgId = m.clientMsgId;
+        send(c, q);
+      }
+      return true;
+    }
+    case ToKind::AddChannel: {
+      if (!ch) {
+        error(c, req, ErrorCode::UnknownRequest, "channels not available");
+        return true;
+      }
+      auto r = ch->add(m.channel, m.psk.data(), m.psk.size());
+      if (r == ChannelStore::Result::Ok || r == ChannelStore::Result::Unchanged) {
+        if (r == ChannelStore::Result::Ok) std::printf("client joined channel #%s\n", m.channel.c_str());
+        std::fflush(stdout);
+        reply(c, req, FromKind::Ok);
+      } else {
+        error(c, req, r == ChannelStore::Result::Full ? ErrorCode::ChannelLimit : ErrorCode::BadArgument,
+              ChannelStore::describe(r));
+      }
+      return true;
+    }
+    case ToKind::RemoveChannel: {
+      auto r = ch ? ch->remove(m.channel) : ChannelStore::Result::NotFound;
+      if (r == ChannelStore::Result::Ok) {
+        std::printf("client left channel #%s\n", m.channel.c_str());
+        std::fflush(stdout);
+        reply(c, req, FromKind::Ok);
+      } else {
+        error(c, req, r == ChannelStore::Result::NotFound ? ErrorCode::NotFound : ErrorCode::SendFailed,
+              ChannelStore::describe(r));
+      }
+      return true;
+    }
+    case ToKind::ListChannels: {
+      uint32_t n = 0;
+      if (ch) {
+        for (auto& e : ch->list()) {
+          FromRadio f;
+          f.reqId = req;
+          f.kind = FromKind::Channel;
+          f.channel = e.name;
+          f.psk.assign(e.key.begin(), e.key.end());
+          send(c, f);
+          ++n;
+        }
+      }
+      FromRadio end;
+      end.reqId = req;
+      end.kind = FromKind::ChannelsEnd;
+      end.count = n;
+      send(c, end);
+      return true;
+    }
+    case ToKind::SetName: {
+      std::string err;
+      ErrorCode code = hooks_.setName ? hooks_.setName(m.name, err) : ErrorCode::UnknownRequest;
+      if (code != ErrorCode::None) {
+        error(c, req, code, err.empty() ? "cannot rename this node" : err);
+        return true;
+      }
+      self_.name = m.name;
+      reply(c, req, FromKind::Ok);
+      return true;
+    }
+    default: return false;
+  }
+}
+
+void ClientLink::onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& payload) {
+  const ChannelEntry* e = hooks_.channels ? hooks_.channels->byId(chanId) : nullptr;
+  if (!e) return;
+  FromRadio m;
+  m.kind = FromKind::ChannelMessage;
+  m.channel = e->name;
+  m.src = src;
+  m.msgId = msgId;
+  m.text = payload;
+  event(m, true);
 }

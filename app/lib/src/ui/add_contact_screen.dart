@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,10 +11,14 @@ import '../link/session.dart';
 import 'widgets.dart';
 import 'theme.dart';
 
-/// Add a contact by scanning its QR code, or by pasting the card text.
+/// Add a contact, or join a group channel, by scanning a QR code or pasting
+/// the card text. Contact cards and channel cards are both accepted.
 class AddContactScreen extends ConsumerStatefulWidget {
-  /// Creates the screen.
-  const AddContactScreen({super.key});
+  /// Creates the screen. [channelsFirst] words it for joining a channel.
+  const AddContactScreen({this.channelsFirst = false, super.key});
+
+  /// Opened from "Join a channel".
+  final bool channelsFirst;
 
   @override
   ConsumerState<AddContactScreen> createState() => _AddContactScreenState();
@@ -81,20 +87,68 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
     }
   }
 
+  Future<void> _confirmChannel(ChannelCard card) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Join #${card.name}?'),
+        content: const Text(
+          'Your node joins this group channel: you will see its messages and can write to it. '
+          'Join only channels from people you trust.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Join')),
+        ],
+      ),
+    );
+    if (ok != true) {
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    try {
+      await ref.read(meshProvider.notifier).joinChannel(card);
+      if (!mounted) return;
+      showSnack(context, 'Joined #${card.name}');
+      Navigator.of(context).pop();
+    } on NodeError catch (e) {
+      if (mounted) showSnack(context, e.message);
+    } on Object catch (e) {
+      if (mounted) showSnack(context, 'Could not join: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// A contact card or a channel card; false if [text] is neither.
+  bool _handle(String text) {
+    final card = ContactCard.tryParse(text);
+    if (card != null) {
+      unawaited(_confirm(card));
+      return true;
+    }
+    final ch = ChannelCard.tryParse(text);
+    if (ch != null) {
+      unawaited(_confirmChannel(ch));
+      return true;
+    }
+    return false;
+  }
+
   void _onPasteSubmit() {
-    final card = ContactCard.tryParse(_paste.text);
-    if (card == null) {
-      setState(() => _pasteError = 'Not a GhostWave contact card (ghostwave:<id>:<key>[:name])');
+    if (!_handle(_paste.text)) {
+      setState(() => _pasteError = 'Not a GhostWave card (ghostwave:<id>:<key>[:name] or ghostwave-ch:<name>:<key>)');
       return;
     }
     setState(() => _pasteError = null);
-    _confirm(card);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add contact')),
+      appBar: AppBar(title: Text(widget.channelsFirst ? 'Join a channel' : 'Add contact or channel')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -106,10 +160,10 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                 child: MobileScanner(
                   onDetect: (capture) {
                     for (final b in capture.barcodes) {
-                      final card = ContactCard.tryParse(b.rawValue ?? '');
-                      if (card != null) {
+                      final raw = b.rawValue ?? '';
+                      if (ContactCard.tryParse(raw) != null || ChannelCard.tryParse(raw) != null) {
                         setState(() => _scanning = false);
-                        _confirm(card);
+                        _handle(raw);
                         return;
                       }
                     }
@@ -132,7 +186,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
           if (_scanning)
             TextButton(onPressed: () => setState(() => _scanning = false), child: const Text('Stop camera')),
           const SizedBox(height: 24),
-          const Text('Or paste the contact card text:'),
+          Text(widget.channelsFirst ? 'Or paste the channel card text:' : 'Or paste the card text:'),
           const SizedBox(height: 8),
           TextField(
             controller: _paste,
@@ -140,7 +194,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
             maxLines: 4,
             autocorrect: false,
             decoration: InputDecoration(
-              hintText: 'ghostwave:1a2b3c4d:…',
+              hintText: widget.channelsFirst ? 'ghostwave-ch:trail%20crew:…' : 'ghostwave:1a2b3c4d:…',
               errorText: _pasteError,
               errorMaxLines: 2,
               border: const OutlineInputBorder(),
@@ -155,7 +209,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          OutlinedButton(onPressed: _busy ? null : _onPasteSubmit, child: const Text('Add from text')),
+          OutlinedButton(onPressed: _busy ? null : _onPasteSubmit, child: const Text('Use this text')),
         ],
       ),
     );

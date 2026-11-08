@@ -136,6 +136,17 @@ class LinkSession {
     ];
   }
 
+  /// `ListChannels` (protocol 1.1): every `Channel`, collected until `ChannelsEnd`.
+  Future<List<pb.Channel>> listChannels() async {
+    final replies = await _send(pb.ToRadio(listChannels: pb.ListChannels()), multi: true);
+    final last = replies.last;
+    if (last.hasError()) throw NodeError(last.error.code, last.error.detail);
+    return [
+      for (final r in replies)
+        if (r.hasChannel()) r.channel,
+    ];
+  }
+
   Future<List<pb.FromRadio>> _send(pb.ToRadio msg, {required bool multi, Duration? timeout}) {
     if (isClosed) return Future.error(const LinkClosedException());
     final id = _nextReq;
@@ -188,7 +199,7 @@ class LinkSession {
       return;
     }
     p.replies.add(m);
-    final finished = !p.multi || m.hasContactsEnd() || m.hasError();
+    final finished = !p.multi || m.hasContactsEnd() || m.hasChannelsEnd() || m.hasError();
     if (finished) {
       _pending.remove(m.reqId);
       p.completer.complete(p.replies);

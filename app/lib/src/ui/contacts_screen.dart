@@ -8,6 +8,7 @@ import '../app/providers.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import 'add_contact_screen.dart';
+import 'channel_screens.dart';
 import 'chat_screen.dart';
 import 'format.dart';
 import 'widgets.dart';
@@ -35,59 +36,142 @@ class ContactsScreen extends ConsumerWidget {
     final nearby = mesh.neighbors.values.where((n) => !mesh.contacts.containsKey(n.nodeId)).toList()
       ..sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Contacts'),
-        actions: [
-          IconButton(
-            tooltip: 'Reload from node',
-            onPressed: online ? () => ref.read(meshProvider.notifier).refreshContacts() : null,
-            icon: const Icon(Icons.refresh),
-          ),
-          const LinkChip(),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AddContactScreen())),
-        icon: const Icon(Icons.qr_code_scanner),
-        label: const Text('Add contact'),
-      ),
-      body: contacts.isEmpty && nearby.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
-                  online
-                      ? 'No contacts yet. Nodes in radio range show up here on their own once your node '
-                            'has heard their identity (usually within a minute). Or tap "Add contact" '
-                            'and scan another GhostWave user\'s QR code (Me tab).'
-                      : 'Connect to a node to load its contacts.',
-                  textAlign: TextAlign.center,
-                ),
+    final peopleUnread = mesh.unread.values.fold(0, (a, b) => a + b);
+    final channelUnread = mesh.channelUnread.values.fold(0, (a, b) => a + b);
+    final people = contacts.isEmpty && nearby.isEmpty
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                online
+                    ? 'No contacts yet. Nodes in radio range show up here on their own once your node '
+                          'has heard their identity (usually within a minute). Or tap "Add" and scan '
+                          'another GhostWave user\'s QR code (Me tab).'
+                    : 'Connect to a node to load its contacts.',
+                textAlign: TextAlign.center,
               ),
-            )
-          : ListView(
-              padding: const EdgeInsets.only(bottom: 88),
-              children: [
-                for (final c in contacts) _ContactTile(c, unread: mesh.unread[c.nodeId] ?? 0, mesh: mesh),
-                if (nearby.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-                    child: Text('Heard nearby, waiting for their key'),
-                  ),
-                  for (final n in nearby)
-                    ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.cell_tower)),
-                      title: Text(nodeIdHex(n.nodeId), style: GwText.mono),
-                      subtitle: Text([timeAgo(n.lastSeen), if (n.pos != null) n.pos.toString()].join(' · ')),
-                      trailing: const Icon(Icons.info_outline),
-                      onTap: () => _showHeardNode(context, ref, n),
-                    ),
-                ],
-              ],
             ),
+          )
+        : ListView(
+            padding: const EdgeInsets.only(bottom: 88),
+            children: [
+              for (final c in contacts) _ContactTile(c, unread: mesh.unread[c.nodeId] ?? 0, mesh: mesh),
+              if (nearby.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: Text('Heard nearby, waiting for their key'),
+                ),
+                for (final n in nearby)
+                  ListTile(
+                    leading: const CircleAvatar(child: Icon(Icons.cell_tower)),
+                    title: Text(nodeIdHex(n.nodeId), style: GwText.mono),
+                    subtitle: Text([timeAgo(n.lastSeen), if (n.pos != null) n.pos.toString()].join(' · ')),
+                    trailing: const Icon(Icons.info_outline),
+                    onTap: () => _showHeardNode(context, ref, n),
+                  ),
+              ],
+            ],
+          );
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Chats'),
+          actions: [
+            IconButton(
+              tooltip: 'Reload from node',
+              onPressed: online
+                  ? () {
+                      unawaited(ref.read(meshProvider.notifier).refreshContacts());
+                      unawaited(ref.read(meshProvider.notifier).refreshChannels());
+                    }
+                  : null,
+              icon: const Icon(Icons.refresh),
+            ),
+            const LinkChip(),
+          ],
+          bottom: TabBar(
+            tabs: [
+              Tab(child: _TabLabel('People', peopleUnread)),
+              Tab(child: _TabLabel('Channels', channelUnread)),
+            ],
+          ),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => _showAddSheet(context),
+          icon: const Icon(Icons.add),
+          label: const Text('Add'),
+        ),
+        body: TabBarView(children: [people, const ChannelsList()]),
+      ),
     );
   }
+}
+
+class _TabLabel extends StatelessWidget {
+  const _TabLabel(this.text, this.unread);
+
+  final String text;
+  final int unread;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(text),
+      if (unread > 0) ...[const SizedBox(width: 6), Badge(label: Text('$unread'))],
+    ],
+  );
+}
+
+/// Add a contact, make a channel, or join one.
+void _showAddSheet(BuildContext context) {
+  unawaited(
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_add_alt),
+              title: const Text('Add a contact'),
+              subtitle: const Text('Scan their QR code (Me tab) or paste their card'),
+              onTap: () {
+                Navigator.of(sheet).pop();
+                unawaited(
+                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AddContactScreen())),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group_add_outlined),
+              title: const Text('New channel'),
+              subtitle: const Text('A group chat with a new secret key, shared by QR code'),
+              onTap: () {
+                Navigator.of(sheet).pop();
+                unawaited(showNewChannelDialog(context));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.qr_code_scanner),
+              title: const Text('Join a channel'),
+              subtitle: const Text('Scan or paste a channel card (ghostwave-ch:…)'),
+              onTap: () {
+                Navigator.of(sheet).pop();
+                unawaited(
+                  Navigator.of(context)
+                      .push(MaterialPageRoute<void>(builder: (_) => const AddContactScreen(channelsFirst: true))),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _ContactTile extends ConsumerWidget {
@@ -115,7 +199,9 @@ class _ContactTile extends ConsumerWidget {
       title: Row(
         children: [
           Flexible(child: Text(name, overflow: TextOverflow.ellipsis)),
-          if (c.pinned) ...[
+          if (c.keyChanged) ...[
+            // the warning icon below says it
+          ] else if (c.pinned) ...[
             const SizedBox(width: 4),
             const Tooltip(message: 'Key pinned from a contact card', child: Icon(Icons.verified, size: 16)),
           ] else ...[

@@ -45,6 +45,7 @@ dependencies:
   latlong2: ^0.10.1
   geolocator: ^14.1.2
   flutter_local_notifications: ^22.3.3
+  package_info_plus: ^10.2.2
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +70,10 @@ flutter:
 
   assets:
     - assets/brand/logo.png
+    # font licenses, shown on the Licenses page
+    - assets/fonts/space_grotesk/OFL.txt
+    - assets/fonts/inter/OFL.txt
+    - assets/fonts/jetbrains_mono/OFL.txt
 
   # Bundled fonts, SIL Open Font License 1.1; sources and versions in assets/fonts/NOTICE.md.
   fonts:

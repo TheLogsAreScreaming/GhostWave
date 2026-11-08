@@ -133,6 +133,51 @@ const ToRadio$json = {
       '9': 0,
       '10': 'setOwnPosition'
     },
+    {
+      '1': 'send_channel_text',
+      '3': 21,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.SendChannelText',
+      '9': 0,
+      '10': 'sendChannelText'
+    },
+    {
+      '1': 'add_channel',
+      '3': 22,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.AddChannel',
+      '9': 0,
+      '10': 'addChannel'
+    },
+    {
+      '1': 'remove_channel',
+      '3': 23,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.RemoveChannel',
+      '9': 0,
+      '10': 'removeChannel'
+    },
+    {
+      '1': 'list_channels',
+      '3': 24,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.ListChannels',
+      '9': 0,
+      '10': 'listChannels'
+    },
+    {
+      '1': 'set_name',
+      '3': 25,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.SetName',
+      '9': 0,
+      '10': 'setName'
+    },
   ],
   '8': [
     {'1': 'request'},
@@ -154,8 +199,14 @@ final $typed_data.Uint8List toRadioDescriptor = $convert.base64Decode(
     'CmdldF9zdGF0dXMYEiABKAsyHi5naG9zdHdhdmUuY2xpZW50LnYxLkdldFN0YXR1c0gAUglnZX'
     'RTdGF0dXMSRQoMZ2V0X3Bvc2l0aW9uGBMgASgLMiAuZ2hvc3R3YXZlLmNsaWVudC52MS5HZXRQ'
     'b3NpdGlvbkgAUgtnZXRQb3NpdGlvbhJPChBzZXRfb3duX3Bvc2l0aW9uGBQgASgLMiMuZ2hvc3'
-    'R3YXZlLmNsaWVudC52MS5TZXRPd25Qb3NpdGlvbkgAUg5zZXRPd25Qb3NpdGlvbkIJCgdyZXF1'
-    'ZXN0');
+    'R3YXZlLmNsaWVudC52MS5TZXRPd25Qb3NpdGlvbkgAUg5zZXRPd25Qb3NpdGlvbhJSChFzZW5k'
+    'X2NoYW5uZWxfdGV4dBgVIAEoCzIkLmdob3N0d2F2ZS5jbGllbnQudjEuU2VuZENoYW5uZWxUZX'
+    'h0SABSD3NlbmRDaGFubmVsVGV4dBJCCgthZGRfY2hhbm5lbBgWIAEoCzIfLmdob3N0d2F2ZS5j'
+    'bGllbnQudjEuQWRkQ2hhbm5lbEgAUgphZGRDaGFubmVsEksKDnJlbW92ZV9jaGFubmVsGBcgAS'
+    'gLMiIuZ2hvc3R3YXZlLmNsaWVudC52MS5SZW1vdmVDaGFubmVsSABSDXJlbW92ZUNoYW5uZWwS'
+    'SAoNbGlzdF9jaGFubmVscxgYIAEoCzIhLmdob3N0d2F2ZS5jbGllbnQudjEuTGlzdENoYW5uZW'
+    'xzSABSDGxpc3RDaGFubmVscxI5CghzZXRfbmFtZRgZIAEoCzIcLmdob3N0d2F2ZS5jbGllbnQu'
+    'djEuU2V0TmFtZUgAUgdzZXROYW1lQgkKB3JlcXVlc3Q=');
 
 @$core.Deprecated('Use helloDescriptor instead')
 const Hello$json = {
@@ -328,6 +379,67 @@ final $typed_data.Uint8List setOwnPositionDescriptor = $convert.base64Decode(
     'Cg5TZXRPd25Qb3NpdGlvbhIvCgNwb3MYASABKAsyHS5naG9zdHdhdmUuY2xpZW50LnYxLlBvc2'
     'l0aW9uUgNwb3M=');
 
+@$core.Deprecated('Use sendChannelTextDescriptor instead')
+const SendChannelText$json = {
+  '1': 'SendChannelText',
+  '2': [
+    {'1': 'channel', '3': 1, '4': 1, '5': 9, '10': 'channel'},
+    {'1': 'text', '3': 2, '4': 1, '5': 12, '10': 'text'},
+    {'1': 'client_msg_id', '3': 3, '4': 1, '5': 13, '10': 'clientMsgId'},
+  ],
+};
+
+/// Descriptor for `SendChannelText`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List sendChannelTextDescriptor = $convert.base64Decode(
+    'Cg9TZW5kQ2hhbm5lbFRleHQSGAoHY2hhbm5lbBgBIAEoCVIHY2hhbm5lbBISCgR0ZXh0GAIgAS'
+    'gMUgR0ZXh0EiIKDWNsaWVudF9tc2dfaWQYAyABKA1SC2NsaWVudE1zZ0lk');
+
+@$core.Deprecated('Use addChannelDescriptor instead')
+const AddChannel$json = {
+  '1': 'AddChannel',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'psk', '3': 2, '4': 1, '5': 12, '10': 'psk'},
+  ],
+};
+
+/// Descriptor for `AddChannel`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List addChannelDescriptor = $convert.base64Decode(
+    'CgpBZGRDaGFubmVsEhIKBG5hbWUYASABKAlSBG5hbWUSEAoDcHNrGAIgASgMUgNwc2s=');
+
+@$core.Deprecated('Use removeChannelDescriptor instead')
+const RemoveChannel$json = {
+  '1': 'RemoveChannel',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `RemoveChannel`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List removeChannelDescriptor =
+    $convert.base64Decode('Cg1SZW1vdmVDaGFubmVsEhIKBG5hbWUYASABKAlSBG5hbWU=');
+
+@$core.Deprecated('Use listChannelsDescriptor instead')
+const ListChannels$json = {
+  '1': 'ListChannels',
+};
+
+/// Descriptor for `ListChannels`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listChannelsDescriptor =
+    $convert.base64Decode('CgxMaXN0Q2hhbm5lbHM=');
+
+@$core.Deprecated('Use setNameDescriptor instead')
+const SetName$json = {
+  '1': 'SetName',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `SetName`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setNameDescriptor =
+    $convert.base64Decode('CgdTZXROYW1lEhIKBG5hbWUYASABKAlSBG5hbWU=');
+
 @$core.Deprecated('Use fromRadioDescriptor instead')
 const FromRadio$json = {
   '1': 'FromRadio',
@@ -469,6 +581,33 @@ const FromRadio$json = {
       '9': 0,
       '10': 'keyChange'
     },
+    {
+      '1': 'channel_message',
+      '3': 25,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.ChannelMessage',
+      '9': 0,
+      '10': 'channelMessage'
+    },
+    {
+      '1': 'channel',
+      '3': 26,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.Channel',
+      '9': 0,
+      '10': 'channel'
+    },
+    {
+      '1': 'channels_end',
+      '3': 27,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.ChannelsEnd',
+      '9': 0,
+      '10': 'channelsEnd'
+    },
   ],
   '8': [
     {'1': 'event'},
@@ -494,7 +633,11 @@ final $typed_data.Uint8List fromRadioDescriptor = $convert.base64Decode(
     'CnNlbmRRdWV1ZWQSKQoCb2sYFiABKAsyFy5naG9zdHdhdmUuY2xpZW50LnYxLk9rSABSAm9rEj'
     '8KCnBlZXJfaWRlbnQYFyABKAsyHi5naG9zdHdhdmUuY2xpZW50LnYxLlBlZXJJZGVudEgAUglw'
     'ZWVySWRlbnQSPwoKa2V5X2NoYW5nZRgYIAEoCzIeLmdob3N0d2F2ZS5jbGllbnQudjEuS2V5Q2'
-    'hhbmdlSABSCWtleUNoYW5nZUIHCgVldmVudA==');
+    'hhbmdlSABSCWtleUNoYW5nZRJOCg9jaGFubmVsX21lc3NhZ2UYGSABKAsyIy5naG9zdHdhdmUu'
+    'Y2xpZW50LnYxLkNoYW5uZWxNZXNzYWdlSABSDmNoYW5uZWxNZXNzYWdlEjgKB2NoYW5uZWwYGi'
+    'ABKAsyHC5naG9zdHdhdmUuY2xpZW50LnYxLkNoYW5uZWxIAFIHY2hhbm5lbBJFCgxjaGFubmVs'
+    'c19lbmQYGyABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYxLkNoYW5uZWxzRW5kSABSC2NoYW5uZW'
+    'xzRW5kQgcKBWV2ZW50');
 
 @$core.Deprecated('Use nodeInfoDescriptor instead')
 const NodeInfo$json = {
@@ -508,6 +651,14 @@ const NodeInfo$json = {
     {'1': 'legacy', '3': 6, '4': 1, '5': 8, '10': 'legacy'},
     {'1': 'firmware', '3': 7, '4': 1, '5': 9, '10': 'firmware'},
     {'1': 'max_text_bytes', '3': 8, '4': 1, '5': 13, '10': 'maxTextBytes'},
+    {'1': 'protocol_minor', '3': 9, '4': 1, '5': 13, '10': 'protocolMinor'},
+    {
+      '1': 'max_channel_text_bytes',
+      '3': 10,
+      '4': 1,
+      '5': 13,
+      '10': 'maxChannelTextBytes'
+    },
   ],
 };
 
@@ -517,7 +668,9 @@ final $typed_data.Uint8List nodeInfoDescriptor = $convert.base64Decode(
     'oHbm9kZV9pZBgCIAEoB1IGbm9kZUlkEhIKBG5hbWUYAyABKAxSBG5hbWUSHwoLZWQyNTUxOV9w'
     'dWIYBCABKAxSCmVkMjU1MTlQdWISHQoKeDI1NTE5X3B1YhgFIAEoDFIJeDI1NTE5UHViEhYKBm'
     'xlZ2FjeRgGIAEoCFIGbGVnYWN5EhoKCGZpcm13YXJlGAcgASgJUghmaXJtd2FyZRIkCg5tYXhf'
-    'dGV4dF9ieXRlcxgIIAEoDVIMbWF4VGV4dEJ5dGVz');
+    'dGV4dF9ieXRlcxgIIAEoDVIMbWF4VGV4dEJ5dGVzEiUKDnByb3RvY29sX21pbm9yGAkgASgNUg'
+    '1wcm90b2NvbE1pbm9yEjMKFm1heF9jaGFubmVsX3RleHRfYnl0ZXMYCiABKA1SE21heENoYW5u'
+    'ZWxUZXh0Qnl0ZXM=');
 
 @$core.Deprecated('Use textMessageDescriptor instead')
 const TextMessage$json = {
@@ -743,17 +896,18 @@ const Error_Code$json = {
     {'1': 'SEND_FAILED', '2': 10},
     {'1': 'TOO_MANY_CLIENTS', '2': 11},
     {'1': 'NO_IDENTITY', '2': 12},
+    {'1': 'CHANNEL_LIMIT', '2': 13},
   ],
 };
 
 /// Descriptor for `Error`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List errorDescriptor = $convert.base64Decode(
     'CgVFcnJvchIzCgRjb2RlGAEgASgOMh8uZ2hvc3R3YXZlLmNsaWVudC52MS5FcnJvci5Db2RlUg'
-    'Rjb2RlEhYKBmRldGFpbBgCIAEoCVIGZGV0YWlsIuABCgRDb2RlEggKBE5PTkUQABINCglCQURf'
+    'Rjb2RlEhYKBmRldGFpbBgCIAEoCVIGZGV0YWlsIvMBCgRDb2RlEggKBE5PTkUQABINCglCQURf'
     'RlJBTUUQARIPCgtCQURfVkVSU0lPThACEhMKD1VOS05PV05fUkVRVUVTVBADEg4KCk5FRURfSE'
     'VMTE8QBBIQCgxCQURfQVJHVU1FTlQQBRIMCghUT09fTE9ORxAGEhAKDFJBVEVfTElNSVRFRBAH'
     'Eg0KCU5PVF9GT1VORBAIEhAKDEtFWV9SRUpFQ1RFRBAJEg8KC1NFTkRfRkFJTEVEEAoSFAoQVE'
-    '9PX01BTllfQ0xJRU5UUxALEg8KC05PX0lERU5USVRZEAw=');
+    '9PX01BTllfQ0xJRU5UUxALEg8KC05PX0lERU5USVRZEAwSEQoNQ0hBTk5FTF9MSU1JVBAN');
 
 @$core.Deprecated('Use contactDescriptor instead')
 const Contact$json = {
@@ -822,3 +976,53 @@ const KeyChange$json = {
 final $typed_data.Uint8List keyChangeDescriptor = $convert.base64Decode(
     'CglLZXlDaGFuZ2USFwoHbm9kZV9pZBgBIAEoB1IGbm9kZUlkEh8KC2VkMjU1MTlfcHViGAIgAS'
     'gMUgplZDI1NTE5UHViEhIKBG5hbWUYAyABKAxSBG5hbWU=');
+
+@$core.Deprecated('Use channelMessageDescriptor instead')
+const ChannelMessage$json = {
+  '1': 'ChannelMessage',
+  '2': [
+    {'1': 'channel', '3': 1, '4': 1, '5': 9, '10': 'channel'},
+    {'1': 'src', '3': 2, '4': 1, '5': 7, '10': 'src'},
+    {'1': 'msg_id', '3': 3, '4': 1, '5': 7, '10': 'msgId'},
+    {'1': 'text', '3': 4, '4': 1, '5': 12, '10': 'text'},
+    {
+      '1': 'pos',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.Position',
+      '10': 'pos'
+    },
+  ],
+};
+
+/// Descriptor for `ChannelMessage`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List channelMessageDescriptor = $convert.base64Decode(
+    'Cg5DaGFubmVsTWVzc2FnZRIYCgdjaGFubmVsGAEgASgJUgdjaGFubmVsEhAKA3NyYxgCIAEoB1'
+    'IDc3JjEhUKBm1zZ19pZBgDIAEoB1IFbXNnSWQSEgoEdGV4dBgEIAEoDFIEdGV4dBIvCgNwb3MY'
+    'BSABKAsyHS5naG9zdHdhdmUuY2xpZW50LnYxLlBvc2l0aW9uUgNwb3M=');
+
+@$core.Deprecated('Use channelDescriptor instead')
+const Channel$json = {
+  '1': 'Channel',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'psk', '3': 2, '4': 1, '5': 12, '10': 'psk'},
+  ],
+};
+
+/// Descriptor for `Channel`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List channelDescriptor = $convert.base64Decode(
+    'CgdDaGFubmVsEhIKBG5hbWUYASABKAlSBG5hbWUSEAoDcHNrGAIgASgMUgNwc2s=');
+
+@$core.Deprecated('Use channelsEndDescriptor instead')
+const ChannelsEnd$json = {
+  '1': 'ChannelsEnd',
+  '2': [
+    {'1': 'count', '3': 1, '4': 1, '5': 13, '10': 'count'},
+  ],
+};
+
+/// Descriptor for `ChannelsEnd`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List channelsEndDescriptor =
+    $convert.base64Decode('CgtDaGFubmVsc0VuZBIUCgVjb3VudBgBIAEoDVIFY291bnQ=');

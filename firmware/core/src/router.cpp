@@ -329,6 +329,7 @@ void Router::tick(uint64_t now) {
   }
   sosTick(now);
   identTick(now);
+  chanResendTick(now);
 
   for (auto it = store_.begin(); it != store_.end();)
     it = (now - it->second.created > cfg_.storeTtlMs) ? store_.erase(it) : std::next(it);
@@ -773,6 +774,10 @@ void Router::onAck(const Packet& p, uint64_t now) {
 }
 
 void Router::onData(const Packet& p, float rssi, uint64_t now) {
+  if (p.dst == kBroadcast && p.mode == Mode::ScopedFlood) {
+    onChannelData(p, now);
+    return;
+  }
   Key k = keyOf(p);
   if (p.dst == cfg_.nodeId) {
     std::vector<uint8_t> plain;
@@ -838,6 +843,135 @@ void Router::onData(const Packet& p, float rssi, uint64_t now) {
   Packet g = p;
   fresherTarget(g, now);
   scheduleForward(g, rssi, now);
+}
+
+// ---------------------------------------------------------- group channels --
+
+uint32_t Router::addGroupChannel(const uint8_t key[32]) {
+  uint32_t id = groupChannelId(key);
+  for (auto& c : chans_)
+    if (c.id == id) return id;
+  if (chans_.size() >= kMaxGroupChannels) return 0;
+  GroupChan c{id, {}};
+  std::memcpy(c.key.data(), key, 32);
+  chans_.push_back(c);
+  return id;
+}
+
+bool Router::removeGroupChannel(uint32_t chanId) {
+  for (auto it = chans_.begin(); it != chans_.end(); ++it) {
+    if (it->id != chanId) continue;
+    wipe(it->key.data(), it->key.size());
+    chans_.erase(it);
+    return true;
+  }
+  return false;
+}
+
+bool Router::hasGroupChannel(uint32_t chanId) const {
+  for (auto& c : chans_)
+    if (c.id == chanId) return true;
+  return false;
+}
+
+uint32_t Router::sendChannel(uint32_t chanId, const std::vector<uint8_t>& payload, uint64_t now) {
+  const GroupChan* ch = nullptr;
+  for (auto& c : chans_)
+    if (c.id == chanId) ch = &c;
+  if (!ch || payload.size() > kChannelPayloadMax) return 0;
+  Packet p;
+  p.type = PType::Data;
+  p.mode = Mode::ScopedFlood;
+  p.src = cfg_.nodeId;
+  p.dst = kBroadcast;
+  p.msgId = rng_.next() | 1;
+  p.hopsLeft = cfg_.channelHops;
+  p.prevHop = me16();
+  p.payload = payload;
+  if (havePos_) {
+    p.hasSrcPos = true;
+    p.srcPos = pos_;
+    p.srcAge = 0;
+  }
+  if (!aeadSeal(p, ch->key.data())) return 0;
+  seen_[keyOf(p)].t = now;
+  auto item = enqueue(p, true, now);
+  if (cfg_.channelHops > 0) chanOwn_[p.msgId] = ChanOwn{p, item, 0, 0, false, now};
+  return p.msgId;
+}
+
+// Our channel frames (DESIGN §9.3): a neighbor relaying one is the only sign
+// it went out. Without that, re-send it (same msg_id, so receivers drop the
+// copy) up to kChanResendMax times, while some neighbor is around to hear it.
+void Router::chanResendTick(uint64_t now) {
+  constexpr uint8_t kChanResendMax = 2;
+  constexpr uint64_t kChanResendBaseMs = 4000;
+  for (auto it = chanOwn_.begin(); it != chanOwn_.end();) {
+    ChanOwn& o = it->second;
+    if (o.echoed || now - o.created > 60000) {
+      it = chanOwn_.erase(it);
+      continue;
+    }
+    if (o.item && o.item->sent && !o.sentAt) o.sentAt = now;   // the radio took it: start the clock
+    if (o.item && (o.item->cancelled || o.item->sent) && o.sentAt && o.resends < kChanResendMax &&
+        now >= o.sentAt + (kChanResendBaseMs << o.resends) && neighborCount(now) > 0) {
+      ++o.resends;
+      o.sentAt = 0;
+      o.item = enqueue(o.pkt, true, now);
+      o.item->readyAt = now + rng_.range(0, kJitterMs * 4);
+    } else if (o.resends >= kChanResendMax && o.item && o.item->sent) {
+      it = chanOwn_.erase(it);
+      continue;
+    }
+    ++it;
+  }
+}
+
+// A channel frame (DESIGN §9.3): deliver it if one of our channel keys opens
+// it, and relay it once either way (relays need no key), unless enough copies
+// were heard first.
+void Router::onChannelData(const Packet& p, uint64_t now) {
+  if (!p.encrypted) return;   // plaintext broadcasts are not a thing
+  if (p.src == cfg_.nodeId) {   // a neighbor relayed ours: it got out
+    auto own = chanOwn_.find(p.msgId);
+    if (own != chanOwn_.end()) own->second.echoed = true;
+    return;
+  }
+  Key k = keyOf(p);
+  if (seen_.count(k)) {
+    auto f = chanFlood_.find(k);
+    if (f != chanFlood_.end() && f->second.item && !f->second.item->sent && ++f->second.dups >= kSosDupCancel)
+      f->second.item->cancelled = true;
+    return;
+  }
+  seen_[k].t = now;
+  std::vector<uint8_t> plain;
+  for (auto& c : chans_) {
+    if (!aeadOpen(p, c.key.data(), plain)) continue;
+    ++stats_.delivered;
+    app_.onChannelMessage(c.id, p.src, p.msgId, plain);
+    break;
+  }
+  if (p.hopsLeft == 0) return;
+  Packet g = p;
+  g.hopsLeft = p.hopsLeft - 1;
+  g.prevHop = me16();
+  g.nextHop = 0;
+  auto item = enqueue(g, false, now);
+  uint32_t unit = airtimeMs(cfg_.phy, encodedSize(g));
+  item->readyAt = now + rng_.range(0, 2 * unit + kJitterMs);
+  chanFlood_[k] = ChanFlood{item, 0, now};
+  ++stats_.forwarded;
+  // relays are rare; drop bookkeeping for floods long gone
+  for (auto it = chanFlood_.begin(); it != chanFlood_.end();)
+    it = now - it->second.t > 60000 ? chanFlood_.erase(it) : std::next(it);
+}
+
+void Router::announceIdent(uint64_t now) {
+  if (!haveSigKey_) return;
+  uint64_t at = now + rng_.range(100, 1000);
+  if (identSent_) at = std::max(at, lastIdentT_ + kIdentReplyGapMs);
+  if (!identReplyAt_ || at < identReplyAt_) identReplyAt_ = at;
 }
 
 // ----------------------------------------------------------------- beacons --

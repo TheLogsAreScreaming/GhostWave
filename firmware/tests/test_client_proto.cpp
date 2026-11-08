@@ -33,7 +33,7 @@ static bool sameTo(const ToRadio& a, const ToRadio& b) {
          a.clientName == b.clientName && a.dest == b.dest && a.text == b.text &&
          a.clientMsgId == b.clientMsgId && a.nodeId == b.nodeId && a.ed25519Pub == b.ed25519Pub &&
          a.x25519Pub == b.x25519Pub && a.name == b.name && a.pos == b.pos &&
-         a.batteryPct == b.batteryPct && a.accuracyM == b.accuracyM;
+         a.batteryPct == b.batteryPct && a.accuracyM == b.accuracyM && a.channel == b.channel && a.psk == b.psk;
 }
 
 static bool sameFrom(const FromRadio& a, const FromRadio& b) {
@@ -44,7 +44,9 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.dest == b.dest && a.msgId == b.msgId && a.clientMsgId == b.clientMsgId &&
          a.text == b.text && a.pos == b.pos && a.seq == b.seq && a.accuracyM == b.accuracyM &&
          a.batteryPct == b.batteryPct && a.isNew == b.isNew && a.pinned == b.pinned &&
-         a.count == b.count && a.status == b.status && a.error == b.error && a.detail == b.detail;
+         a.count == b.count && a.status == b.status && a.error == b.error && a.detail == b.detail &&
+         a.protocolMinor == b.protocolMinor && a.maxChannelTextBytes == b.maxChannelTextBytes &&
+         a.channel == b.channel && a.psk == b.psk;
 }
 
 static std::vector<ToRadio> sampleTo() {
@@ -79,6 +81,18 @@ static std::vector<ToRadio> sampleTo() {
   v.push_back(m);
   m = {}, m.reqId = 13, m.kind = ToKind::SetOwnPosition;   // no fix
   v.push_back(m);
+  // 1.1
+  m = {}, m.reqId = 14, m.kind = ToKind::SendChannelText, m.channel = "trail crew", m.text = B("camp at 5"),
+  m.clientMsgId = 77;
+  v.push_back(m);
+  m = {}, m.reqId = 15, m.kind = ToKind::AddChannel, m.channel = "ops", m.psk = key(11);
+  v.push_back(m);
+  m = {}, m.reqId = 16, m.kind = ToKind::RemoveChannel, m.channel = "ops";
+  v.push_back(m);
+  m = {}, m.reqId = 17, m.kind = ToKind::ListChannels;
+  v.push_back(m);
+  m = {}, m.reqId = 18, m.kind = ToKind::SetName, m.name = "Ridge1";
+  v.push_back(m);
   return v;
 }
 
@@ -87,6 +101,8 @@ static std::vector<FromRadio> sampleFrom() {
   FromRadio m;
   m.reqId = 1, m.kind = FromKind::NodeInfo, m.protocolVersion = 1, m.nodeId = 0x9ABCDEF0, m.name = "A";
   m.ed25519Pub = key(3), m.x25519Pub = key(4), m.firmware = "ghostwaved 0.1", m.maxTextBytes = 79;
+  v.push_back(m);
+  m.protocolMinor = 1, m.maxChannelTextBytes = 86;   // a 1.1 node
   v.push_back(m);
   m = {}, m.kind = FromKind::Text, m.replayed = true, m.src = 7, m.msgId = 0xDEADBEEF,
   m.pos = posFromDegrees(46.87, -113.99);
@@ -124,6 +140,17 @@ static std::vector<FromRadio> sampleFrom() {
   m = {}, m.kind = FromKind::PeerIdent, m.nodeId = 4, m.name = "dave", m.isNew = true;
   v.push_back(m);
   m = {}, m.kind = FromKind::KeyChange, m.nodeId = 4, m.ed25519Pub = key(8), m.name = "dave";
+  v.push_back(m);
+  m = {}, m.kind = FromKind::ChannelMessage, m.channel = "ops", m.src = 9, m.msgId = 0x0BADF00D,
+  m.text = B("on my way"), m.pos = posFromDegrees(46.1, -113.2);
+  v.push_back(m);
+  m = {}, m.kind = FromKind::ChannelMessage, m.replayed = true, m.channel = "ops", m.src = 9, m.msgId = 1;   // no fix
+  v.push_back(m);
+  m = {}, m.reqId = 84, m.kind = FromKind::Channel, m.channel = "ops", m.psk = key(11);
+  v.push_back(m);
+  m = {}, m.reqId = 84, m.kind = FromKind::ChannelsEnd, m.count = 1;
+  v.push_back(m);
+  m = {}, m.reqId = 85, m.kind = FromKind::Error, m.error = ErrorCode::ChannelLimit, m.detail = "at most 8 channels";
   v.push_back(m);
   return v;
 }
@@ -182,6 +209,25 @@ static void testGolden() {
   const uint8_t delFrame[] = {0x94, 0xC3, 0x0F, 0x00, 0x01, 0x62, 0x0C, 0x0D, 0xD4, 0xC3,
                               0xB2, 0xA1, 0x15, 0x04, 0x03, 0x02, 0x01, 0x18, 0x2A};
   CHECK(fr.size() == sizeof delFrame && std::memcmp(fr.data(), delFrame, fr.size()) == 0);
+
+  // 1.1: SendChannelText (request field 21, a two-byte key)
+  ToRadio c;
+  c.reqId = 3, c.kind = ToKind::SendChannelText, c.channel = "ops", c.text = B("hi"), c.clientMsgId = 7;
+  fr.clear();
+  CHECK(frameTo(c, fr));
+  const uint8_t chanFrame[] = {0x94, 0xC3, 0x11, 0x00, 0x01, 0x08, 0x03, 0xAA, 0x01, 0x0B, 0x0A,
+                               0x03, 'o',  'p',  's',  0x12, 0x02, 'h',  'i',  0x18, 0x07};
+  CHECK(fr.size() == sizeof chanFrame && std::memcmp(fr.data(), chanFrame, fr.size()) == 0);
+
+  // the largest channel event still fits one client frame: 16-byte name,
+  // 86-byte text (Router::kChannelPayloadMax), position, replayed
+  FromRadio big;
+  big.kind = FromKind::ChannelMessage, big.replayed = true, big.channel = std::string(16, 'n');
+  big.src = 0xFFFFFFFF, big.msgId = 0xFFFFFFFF, big.text = Bytes(86, 0xFF), big.pos = posFromDegrees(-89.9, -179.9);
+  fr.clear();
+  CHECK(frameFrom(big, fr));
+  CHECK(fr.size() <= kMaxFrame);
+  std::printf("  largest ChannelMessage frame: %zu bytes (max %zu)\n", fr.size(), kMaxFrame);
 
   // negative coordinates are zigzag varints (sint32)
   FromRadio p;

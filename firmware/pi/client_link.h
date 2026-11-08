@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "channel_store.h"
 #include "ghostwave/client_proto.h"
 #include "ghostwave/router.h"
 
@@ -31,6 +32,10 @@ class ClientLink {
     std::function<void(const gw::Position&)> setOwnPosition;
     // Ed25519 keys of pinned peers, for ListContacts.
     const std::map<uint32_t, std::array<uint8_t, 32>>* edKeys = nullptr;
+    // Group channels (protocol 1.1); null = not offered.
+    ChannelStore* channels = nullptr;
+    // Renames the node (SetName, 1.1): ErrorCode::None, or an error with `err` set.
+    std::function<gw::client::ErrorCode(const std::string&, std::string&)> setName;
   };
 
   static constexpr size_t kMaxClients = 4;
@@ -58,6 +63,7 @@ class ClientLink {
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen);
   void onKeyChange(uint32_t id, const uint8_t edPub[32], const std::string& name);
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew);
+  void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& payload);
 
  private:
   struct Client {
@@ -73,6 +79,8 @@ class ClientLink {
   void readFrom(Client& c, uint64_t now);
   void flush(Client& c);
   void handle(Client& c, const gw::client::ToRadio& m, uint64_t now);
+  // Protocol 1.1 requests (channels, SetName); false if `m` is not one.
+  bool handleV11(Client& c, const gw::client::ToRadio& m, uint64_t now);
   void send(Client& c, const gw::client::FromRadio& m);
   void reply(Client& c, uint32_t reqId, gw::client::FromKind kind);
   void error(Client& c, uint32_t reqId, gw::client::ErrorCode code, const std::string& detail);
