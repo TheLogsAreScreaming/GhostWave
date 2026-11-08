@@ -15,6 +15,8 @@ import 'package:ghostwave_app/src/link/contact_card.dart';
 import 'package:ghostwave_app/src/link/node_link.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/history_keys.dart';
+
 import '../link/fake_node.dart';
 import 'mesh_controller_test.dart' show answeringNode, bob, settle;
 
@@ -114,7 +116,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     c = ProviderContainer(
-      overrides: [sharedPrefsProvider.overrideWithValue(prefs), meshStoreProvider.overrideWithValue(MeshStore(dir))],
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        meshStoreProvider.overrideWithValue(MeshStore(dir, testHistoryKeys)),
+      ],
     );
     c.listen(meshProvider, (_, _) {});
   });
@@ -284,7 +289,7 @@ void main() {
       await settle();
       ctl().flush();
       await Future<void>.delayed(const Duration(milliseconds: 100));
-      final saved = await MeshStore(dir).load(n.node.nodeId);
+      final saved = await MeshStore(dir, testHistoryKeys).load(n.node.nodeId);
       expect(saved.channels.keys, ['crew']);
       expect(saved.channelMessages['crew']!.single.text, 'ok');
     });

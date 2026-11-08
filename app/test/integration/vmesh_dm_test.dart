@@ -32,6 +32,8 @@ import 'package:ghostwave_app/src/link/session.dart';
 import 'package:ghostwave_app/src/link/transport.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/history_keys.dart';
+
 String? findGhostwaved() {
   final env = Platform.environment['GHOSTWAVED'];
   if (env != null && env.isNotEmpty) return File(env).existsSync() ? env : null;
@@ -238,7 +240,7 @@ void main() {
           final c = ProviderContainer(
             overrides: [
               sharedPrefsProvider.overrideWithValue(prefs),
-              meshStoreProvider.overrideWithValue(MeshStore(store)),
+              meshStoreProvider.overrideWithValue(MeshStore(store, testHistoryKeys)),
             ],
           );
           containers.add(c);

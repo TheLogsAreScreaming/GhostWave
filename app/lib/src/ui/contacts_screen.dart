@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/mesh_controller.dart';
 import '../app/providers.dart';
+import '../data/mesh_store.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import 'add_contact_screen.dart';
@@ -103,7 +104,48 @@ class ContactsScreen extends ConsumerWidget {
           icon: const Icon(Icons.add),
           label: const Text('Add'),
         ),
-        body: TabBarView(children: [people, const ChannelsList()]),
+        body: Column(
+          children: [
+            if (mesh.historyProblem != HistoryProblem.none) _HistoryProblemNotice(mesh.historyProblem),
+            Expanded(child: TabBarView(children: [people, const ChannelsList()])),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Says why earlier chats are missing, and whether new ones are being kept.
+class _HistoryProblemNotice extends StatelessWidget {
+  const _HistoryProblemNotice(this.problem);
+
+  final HistoryProblem problem;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = switch (problem) {
+      HistoryProblem.locked =>
+        "Saved chats for this node can't be opened right now: this phone didn't release the key. "
+            "Nothing was deleted. New messages won't be saved until you restart the app.",
+      HistoryProblem.unreadable =>
+        "Saved chats for this node couldn't be read, so this list starts empty. "
+            'If you have a backup, you can restore it in Settings.',
+      HistoryProblem.none => '',
+    };
+    return Container(
+      width: double.infinity,
+      color: scheme.errorContainer,
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lock_outline, color: scheme.onErrorContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(text, style: TextStyle(color: scheme.onErrorContainer)),
+          ),
+        ],
       ),
     );
   }

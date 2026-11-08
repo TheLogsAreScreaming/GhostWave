@@ -12,6 +12,8 @@ import 'package:ghostwave_app/src/link/contact_card.dart';
 import 'package:ghostwave_app/src/link/node_link.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/history_keys.dart';
+
 import '../link/fake_node.dart';
 
 const int bob = 0x0B0B0B0B;
@@ -83,7 +85,10 @@ Future<ProviderContainer> makeContainer(Directory dir) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   final c = ProviderContainer(
-    overrides: [sharedPrefsProvider.overrideWithValue(prefs), meshStoreProvider.overrideWithValue(MeshStore(dir))],
+    overrides: [
+      sharedPrefsProvider.overrideWithValue(prefs),
+      meshStoreProvider.overrideWithValue(MeshStore(dir, testHistoryKeys)),
+    ],
   );
   c.listen(meshProvider, (_, _) {}); // keep it alive
   return c;
@@ -302,10 +307,11 @@ void main() {
   });
 
   test('store: a corrupt file loads as empty and is kept aside', () async {
-    final store = MeshStore(dir);
-    File('${dir.path}/node_00000001.json').writeAsStringSync('{not json');
+    final store = MeshStore(dir, testHistoryKeys);
+    File('${dir.path}/node_00000001.gwh').writeAsStringSync('{not sealed');
     final s = await store.load(1);
     expect(s.contacts, isEmpty);
-    expect(File('${dir.path}/node_00000001.json.bad').existsSync(), isTrue);
+    expect(s.problem, HistoryProblem.unreadable);
+    expect(File('${dir.path}/node_00000001.gwh.bad').existsSync(), isTrue);
   });
 }
