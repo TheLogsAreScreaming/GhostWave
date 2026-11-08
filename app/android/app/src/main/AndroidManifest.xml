@@ -4,6 +4,11 @@
     <!-- Opt-in "share phone location with node", foreground only -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Bluetooth client link. Android 12+ asks for Nearby devices only; on older
+         versions scanning also needs location (ACCESS_FINE_LOCATION, above). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
     <!-- Notifications for DMs and SOS while backgrounded (Android 13+ asks at runtime) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application

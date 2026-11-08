@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/providers.dart';
+import '../link/ble.dart';
 import '../link/contact_card.dart';
 import '../link/node_link.dart';
 import '../link/transport.dart';
+import 'ble_scan_screen.dart';
 import 'format.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -27,7 +29,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   @override
   void initState() {
     super.initState();
-    _address = TextEditingController(text: ref.read(nodeAddressProvider) ?? '');
+    final saved = ref.read(nodeAddressProvider);
+    _address = TextEditingController(text: saved == null || BleNodeRef.tryParse(saved) != null ? '' : saved);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (ref.read(nodeLinkProvider).state case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
@@ -98,16 +101,20 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               ],
             ],
           ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BleScanScreen())),
+            icon: const Icon(Icons.bluetooth_searching),
+            label: const Text('Find Bluetooth nodes'),
+          ),
           const SizedBox(height: 24),
           LinkStateCard(state: state),
           _RecentNodes(
             current: ref.watch(nodeAddressProvider),
             onConnect: (address) {
-              final a = TcpAddress.tryParse(address);
-              if (a == null) return;
-              _address.text = address;
+              if (TcpAddress.tryParse(address) != null && BleNodeRef.tryParse(address) == null) _address.text = address;
               setState(() => _error = null);
-              unawaited(ref.read(nodeAddressProvider.notifier).connectTo(a));
+              unawaited(ref.read(nodeAddressProvider.notifier).connectAddress(address));
             },
           ),
           const SizedBox(height: 24),
@@ -202,10 +209,19 @@ class _RecentNodes extends ConsumerWidget {
           for (final r in recent)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(r.address == current ? Icons.radio_button_checked : Icons.history),
+              leading: Icon(
+                r.address == current
+                    ? Icons.radio_button_checked
+                    : BleNodeRef.tryParse(r.address) != null
+                    ? Icons.bluetooth
+                    : Icons.history,
+              ),
               title: Text(r.label),
               subtitle: Text(
-                [if (r.nodeId != null) r.address, 'used ${timeAgo(r.lastUsed)}'].join(' · '),
+                [
+                  if (BleNodeRef.tryParse(r.address) != null) 'Bluetooth' else if (r.nodeId != null) r.address,
+                  'used ${timeAgo(r.lastUsed)}',
+                ].join(' · '),
                 style: GwText.mono.copyWith(fontSize: 12),
               ),
               onTap: () => onConnect(r.address),

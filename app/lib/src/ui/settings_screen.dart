@@ -62,10 +62,14 @@ class SettingsScreen extends ConsumerWidget {
               enabled: info.protocolMinor >= 1 && !info.legacy,
               onTap: () => unawaited(_rename(context, ref, decodeLenient(info.name))),
             ),
-            if (info.protocolMinor < 1)
-              const ListTile(
+            if (info.protocolMinor < 1 || info.legacy)
+              ListTile(
                 dense: true,
-                title: Text('This node runs an older ghostwaved: update it to rename from the app.'),
+                title: Text(
+                  info.legacy
+                      ? 'Not available on this node: its firmware has no name that other nodes can see.'
+                      : 'This node runs an older ghostwaved: update it to rename from the app.',
+                ),
               ),
             ListTile(
               leading: const Icon(Icons.memory),

@@ -59,6 +59,9 @@ class FakeNode implements Transport {
   /// When set, Hello must prove this PIN.
   String? pin;
 
+  /// NodeInfo.firmware.
+  String firmware = 'fake';
+
   /// NodeInfo.name.
   String name = 'N1';
   final List<FakeConnection> connections = <FakeConnection>[];
@@ -77,7 +80,7 @@ class FakeNode implements Transport {
     name: name.codeUnits,
     ed25519Pub: List.filled(32, 7),
     x25519Pub: List.filled(32, 8),
-    firmware: 'fake',
+    firmware: firmware,
     maxTextBytes: 73,
     protocolMinor: protocolMinor,
     maxChannelTextBytes: protocolMinor >= 1 ? 86 : 0,

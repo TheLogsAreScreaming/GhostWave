@@ -615,7 +615,7 @@ class MeshController extends Notifier<MeshState> {
   /// Whether the connected node speaks protocol 1.1 (channels, SetName).
   bool get nodeSupportsChannels {
     final s = _link.state;
-    return s is LinkUp && s.info.protocolMinor >= 1;
+    return s is LinkUp && s.info.protocolMinor >= 1 && s.info.maxChannelTextBytes > 0;
   }
 
   /// Reloads the node's channel list (protocol 1.1 nodes only).
@@ -625,6 +625,22 @@ class MeshController extends Notifier<MeshState> {
     final List<pb.Channel> list;
     try {
       list = await session.listChannels();
+      // radio firmware keeps channels in RAM: after a reboot, join them again
+      final firmware = (_link.state as LinkUp).info.firmware;
+      if (firmware.startsWith('ghostwave-')) {
+        final held = {for (final c in list) c.name};
+        for (final c in state.channels.values) {
+          if (held.contains(c.name)) continue;
+          final psk = hexDecode(c.pskHex);
+          if (psk == null) continue;
+          await session.request(
+            pb.ToRadio(
+              addChannel: pb.AddChannel(name: c.name, psk: psk),
+            ),
+          );
+          list.add(pb.Channel(name: c.name, psk: psk));
+        }
+      }
     } on Object {
       return;
     }
@@ -639,7 +655,7 @@ class MeshController extends Notifier<MeshState> {
   Future<void> joinChannel(ChannelCard card) async {
     final session = _link.session;
     if (session == null) throw StateError('Not connected to a node');
-    if (!nodeSupportsChannels) throw StateError('This node is too old for channels; update ghostwaved');
+    if (!nodeSupportsChannels) throw StateError('Group channels are not available on this node.');
     await session.request(
       pb.ToRadio(
         addChannel: pb.AddChannel(name: card.name, psk: card.psk),
@@ -778,7 +794,10 @@ class MeshController extends Notifier<MeshState> {
   Future<void> setNodeName(String name) async {
     final session = _link.session;
     if (session == null) throw StateError('Not connected to a node');
-    if (!nodeSupportsChannels) throw StateError('This node is too old to rename from the app; update ghostwaved');
+    final s = _link.state;
+    if (s is! LinkUp || s.info.protocolMinor < 1 || s.info.legacy) {
+      throw StateError('This node cannot be renamed from the app.');
+    }
     await session.request(pb.ToRadio(setName: pb.SetName(name: name)));
     await _link.rehello();
   }

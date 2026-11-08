@@ -28,7 +28,7 @@ any other mesh app.
 | **Share phone location:** opt-in switch on the Me tab sends the phone's GPS to the node (`SetOwnPosition`) on 50 m of movement, at most every 30 s, only while the app is open | done |
 | **Notifications:** new DMs and SOS alerts while the app is in the background and still connected | done |
 | **PIN:** a node on a network asks for its PIN once; the app keeps it in the phone's secure storage and proves it without sending it | done |
-| BLE transport | later (needs the Heltec BLE service) |
+| **Bluetooth** (RAK4631, T1000-E): scan, signal strength, system passkey pairing, remembered under recent nodes, drops recover by themselves | done, untested on real radios |
 | **Offline maps:** save the area on screen from a tile source you configure (Map tab or Settings), with a size estimate and limits (zoom 16, 15,000 tiles per region, 1 GB in total) | done |
 | **First run:** a four-page introduction (what GhostWave is, connecting, your QR card, how SOS works) | done |
 | **SOS:** elapsed time and next repeat while active; an incoming SOS opens the map at the sender, with distance and bearing from you | done |
@@ -113,9 +113,24 @@ secret here (a fine-grained PAT, or a GitHub App), which has not been set up yet
 but installing it on an iPhone needs either Xcode on a Mac (free Apple ID, re-sign every 7 days) or a
 paid Apple Developer account (TestFlight). That decision is still open. Android comes first.
 
+## First Bluetooth connection (checklist)
+
+Bluetooth nodes are the RAK4631 and T1000-E builds. The Heltec builds have no client link over Bluetooth.
+
+1. Flash the node and open its USB serial console at 115200 baud. Check it prints `BLE "GhostWave-xxxx" advertising`.
+2. In the app: Connect → **Find Bluetooth nodes**, and allow Nearby devices. Your node should be listed with its signal.
+3. Tap it. Android asks for a passkey: type the 6 digits from `BLE pairing: enter passkey …` on the console.
+4. The bar above the tabs should say `Connected to GhostWave-xxxx`.
+5. Reconnect test: restart the node, or walk out of range and back. It should reconnect with no passkey and no taps.
+
+If pairing fails, retype the passkey and tap **Retry now**. If you ran `ble clear` on the node, or reflashed it, forget
+the node in Android's Bluetooth settings first, because the phone's old bond no longer matches. A node serves one
+phone at a time and doesn't advertise while connected, so disconnect other phones if it isn't listed.
+
 ## Known limits
 
-- **No BLE yet.** The app only talks TCP, to `ghostwaved` on a computer or Pi.
+- **Bluetooth has not been tried on real radios.** CI has none: the tests use a fake radio layer. Radio
+  builds keep channels in memory only (the app joins them again after a reboot), and can't be renamed.
 - **The TCP link has a PIN but no encryption.** On a network the node requires a PIN (printed at start, and in
   the `vmesh_lan.sh` table). That stops others from simply connecting, but someone on the same network can
   read the traffic and could work out a 6-digit PIN from a captured handshake. Use a **trusted Wi-Fi only**.
