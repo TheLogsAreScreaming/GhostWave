@@ -898,4 +898,14 @@ class MeshController extends Notifier<MeshState> {
     if (!ref.mounted) return;
     state = const MeshState();
   }
+
+  /// Replaces all saved history with [nodes] (restore). The link must be down;
+  /// the matching history loads on the next connect.
+  Future<void> replaceLocalData(Map<String, Map<String, Object?>> nodes) async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    await _store?.replaceAll(nodes);
+    if (!ref.mounted) return;
+    state = const MeshState();
+  }
 }

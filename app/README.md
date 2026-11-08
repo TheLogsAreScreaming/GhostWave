@@ -128,6 +128,16 @@ If pairing fails, retype the passkey and tap **Retry now**. If you ran `ble clea
 the node in Android's Bluetooth settings first, because the phone's old bond no longer matches. A node serves one
 phone at a time and doesn't advertise while connected, so disconnect other phones if it isn't listed.
 
+## Backup and restore (Android)
+
+Settings → Backup and restore writes one encrypted file, to wherever you choose, with contacts and pinned keys, channels
+and their keys, chat history, saved PINs and settings. It uses Argon2id (64 MiB) and XChaCha20-Poly1305. If you forget the
+passphrase, the file can't be recovered. Restoring replaces the data on the phone.
+
+It doesn't include the node's identity. The private key stays on the node (`docs/CLIENT_PROTOCOL.md` §7), so a lost board
+means a new identity and node ID, and people have to add you again. On a Pi, keep a copy of the `--key` file yourself.
+Offline maps, the background connection and location-sharing choices aren't included. Not tried on a phone yet.
+
 ## Background connection checks (needs a real phone)
 
 CI can't run a foreground service, so these are still to do, on Android 14 or newer if possible:
