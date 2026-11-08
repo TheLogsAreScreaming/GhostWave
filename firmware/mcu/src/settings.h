@@ -37,6 +37,7 @@ struct Settings {
   Region region = Region::Us915;
   bool responder = false;
   bool requireEnc = false;
+  bool txOn = true;             // false on a fresh board until `tx on`; see txGateOpen
   bool bleOn = true;            // nRF52 only: advertise the BLE client link
   size_t peerCount = 0;
   std::array<PeerKey, kMaxStoredPeers> peers{};

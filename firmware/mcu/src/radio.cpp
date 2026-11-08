@@ -128,6 +128,7 @@ void McuRadio::femTx() {
 }
 
 bool McuRadio::channelBusy() {
+  if (txGate_ && !txGate_()) return false;   // transmit() refuses it: no need for a CAD
   if (!duty_.allows(nowMs(), maxFrameMs_)) {
     const uint64_t now = nowMs();
     if (!dutyHolding_) {
@@ -148,6 +149,12 @@ bool McuRadio::channelBusy() {
 bool McuRadio::transmit(const uint8_t* buf, size_t len) {
   if (!buf || len == 0 || len > 255) {
     ++txErrors_;
+    return false;
+  }
+  if (txGate_ && !txGate_()) {
+    // Refused, not held: the router's queue has no limit, and a frame sent
+    // hours later, once someone types `tx on`, would be stale.
+    ++txRefused_;
     return false;
   }
   const uint32_t air = airtimeMs(phy_, len);

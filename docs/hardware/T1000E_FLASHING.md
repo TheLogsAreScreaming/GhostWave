@@ -18,6 +18,8 @@ docs/CLIENT_PROTOCOL.md §9), plus the GPS, an SOS button, sounds and a battery 
 - **No power-off yet.** Meshtastic turns the T1000-E off with a long press. GhostWave uses the long
   press for SOS and has no sleep or off mode yet, so on battery it runs until the battery is flat.
   To keep it from draining in a drawer, flash Meshtastic back (section 5) or leave it on the charger.
+- **Transmit is off at first.** A freshly set-up board only receives until you type `tx on` on the
+  serial console. Holding the button for an SOS transmits anyway, until the SOS stops.
 - **Bootloader:** Seeed's UF2 bootloader with the **S140 7.3.0** SoftDevice, as the T1000-E ships.
   This build is linked for that (application at 0x27000). It is **not** the RAK4631 file. Each board
   needs its own UF2.

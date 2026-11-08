@@ -268,8 +268,11 @@ void printPos() {
   Serial.println();
 }
 
+void printTxState();
+
 void printStatus() {
   printStats();
+  printTxState();
   Serial.printf("node %08x %s, %.3f MHz, %d dBm out (%d dBm drive), radio %s, crc err %u, tx err %u\n",
                 g_router->id(), GW_BOARD_NAME, g_set.freqMHz, g_radio.outputDbm(), g_radio.driveDbm(),
                 g_radioOk ? "ok" : "FAILED", g_radio.crcErrors(), g_radio.txErrors());
@@ -303,12 +306,21 @@ void printStatus() {
 #endif
 }
 
+bool txOpen() { return gw::mcu::txGateOpen(g_set.txOn, g_router->sosActive()); }
+
+void printTxState() {
+  if (g_set.txOn) Serial.println("tx on");
+  else if (g_router->sosActive()) Serial.println("tx off, but transmitting while our SOS runs");
+  else Serial.printf("TX OFF: receiving only, %u frames not sent. Check the antenna and region, then: tx on\n",
+                     static_cast<unsigned>(g_radio.txRefused()));
+}
+
 void printHelp() {
   Serial.print(
       "commands: send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | status | pos\n"
       "          keys | peer <hex-id> <hex-pubkey> | sos <text> | sosstop | sosack <hex-id>\n"
       "settings (saved): name [text] | name clear | setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
-      "          power <dBm> | freq <MHz> | region us915|eu868 | responder on|off | requireenc on|off | reboot\n"
+      "          tx on|off | power <dBm> | freq <MHz> | region us915|eu868 | responder on|off | requireenc on|off | reboot\n"
 #if GW_HAS_BLE
       "app link: ble | ble on|off (saved) | ble clear (forget paired phones)\n"
 #endif
@@ -354,6 +366,7 @@ void handleCommand(std::string line) {
     }
     uint32_t mid = r.send(dst, std::vector<uint8_t>(line.begin(), line.end()), nowMs());
     if (mid) Serial.printf("queued id %08x -> %08x\n", mid, dst);
+    if (!txOpen()) Serial.println("TX is off, so this will not be sent (tx on)");
     else Serial.println("too long to send");
   } else if (cmd == "known") {
     std::string id = word(line), la = word(line), lo = word(line);
@@ -476,6 +489,20 @@ void handleCommand(std::string line) {
     if (g_set.freqMHz < reg.minMHz || g_set.freqMHz > reg.maxMHz) g_set.freqMHz = reg.defaultMHz;
     Serial.printf(gw::mcu::saveRadio(g_set) ? "%s, %.3f MHz: saved, takes effect on reboot\n" : "%s, %.3f MHz: save failed\n",
                   reg.name, g_set.freqMHz);
+  } else if (cmd == "tx") {
+    std::string arg = word(line);
+    bool v;
+    if (arg.empty()) {
+      printTxState();
+    } else if (!parseOnOff(arg, v)) {
+      Serial.println("usage: tx on|off");
+    } else {
+      g_set.txOn = v;
+      if (!gw::mcu::saveFlags(g_set)) Serial.println("save failed: this lasts until reboot");
+      printTxState();
+      if (v) Serial.printf("region %s, %.3f MHz, %d dBm out\n", gw::mcu::regionInfo(g_set.region).name, g_set.freqMHz,
+                           g_radio.outputDbm());
+    }
   } else if (cmd == "responder" || cmd == "requireenc") {
     bool v;
     if (!parseOnOff(word(line), v)) {
@@ -688,7 +715,10 @@ void gwSetup() {
 
   // Keys first (secureRandom borrows the ADC, before anything else uses it).
   bool nvsOk = gw::mcu::loadSettings(g_set);
-  if (!nvsOk) Serial.println("settings storage unavailable: settings and keys will not persist");
+  if (!nvsOk) {
+    Serial.println("settings storage unavailable: settings and keys will not persist");
+    g_set.txOn = false;   // nothing says this board was ever enabled
+  }
   if (g_set.edIdentity) {
     gw::ed25519Public(g_set.secret.data(), g_edPub.data());
     gw::ed25519ToX25519(g_edPub.data(), g_pub.data());
@@ -721,6 +751,7 @@ void gwSetup() {
 
   const gw::mcu::RegionInfo& region = gw::mcu::regionInfo(g_set.region);
   if (g_set.freqMHz < region.minMHz || g_set.freqMHz > region.maxMHz) g_set.freqMHz = region.defaultMHz;
+  g_radio.setTxGate(txOpen);
   int16_t st = g_radio.begin(g_cfg.phy, g_set.freqMHz, g_set.outputDbm, region.dutyPermille);
   g_radioOk = st == 0;
   if (!g_radioOk) Serial.printf("radio init failed: %d\n", st);
@@ -762,6 +793,7 @@ void gwSetup() {
   Serial.printf("free heap %u, router tables need up to ~%u%s\n", static_cast<unsigned>(gw::mcu::freeHeap()),
                 static_cast<unsigned>(g_tableBudget),
                 g_tableBudget + 32 * 1024 > gw::mcu::freeHeap() ? "  WARNING: may not fit" : "");
+  printTxState();
   printHelp();
 }
 
@@ -815,6 +847,13 @@ void gwLoop() {
   pollGps(now);
 #endif
   pollSerial();
+  {
+    // An SOS can start from the console, the button or the app.
+    static bool overriding = false;
+    const bool o = !g_set.txOn && g_router->sosActive();
+    if (o && !overriding) Serial.println("SOS: transmitting although TX is off, until the SOS stops");
+    overriding = o;
+  }
 #if GW_HAS_BLE
   g_ble.poll(now);
 #endif
