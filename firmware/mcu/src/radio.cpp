@@ -11,11 +11,39 @@ namespace mcu {
 
 namespace {
 
-constexpr uint8_t kSyncWord = 0x24;   // private: keeps other meshes' frames out at the PHY
+// Private: keeps other meshes' frames out at the PHY. On the SX1262 RadioLib
+// writes it as 0x2444 (setSyncWord(0x24, controlBits 0x44)); on the LR1110
+// SetLoRaSyncWord takes the same one-byte form (0x12 private / 0x34 public map
+// to the SX126x's 0x1424 / 0x3444), so both chips put the same sync symbols
+// on the air and hear each other.
+constexpr uint8_t kSyncWord = 0x24;
+
+#if GW_RADIO_LR1110
+constexpr int kMinDriveDbm = -17;     // LR1110: low-power PA from -17, high-power PA to +22
+constexpr int kMaxDriveDbm = 22;
+LR1110 g_sx(new Module(kPinLoraCs, kPinLoraDio1, kPinLoraRst, kPinLoraBusy, SPI));
+
+// T1000-E RF switch on LR1110 DIO5..DIO8, from meshtastic/firmware
+// variants/nrf52840/tracker-t1000-e/rfswitch.h; the same bits as Seeed's SDK
+// rfswitch_cfg (RFSW0..3 = DIO5..8: rx 0+3, tx 0+1+3, tx_hp 1+3, gnss 2).
+const uint32_t kRfSwitchPins[Module::RFSWITCH_MAX_PINS] = {RADIOLIB_LR11X0_DIO5, RADIOLIB_LR11X0_DIO6,
+                                                           RADIOLIB_LR11X0_DIO7, RADIOLIB_LR11X0_DIO8, RADIOLIB_NC};
+const Module::RfSwitchMode_t kRfSwitchTable[] = {
+    // mode                 DIO5  DIO6  DIO7  DIO8
+    {LR11x0::MODE_STBY, {LOW, LOW, LOW, LOW}},
+    {LR11x0::MODE_RX, {HIGH, LOW, LOW, HIGH}},
+    {LR11x0::MODE_TX, {HIGH, HIGH, LOW, HIGH}},
+    {LR11x0::MODE_TX_HP, {LOW, HIGH, LOW, HIGH}},
+    {LR11x0::MODE_TX_HF, {LOW, LOW, LOW, LOW}},
+    {LR11x0::MODE_GNSS, {LOW, LOW, HIGH, LOW}},
+    {LR11x0::MODE_WIFI, {LOW, LOW, LOW, LOW}},
+    END_OF_MODE_TABLE,
+};
+#else
 constexpr int kMinDriveDbm = -9;      // SX1262 high-power PA range
 constexpr int kMaxDriveDbm = 22;
-
 SX1262 g_sx(new Module(kPinLoraCs, kPinLoraDio1, kPinLoraRst, kPinLoraBusy, SPI));
+#endif
 
 // SX1262 drive for `out` dBm at the antenna port.
 int driveFor(int out) {
@@ -58,11 +86,19 @@ int16_t McuRadio::begin(const Phy& phy, float freqMHz, int outputDbm) {
 #endif
   outputDbm_ = outputDbm > kMaxOutputDbm ? kMaxOutputDbm : outputDbm;
   driveDbm_ = driveFor(outputDbm_);
+#if GW_RADIO_LR1110
+  g_sx.setRfSwitchTable(kRfSwitchPins, kRfSwitchTable);   // before begin(): it drives standby
+  int16_t st = g_sx.begin(freqMHz, phy.bwHz / 1000.0f, phy.sf, 4 + phy.cr, kSyncWord, driveDbm_,
+                          phy.preamble, kTcxoVolts);
+  if (st != RADIOLIB_ERR_NONE) return st;
+  st = g_sx.setCRC(2);   // LoRa: any length > 0 = payload CRC on
+#else
   int16_t st = g_sx.begin(freqMHz, phy.bwHz / 1000.0f, phy.sf, 4 + phy.cr, kSyncWord, driveDbm_,
                           phy.preamble, kTcxoVolts, false);
   if (st != RADIOLIB_ERR_NONE) return st;
   st = g_sx.setDio2AsRfSwitch(true);
   if (st == RADIOLIB_ERR_NONE) st = g_sx.setCRC(2);
+#endif
   if (st == RADIOLIB_ERR_NONE) st = g_sx.startReceive();
   return st;
 }

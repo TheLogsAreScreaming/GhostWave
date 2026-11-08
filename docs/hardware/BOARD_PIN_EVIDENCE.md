@@ -48,3 +48,53 @@ The qualification matrix stays pending until the bench test in `RAK4631_FLASHING
   the internal SX1262 bus is `SPI` and the slot bus is `SPI1`.
 - **Reviewer:** desk check by the GhostWave port session, 2026-11-07. Independent cross-check: the
   three sources above. Bench verification: pending.
+
+## Seeed SenseCAP T1000-E: desk check (not hardware-verified)
+
+Used by `firmware/mcu` env `t1000e` (`src/board.h`, `variants/t1000e/variant.h`). No board has been
+probed. The qualification matrix stays pending until the bench test in `T1000E_FLASHING.md` passes.
+
+- **Board:** Seeed SenseCAP T1000-E: nRF52840, Semtech LR1110, Airoha AG3335 GNSS, one button, a
+  buzzer, a green LED and a Li-ion cell. PCB revision: not recorded yet; take it from the user's
+  unit at the bench.
+- **Bootloader:** Seeed's UF2 bootloader with SoftDevice S140 **7.3.0** (Meshtastic's board file:
+  `sd_version 7.3.0`). Application at 0x27000 (our `variants/t1000e/nrf52840_s140_v7.ld`).
+- **Sources:**
+  - [SEEED-SDK] Seeed-Studio/Seeed-Tracker-T1000-E-for-LoRaWAN-dev-board @ 03147a9:
+    `smtc_hal/inc/smtc_hal_config.h` (pins), `t1000_e/LR11XX/smtc_shield_lr11xx/common/src/smtc_shield_lr11x0_common.c`
+    (RF switch, TCXO).
+  - [SEEED-ARD] Seeed-Studio/Adafruit_nRF52_Arduino @ 667f05f:
+    `variants/Seeed_Tracker_T1000_E_LoRaWAN/variant.h`, `libraries/LBM_T1000E/.../ral_lr11xx_bsp.c`.
+  - [MT] meshtastic/firmware @ 11e3b28: `variants/nrf52840/tracker-t1000-e/variant.h`, `rfswitch.h`,
+    `boards/tracker-t1000-e.json`.
+  - Schematic URL: Seeed has not published one that we found. The product wiki is
+    https://wiki.seeedstudio.com/sensecap_t1000_e/.
+
+| Signal | nRF52840 pin | Arduino pin | Sources |
+|---|---|---|---|
+| SPI bus SCK / MOSI / MISO | P0.11 / P1.09 / P1.08 | 11 / 41 / 40 | [SEEED-SDK] [SEEED-ARD] [MT] |
+| NSS | P0.12 | 12 | [SEEED-SDK] [SEEED-ARD] [MT] |
+| RESET (NRESET) | P1.10 | 42 | [SEEED-SDK] [MT] |
+| BUSY | P0.07 | 7 | [SEEED-SDK] [MT] |
+| DIO1 / IRQ (LR1110 DIO9) | P1.01 | 33 | [SEEED-SDK] [SEEED-ARD] [MT] |
+| RF switch | LR1110 DIO5–DIO8 (RFSW0–3): rx 0+3, tx 0+1+3, tx_hp 1+3, gnss 2 | — | [SEEED-SDK] [MT] agree. [SEEED-ARD] differs (no RFSW3). |
+| TCXO | LR1110 VTCXO, **1.6 V** used | — | **Conflict:** [MT] 1.6 V, [SEEED-ARD] 1.8 V, [SEEED-SDK] 3.0 V. 1.6 V is what every Meshtastic T1000-E runs, and RadioLib's default. Override with `-DGW_TCXO_VOLTS=…`. Verify on the bench. |
+| GNSS UART (nRF RX / TX) | P0.14 / P0.13, 115200 | 14 / 13 | [SEEED-SDK] [SEEED-ARD] [MT] |
+| GNSS power / VRTC / reset | P1.11 HIGH / P0.08 HIGH / P1.15 LOW = running | 43 / 8 / 47 | [SEEED-SDK] names, [MT] levels (`GPS_RESET_MODE HIGH`) |
+| GNSS sleep / RTC int / RESETB out | P1.12 HIGH / P0.15 LOW / P1.14 input pull-up | 44 / 15 / 46 | [SEEED-SDK] [MT] |
+| Button | P0.06, active HIGH, pull-down | 6 | [SEEED-SDK] [MT] |
+| LED (green) | P0.24, active HIGH | 24 | [SEEED-SDK] [SEEED-ARD] [MT] |
+| Buzzer enable / PWM | P1.05 HIGH / P0.25 | 37 / 25 | [SEEED-SDK] [SEEED-ARD] [MT] |
+| Battery | P0.02 / AIN0, VBAT ÷ 2, 3.0 V reference | 2 | [SEEED-SDK] (`SENSE_ADC_BAT`), [MT] (`ADC_MULTIPLIER 2.0`, `AREF_VOLTAGE 3.0`) |
+| Sensor power | P1.06 HIGH | 38 | [SEEED-SDK] `SENSE_POWER_EN`, [MT] `PIN_3V3_EN` |
+| P0.04 | left undriven | 4 | **Conflict:** [MT] drives it HIGH as a sensor enable. [SEEED-SDK] lists it as `SENSE_ADC_VCC`, an analog input. |
+
+- **Sync word:** the LR1110 gets the one-byte LoRa sync word 0x24. RadioLib 7.8.1 programs an SX1262
+  with `setSyncWord(0x24, 0x44)` = register 0x2444. The LR1110's one-byte form maps to the SX126x
+  two-byte form the same way (0x12 ↔ 0x1424, 0x34 ↔ 0x3444), so the two chips send the same sync
+  symbols. SF9 / BW125 / CR 4/5 / 16-symbol preamble / CRC on go through the same RadioLib `begin()`
+  parameters as on the SX1262.
+- **Power and region:** 10 dBm default, 22 dBm cap (above 14 dBm RadioLib selects the high-power PA).
+  US 902–928 MHz only.
+- **Reviewer:** desk check by the GhostWave port session, 2026-11-07. Independent cross-check: the
+  three sources above. Bench verification: pending.

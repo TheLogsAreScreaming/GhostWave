@@ -1,4 +1,5 @@
-// SX1262 behind gw::RadioPort, with the board's front end (if any).
+// The board's LoRa radio (SX1262, or the LR1110 on the T1000-E) behind
+// gw::RadioPort, with the board's front end (if any).
 #pragma once
 
 #include <cstddef>

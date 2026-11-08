@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        env: [heltec_wireless_tracker_v2, heltec_v3, rak4631]
+        env: [heltec_wireless_tracker_v2, heltec_v3, rak4631, t1000e]
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-python@v5.6.0
@@ -89,24 +89,24 @@ jobs:
         working-directory: firmware/mcu
         run: pio run -e ${{ matrix.env }}
       - name: Name the UF2 and report flash / RAM use
-        if: matrix.env == 'rak4631'
+        if: matrix.env == 'rak4631' || matrix.env == 't1000e'
         working-directory: firmware/mcu
         run: |
           short=$(git rev-parse --short HEAD)
           mkdir -p out
-          cp .pio/build/rak4631/firmware.uf2 "out/ghostwave-rak4631-${{ github.run_number }}-$short.uf2"
+          cp ".pio/build/${{ matrix.env }}/firmware.uf2" "out/ghostwave-${{ matrix.env }}-${{ github.run_number }}-$short.uf2"
           {
-            echo "### RAK4631 UF2 built (untested on hardware)"
+            echo "### ${{ matrix.env }} UF2 built (untested on hardware)"
             echo '```'
-            pio run -e rak4631 -t size 2>/dev/null | grep -E '^(RAM|Flash):' || true
+            pio run -e "${{ matrix.env }}" -t size 2>/dev/null | grep -E '^(RAM|Flash):' || true
             ls -l out/*.uf2
             sha256sum out/*.uf2
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4.6.2
-        if: matrix.env == 'rak4631'
+        if: matrix.env == 'rak4631' || matrix.env == 't1000e'
         with:
-          name: ghostwave-rak4631-uf2
+          name: ghostwave-${{ matrix.env }}-uf2
           path: firmware/mcu/out/*.uf2
           retention-days: 30
           if-no-files-found: error

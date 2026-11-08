@@ -1,7 +1,8 @@
 # PlatformIO post-build step for the nRF52 envs: firmware.hex -> firmware.uf2
 # with the Adafruit core's uf2conv.py, for drag-and-drop flashing through the
-# Adafruit nRF52 UF2 bootloader (family 0xADA52840, application at 0x26000
-# after the S140 6.1.1 SoftDevice).
+# Adafruit nRF52 UF2 bootloader (family 0xADA52840). The UF2 carries the
+# addresses from the hex: 0x26000 after S140 6.1.1 (RAK4631), 0x27000 after
+# S140 7.3.0 (T1000-E).
 import os
 
 Import("env")  # noqa: F821  (PlatformIO SCons global)

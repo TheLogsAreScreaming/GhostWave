@@ -22,6 +22,7 @@
 #include "platform.h"
 #include "radio.h"
 #include "settings.h"
+#include "ui.h"
 #if GW_HAS_BLE
 #include <map>
 
@@ -132,12 +133,30 @@ gw::client::Handler* g_link = nullptr;   // the app link, once BLE is up
   } while (0)
 #endif
 
+#if GW_HAS_UI
+#define GW_SOUND(s) gw::mcu::ui::play(gw::mcu::ui::Sound::s)
+#else
+#define GW_SOUND(s) \
+  do {              \
+  } while (0)
+#endif
+
+// Our battery for SOS bodies: percent, or 0xFF where the board cannot read it.
+uint8_t ownBattery() {
+#if GW_HAS_UI
+  return gw::mcu::ui::batteryPct();
+#else
+  return 0xFF;
+#endif
+}
+
 // Prints router events on the console, and passes them to the app link.
 class SerialApp : public gw::AppPort {
  public:
   void onMessage(uint32_t src, uint32_t msgId, const std::vector<uint8_t>& p) override {
     Serial.printf("MSG from %08x id %08x: %.*s\n", src, msgId, static_cast<int>(p.size()),
                   reinterpret_cast<const char*>(p.data()));
+    GW_SOUND(Message);
     GW_LINK(onMessage(src, msgId, p));
   }
   void onDelivered(uint32_t dst, uint32_t msgId) override {
@@ -159,6 +178,7 @@ class SerialApp : public gw::AppPort {
   }
   void onSosAck(uint32_t responder, uint16_t seq) override {
     Serial.printf("SOSACK from %08x for seq %u\n", responder, seq);
+    GW_SOUND(SosAcked);
     GW_LINK(onSosAck(responder, seq));
   }
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen) override {
@@ -235,6 +255,10 @@ void printStatus() {
                 g_set.responder ? ", SOS responder" : "");
   Serial.print("pos ");
   printPos();
+#if GW_HAS_UI
+  Serial.printf("battery %lu mV (%u%%, rough while charging)\n", static_cast<unsigned long>(gw::mcu::ui::batteryMv()),
+                static_cast<unsigned>(gw::mcu::ui::batteryPct()));
+#endif
 #if GW_HAS_BLE
   Serial.printf("%s; %u app events held\n", g_ble.describe().c_str(), static_cast<unsigned>(g_handler->queued()));
 #endif
@@ -307,7 +331,7 @@ void handleCommand(std::string line) {
     }
   } else if (cmd == "sos") {
     while (!line.empty() && line[0] == ' ') line.erase(0, 1);
-    if (r.startSos(line, 0xFF, 0xFF, nowMs()))
+    if (r.startSos(line, ownBattery(), 0xFF, nowMs()))
       Serial.printf("SOS on%s, repeating until sosstop\n",
                     line.size() > gw::kSosTextMax ? " (text cut to 60 bytes)" : "");
     else
@@ -518,9 +542,13 @@ void gwSetup() {
 #if GW_HAS_BLE
   g_bootMs = nowMs();
 #endif
-#if GW_NRF52
+#if defined(GW_BOARD_RAK4631)
   pinMode(kPin3v3SEnable, OUTPUT);
   digitalWrite(kPin3v3SEnable, HIGH);
+#elif defined(GW_BOARD_T1000E)
+  pinMode(kPinSensorPower, OUTPUT);
+  digitalWrite(kPinSensorPower, HIGH);
+  gw::mcu::ui::begin();
 #else
   pinMode(kPinVext, OUTPUT);
   digitalWrite(kPinVext, kVextOn ? HIGH : LOW);
@@ -553,7 +581,21 @@ void gwSetup() {
     g_pos = {g_set.lat, g_set.lon, true};
     g_router->setPosition(g_pos, nowMs());
   }
-#if GW_HAS_GPS
+#if GW_HAS_GPS && defined(GW_BOARD_T1000E)
+  // AG3335 power-up, the same levels as Meshtastic's T1000-E initVariant().
+  pinMode(kPinGpsVrtc, OUTPUT);
+  digitalWrite(kPinGpsVrtc, HIGH);
+  pinMode(kPinGpsResetbOut, INPUT_PULLUP);
+  pinMode(kPinGpsSleepInt, OUTPUT);
+  digitalWrite(kPinGpsSleepInt, HIGH);   // awake
+  pinMode(kPinGpsRtcInt, OUTPUT);
+  digitalWrite(kPinGpsRtcInt, LOW);
+  pinMode(kPinGpsReset, OUTPUT);
+  digitalWrite(kPinGpsReset, LOW);       // not in reset (reset is active HIGH)
+  pinMode(kPinGpsPower, OUTPUT);
+  digitalWrite(kPinGpsPower, HIGH);
+  Serial1.begin(kGpsBaud);               // variant pins: RX P0.14, TX P0.13
+#elif GW_HAS_GPS
   pinMode(kPinGpsReset, OUTPUT);
   digitalWrite(kPinGpsReset, HIGH);   // out of reset (GPS_RESET_MODE is LOW)
   Serial1.begin(kGpsBaud, SERIAL_8N1, kPinGpsRx, kPinGpsTx);
@@ -575,6 +617,45 @@ void gwSetup() {
   printHelp();
 }
 
+#if GW_HAS_UI
+// Button: hold ~3 s = SOS on, double press = SOS off, single press = a chirp
+// and the status on the console. The buzzer marks SOS on / off whoever
+// started it (button, CLI or app), so it watches the router's state.
+void pollUi(uint64_t now) {
+  using Ev = gw::mcu::ButtonGesture::Event;
+  static bool lastSos = false;
+  gw::Router& r = *g_router;
+  Ev ev = gw::mcu::ui::poll(static_cast<uint32_t>(now), r.sosActive());
+  if (ev == Ev::Long) {
+    if (r.sosActive()) {
+      Serial.println("button: SOS already on (double press stops it)");
+      GW_SOUND(SosOn);
+    } else if (r.startSos("SOS (button)", ownBattery(), 0xFF, now)) {
+      Serial.println("button: SOS on, repeating until a double press or sosstop");
+    } else {
+      Serial.println("button: SOS rate limited, try again in a minute");
+      GW_SOUND(Refused);
+    }
+  } else if (ev == Ev::Double) {
+    if (r.sosActive()) {
+      r.stopSos();
+      Serial.println("button: SOS off");
+    } else {
+      GW_SOUND(Refused);
+    }
+  } else if (ev == Ev::Single) {
+    GW_SOUND(Alive);
+    printStats();
+  }
+  bool sos = r.sosActive();
+  if (sos != lastSos) {
+    if (sos) GW_SOUND(SosOn);
+    else GW_SOUND(SosOff);
+    lastSos = sos;
+  }
+}
+#endif
+
 void gwLoop() {
   static uint64_t lastTick = 0;
   static uint8_t buf[256];
@@ -588,6 +669,9 @@ void gwLoop() {
   pollSerial();
 #if GW_HAS_BLE
   g_ble.poll(now);
+#endif
+#if GW_HAS_UI
+  pollUi(now);
 #endif
   if (now - lastTick >= 2) {
     lastTick = now;
