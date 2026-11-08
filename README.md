@@ -23,6 +23,7 @@ GhostWave is an experimental, independent off-grid mesh protocol—not a Meshtas
 | Raspberry Pi daemon / UDP virtual radio | Builds and virtual-mesh demonstration available |
 | Heltec Wireless Tracker V2 / Heltec V3 | PlatformIO compile checks; physical radio operation not verified |
 | nRF52840 / RAK4631 / T1000-E | Not qualified as flash-ready GhostWave firmware |
+| Phone app (`app/`, Flutter) | Builds in CI (Android APK, iOS without signing); connects over TCP; not tested on a phone |
 | Store-and-forward encrypted DM and SOS | Simulated, but intermittent SOS delivery failures are under investigation |
 | Hardware release | **Not ready**; hardware verification and release-readiness checks remain required |
 
@@ -61,7 +62,18 @@ firmware/pi/           ghostwaved: Raspberry Pi daemon for the Backcountry Signa
 firmware/pi/tools/     vmesh.sh: 4-daemon virtual mesh demo; gwclient.py: reference app client;
                        clientlink_e2e.sh: client-link end-to-end test; vmesh_lan.sh: mesh for app testing
 firmware/mcu/          PlatformIO firmware for ESP32-S3 Heltec boards (Wireless Tracker V2, V3)
+app/                   phone app (Flutter, Android + iOS) over the client link; see app/README.md
 ```
+
+## Phone app
+
+[`app/`](app/README.md) is the GhostWave phone app (Flutter, Android + iOS). It connects to a node over
+the client link (TCP to `ghostwaved --client-tcp` today; BLE later) and generates its protocol code from
+[`proto/ghostwave.proto`](proto/ghostwave.proto). With no radios, run `firmware/pi/tools/vmesh_lan.sh -n 4
+--lan` on a computer and point the app at one of the printed addresses. Android builds (development,
+untested on a phone) are published on
+[GhostWave-Releases](https://github.com/TheLogsAreScreaming/GhostWave-Releases/releases) under `app-` tags.
+Its CI is `.github/workflows/app.yml`, which runs only when `app/` or `proto/` changes.
 
 ## Run the simulator
 
