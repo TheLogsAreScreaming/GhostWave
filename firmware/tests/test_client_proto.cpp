@@ -124,7 +124,7 @@ static std::vector<FromRadio> sampleFrom() {
   m = {}, m.kind = FromKind::Neighbor, m.nodeId = 8, m.pos = posFromDegrees(1, 2), m.isNew = true;
   v.push_back(m);
   m = {}, m.reqId = 77, m.kind = FromKind::Status;
-  m.status = {1, 2, 3, 4, 5, 6, 7, 0x1FFFFFFFFull, 9, 10, 11, true, 13, 14, 15};
+  m.status = {1, 2, 3, 4, 5, 6, 7, 0x1FFFFFFFFull, 9, 10, 11, true, 13, 14, 15, {}};
   v.push_back(m);
   m.reqId = 177, m.status.batteryPct.set(0);   // 0 % stays distinct from "unknown"
   v.push_back(m);
