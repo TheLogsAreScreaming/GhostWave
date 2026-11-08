@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'src/app/background_link.dart';
+import 'src/app/backup.dart';
 import 'src/app/location_share.dart';
 import 'src/app/mesh_alerts.dart';
 import 'src/app/mesh_controller.dart';
@@ -39,6 +40,7 @@ Future<void> main() async {
         meshAlertsProvider.overrideWithValue(alerts),
         offlineStoreProvider.overrideWithValue(OfflineStore(dir)),
         pinStoreProvider.overrideWithValue(const SecurePinStore()),
+        if (Platform.isAndroid) backupFilesProvider.overrideWithValue(const AndroidBackupFiles()),
         if (Platform.isAndroid) backgroundPlatformProvider.overrideWithValue(AndroidBackgroundPlatform()),
       ],
       child: const GhostWaveApp(),

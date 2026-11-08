@@ -7,12 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../app/background_link.dart';
+import '../app/backup.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'background_setup_screen.dart';
+import 'backup_screen.dart';
 import 'offline_maps_screen.dart';
 import 'theme.dart';
 import 'walkthrough_screen.dart';
@@ -103,6 +105,13 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('Tile source and saved regions'),
             onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OfflineMapsScreen())),
           ),
+          if (ref.watch(backupFilesProvider).supported)
+            ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('Backup and restore'),
+              subtitle: const Text('Encrypted file of your chats, contacts and channels'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen())),
+            ),
           ListTile(
             leading: const Icon(Icons.school_outlined),
             title: const Text('Show the introduction'),
