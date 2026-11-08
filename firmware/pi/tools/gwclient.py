@@ -21,9 +21,13 @@ Usage:
   gwclient.py [HOST:]PORT leave NAME
   gwclient.py [HOST:]PORT chsend NAME TEXT     message a group channel
   gwclient.py [HOST:]PORT name NAME            rename the node (IDENT, <= 9 bytes)
+A node on a network wants a PIN: pass --pin (ghostwaved prints it at start).
 Import it for scripted use: see clientlink_e2e.py.
 """
 import argparse
+import hashlib
+import hmac
+import os
 import select
 import socket
 import struct
@@ -42,7 +46,8 @@ MAX_BODY = 176  # version byte + protobuf
 POSITION = {1: ("lat_e7", "sint"), 2: ("lon_e7", "sint")}
 
 TO_REQUESTS = {
-    10: ("hello", {1: ("protocol_version", "u32"), 2: ("client_name", "str")}),
+    10: ("hello", {1: ("protocol_version", "u32"), 2: ("client_name", "str"), 3: ("client_nonce", "bytes"),
+                   4: ("pin_proof", "bytes")}),
     11: ("send_text", {1: ("dest", "fx32"), 2: ("text", "bytes"), 3: ("client_msg_id", "u32")}),
     12: ("add_contact", {1: ("node_id", "fx32"), 2: ("ed25519_pub", "bytes"),
                          3: ("x25519_pub", "bytes"), 4: ("name", "str")}),
@@ -92,11 +97,13 @@ FROM_EVENTS = {
                              4: ("text", "bytes"), 5: ("src_pos", "pos")}),
     26: ("channel", {1: ("name", "str"), 2: ("psk", "bytes")}),
     27: ("channels_end", {1: ("count", "u32")}),
+    # protocol 1.2
+    28: ("pin_challenge", {1: ("nonce", "bytes")}),
 }
 
 ERRORS = ["NONE", "BAD_FRAME", "BAD_VERSION", "UNKNOWN_REQUEST", "NEED_HELLO", "BAD_ARGUMENT",
           "TOO_LONG", "RATE_LIMITED", "NOT_FOUND", "KEY_REJECTED", "SEND_FAILED",
-          "TOO_MANY_CLIENTS", "NO_IDENTITY", "CHANNEL_LIMIT"]
+          "TOO_MANY_CLIENTS", "NO_IDENTITY", "CHANNEL_LIMIT", "BAD_PIN"]
 
 # ------------------------------------------------------------- protobuf --
 
@@ -286,7 +293,7 @@ class ClientError(Exception):
 
 
 class Client:
-    def __init__(self, addr, name="gwclient.py", timeout=5.0):
+    def __init__(self, addr, name="gwclient.py", timeout=5.0, pin=None):
         host, _, port = addr.rpartition(":")
         self.sock = socket.create_connection((host.strip("[]") or "127.0.0.1", int(port)), timeout=timeout)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -295,6 +302,12 @@ class Client:
         self.replies = {}  # req_id -> list of messages
         self.next_req = 1
         self.info = self.request("hello", protocol_version=VERSION, client_name=name)[0]
+        if self.info["kind"] == "pin_challenge":
+            if pin is None:
+                raise ClientError("this node wants a PIN (--pin)")
+            cn = os.urandom(16)
+            self.info = self.request("hello", protocol_version=VERSION, client_name=name, client_nonce=cn,
+                                     pin_proof=pin_proof(pin, self.info["nonce"], cn))[0]
         if self.info["kind"] != "node_info":
             raise ClientError("hello failed: %r" % self.info)
 
@@ -353,6 +366,12 @@ class Client:
                 raise ClientError("node closed the connection")
 
 
+def pin_proof(pin, server_nonce, client_nonce):
+    """The Hello proof for a PIN (docs/CLIENT_PROTOCOL.md section 7)."""
+    msg = b"ghostwave-pin-v1" + server_nonce + client_nonce
+    return hmac.new(pin.encode(), msg, hashlib.sha512).digest()[:32]
+
+
 def share_text(name, psk):
     """The channel share format (text and QR): ghostwave-ch:<name, percent-encoded>:<psk hex>."""
     from urllib.parse import quote
@@ -406,10 +425,11 @@ def main():
     ap.add_argument("addr", help="[HOST:]PORT of ghostwaved --client-tcp")
     ap.add_argument("cmd")
     ap.add_argument("args", nargs="*")
+    ap.add_argument("--pin", help="client-link PIN, for a node that wants one")
     ap.add_argument("--wait", type=float, default=None, help="seconds to wait for events")
     a = ap.parse_args()
     addr = a.addr if ":" in a.addr else "127.0.0.1:" + a.addr
-    c = Client(addr)
+    c = Client(addr, pin=a.pin)
     hexid = lambda s: int(s, 16)
 
     def show(msgs):
@@ -454,7 +474,6 @@ def main():
     elif cmd == "channels":
         rc = show(c.request("list_channels"))
     elif cmd == "join" and 1 <= len(args) <= 2:
-        import os
         psk = bytes.fromhex(args[1]) if len(args) == 2 else os.urandom(32)
         rc = show(c.request("add_channel", name=args[0], psk=psk))
         if not rc:

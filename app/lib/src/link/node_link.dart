@@ -73,6 +73,18 @@ final class LinkFailed extends LinkState {
   final String reason;
 }
 
+/// The node wants a PIN we do not have, or ours was wrong. Waits for the user.
+final class LinkNeedsPin extends LinkState {
+  /// Creates the state.
+  const LinkNeedsPin(this.target, {this.wrong = false});
+
+  /// Transport label.
+  final String target;
+
+  /// The PIN we tried was refused.
+  final bool wrong;
+}
+
 /// Delays between reconnect attempts, by attempt number (the last repeats).
 const List<Duration> kReconnectBackoff = <Duration>[
   Duration(seconds: 1),
@@ -103,6 +115,12 @@ class NodeLink {
     this.heartbeatEvery = kHeartbeatEvery,
     this.heartbeatTimeout = kHeartbeatTimeout,
   });
+
+  /// The saved PIN for a target, if any.
+  Future<String?> Function(String target)? pinFor;
+
+  /// A saved PIN was refused.
+  Future<void> Function(String target)? onBadPin;
 
   /// Ping interval while the link is up.
   final Duration heartbeatEvery;
@@ -211,7 +229,7 @@ class NodeLink {
       final sub = s.events.listen((e) {
         if (gen == _generation && !_events.isClosed) _events.add(e);
       });
-      final info = await s.hello(clientName);
+      final info = await s.hello(clientName, pinFor: () async => pinFor?.call(t.label));
       if (gen != _generation) {
         await s.close();
         return;
@@ -226,10 +244,16 @@ class NodeLink {
       unawaited(sub.cancel());
       if (gen != _generation) return;
       _scheduleRetry(gen, 1, reason);
+    } on PinRequiredException {
+      await s?.close();
+      if (gen == _generation) _set(LinkNeedsPin(t.label));
     } on NodeError catch (e) {
       await s?.close();
       if (gen != _generation) return;
-      if (e.code == pb.Error_Code.BAD_VERSION) {
+      if (e.code == pb.Error_Code.BAD_PIN) {
+        await onBadPin?.call(t.label);
+        if (gen == _generation) _set(LinkNeedsPin(t.label, wrong: true));
+      } else if (e.code == pb.Error_Code.BAD_VERSION) {
         _set(LinkFailed(t.label, e.message));
       } else {
         _scheduleRetry(gen, attempt + 1, e.message);

@@ -35,6 +35,10 @@ class ClientLink : private gw::client::Transport {
   bool listen(const std::string& spec, std::string& err);
   const std::string& address() const { return addr_; }
   void poll(uint64_t nowMs);
+  // Clients must prove they know `pin` in Hello.
+  void requirePin(const std::string& pin, std::function<void(uint8_t*, size_t)> random) {
+    h_.requirePin(pin, std::move(random));
+  }
 
   // Router events (forwarded from the daemon's AppPort).
   void onMessage(uint32_t src, uint32_t msgId, const std::vector<uint8_t>& payload) {

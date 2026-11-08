@@ -27,6 +27,7 @@ any other mesh app.
 | **Recent nodes:** one-tap reconnect on the Connect screen; "Connected to N1 (9d66916b)" bar above the tabs | done |
 | **Share phone location:** opt-in switch on the Me tab sends the phone's GPS to the node (`SetOwnPosition`) on 50 m of movement, at most every 30 s, only while the app is open | done |
 | **Notifications:** new DMs and SOS alerts while the app is in the background and still connected | done |
+| **PIN:** a node on a network asks for its PIN once; the app keeps it in the phone's secure storage and proves it without sending it | done |
 | BLE transport | later (needs the Heltec BLE service) |
 | **Offline maps:** save the area on screen from a tile source you configure (Map tab or Settings), with a size estimate and limits (zoom 16, 15,000 tiles per region, 1 GB in total) | done |
 | **First run:** a four-page introduction (what GhostWave is, connecting, your QR card, how SOS works) | done |
@@ -115,9 +116,10 @@ paid Apple Developer account (TestFlight). That decision is still open. Android 
 ## Known limits
 
 - **No BLE yet.** The app only talks TCP, to `ghostwaved` on a computer or Pi.
-- **No authentication on the TCP link.** Anyone who can reach the node's client port can read its DMs,
-  send as it, add contacts and raise or ack SOS. `ghostwaved` only listens on 127.0.0.1 unless told
-  otherwise; `--lan` / `--bind` are for a **trusted Wi-Fi only**. Stop the mesh when you are done.
+- **The TCP link has a PIN but no encryption.** On a network the node requires a PIN (printed at start, and in
+  the `vmesh_lan.sh` table). That stops others from simply connecting, but someone on the same network can
+  read the traffic and could work out a 6-digit PIN from a captured handshake. Use a **trusted Wi-Fi only**.
+  See `docs/CLIENT_PROTOCOL.md` §7.
 - **Offline maps need your own tile source.** The default map uses OpenStreetMap's tile servers, whose
   [usage policy](https://operations.osmfoundation.org/policies/tiles/) does not permit offline use or
   downloading areas in advance, so the app refuses to do that with them. Places you have viewed stay

@@ -43,10 +43,11 @@ trap 'exit 130' INT TERM
 lat_at() { awk -v k="$1" 'BEGIN { printf "%.7f", 46.87 + k * 0.0089932 }'; }
 
 fdnum=3
-start() {   # start NAME KM TCPPORT
-  local n=$1 km=$2 cport=$3
+start() {   # start NAME KM TCPPORT [BINDHOST [extra args...]]
+  local n=$1 km=$2 cport=$3 host=${4:-127.0.0.1}
+  shift 4 2>/dev/null || shift $#
   local args=(--radio udp --mcast "239.77.0.1:$port" --key "$work/$n.key" --name "$n"
-              --lat "$(lat_at "$km")" --lon -113.99 --client-tcp "127.0.0.1:$cport")
+              --lat "$(lat_at "$km")" --lon -113.99 --client-tcp "$host:$cport" "$@")
   [ -n "${VMESH_IF:-}" ] && args+=(--vif "$VMESH_IF")
   mkfifo "$work/$n.in"
   "$bin" "${args[@]}" <"$work/$n.in" >"$work/$n.log" 2>&1 &
@@ -67,8 +68,11 @@ wait_for() {   # wait_for SECONDS NAME PATTERN
 echo "work dir $work, group 239.77.0.1:$port, client ports $tcp-$((tcp + 2))"
 start A 0 "$tcp"; sleep 0.5
 start B 1.5 $((tcp + 1)); sleep 0.5
-start C 3 $((tcp + 2))
-for n in A B C; do
+start C 3 $((tcp + 2)); sleep 0.5
+# far out of radio range of the others: only their client links are used
+start P 300 $((tcp + 3)) 127.0.0.1 --client-pin 424242; sleep 0.5
+start Q 600 $((tcp + 4)) 0.0.0.0
+for n in A B C P Q; do
   if ! wait_for 5 $n "^client link on tcp"; then
     echo "FAIL: $n did not open its client link"; cat "$work/$n.log"; keep=1; exit 1
   fi
@@ -81,7 +85,8 @@ if ! wait_for 5 A "^tx "; then echo "FAIL: stdin 'stats' got no answer"; keep=1;
 echo "stdin commands still answered: $(grep '^tx ' "$work/A.log" | tail -1 | cut -c1-40)..."
 
 rc=0
-python3 "$here/clientlink_e2e.py" "$work" "127.0.0.1:$tcp" "127.0.0.1:$((tcp + 1))" "127.0.0.1:$((tcp + 2))" || rc=$?
+python3 "$here/clientlink_e2e.py" "$work" "127.0.0.1:$tcp" "127.0.0.1:$((tcp + 1))" "127.0.0.1:$((tcp + 2))" \
+  "127.0.0.1:$((tcp + 3))" "127.0.0.1:$((tcp + 4))" || rc=$?
 if [ $rc != 0 ]; then
   keep=1
   for n in A B C; do echo "--- $n.log (tail)"; tail -25 "$work/$n.log"; done

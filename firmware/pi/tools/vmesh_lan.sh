@@ -22,9 +22,10 @@
 # which is kept so the node IDs stay the same if you pass it back as
 # VMESH_LAN_DIR=<dir>.
 #
-# Security: the client link has no authentication yet. Anyone who can reach a
-# bound port can read that node's messages, send as it, and raise or ack SOS.
-# Use --lan only on a network you trust, and stop the mesh when done.
+# Security: a port bound to a network needs the PIN printed in the table, but the
+# link is not encrypted: someone on the network can read it and could work out
+# the PIN from a captured handshake. Use --lan only on a network you trust, and
+# stop the mesh when done.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -95,7 +96,8 @@ for i in $(seq 1 "$n"); do
   id=$(awk '/^ghostwaved node /{print $3; exit}' "$work/$name.log")
   pub=$(awk '/^key ed25519 /{print substr($3,1,64); exit}' "$work/$name.log")
   addr=$(awk '/^client link on tcp /{print $5; exit}' "$work/$name.log")
-  printf "%-3s %s %-21s %s\n" "$name" "$id" "$addr" "$pub" >>"$table"
+  pin=$(awk '/^client PIN: /{print $3; exit}' "$work/$name.log")
+  printf "%-3s %s %-21s %-7s %s\n" "$name" "$id" "$addr" "${pin:--}" "$pub" >>"$table"
 done
 
 echo "virtual mesh: $n nodes, ${spacing} km apart, radio group 239.77.0.1:$port"
@@ -105,18 +107,22 @@ else
   echo "beacons: real timing (a stationary node beacons every 15 min)"
 fi
 echo
-echo "    node id       client link           ed25519 public key (contact / QR card)"
+echo "    node id       client link           PIN     ed25519 public key (contact / QR card)"
 sed 's/^/    /' "$table"
 echo
 case $bind in
   127.*|::1|localhost) echo "client ports are on loopback: only this machine can connect." ;;
-  *) echo "WARNING: client ports listen on $bind. Anyone on that network can drive these nodes"
-     echo "         (read DMs, send, raise/ack SOS): there is no client authentication yet." ;;
+  *) echo "Client ports listen on $bind and need the PIN above; the app asks for it once per node."
+     echo "WARNING: the PIN is a lock, not encryption. Someone on this network can read the traffic"
+     echo "         and could work out the PIN from it. Use a network you trust." ;;
 esac
 first=$(awk 'NR==1{print $3}' "$table")
 echo
-echo "try:  '$here/gwclient.py' $first info"
-echo "      '$here/gwclient.py' $first listen"
+firstpin=$(awk 'NR==1{print $4}' "$table")
+pinarg=""
+[ "$firstpin" != "-" ] && pinarg=" --pin $firstpin"
+echo "try:  '$here/gwclient.py'$pinarg $first info"
+echo "      '$here/gwclient.py'$pinarg $first listen"
 echo "      echo stats > $work/N1.in   (stdin commands; output in $work/N1.log)"
 echo "logs: $work/N*.log     Ctrl-C to stop"
 wait

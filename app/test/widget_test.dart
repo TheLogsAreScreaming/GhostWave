@@ -53,4 +53,33 @@ void main() {
     expect(find.text('Me'), findsWidgets);
     expect(find.text('Status'), findsOneWidget);
   });
+
+  testWidgets('a node that wants a PIN: asks, then connects and remembers it', (tester) async {
+    SharedPreferences.setMockInitialValues({'node_address': '127.0.0.1:1', 'asked_notifications': true});
+    final prefs = await SharedPreferences.getInstance();
+    final node = FakeNode()..pin = '424242';
+    final pins = MemoryPinStore();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          transportFactoryProvider.overrideWithValue((_) => node),
+          pinStoreProvider.overrideWithValue(pins),
+        ],
+        child: const GhostWaveApp(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Enter the node\'s PIN'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, '424242');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(await pins.read(node.label), '424242');
+    expect(find.text('Online'), findsWidgets);
+  });
 }

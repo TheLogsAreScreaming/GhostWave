@@ -1,4 +1,4 @@
-# GhostWave client protocol, v1.1
+# GhostWave client protocol, v1.2
 
 The link an app (the Flutter phone app, a desktop tool, a script) uses to drive one GhostWave
 node. This is DESIGN §10 made concrete.
@@ -20,6 +20,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | Minor | Adds |
 |---|---|
 | 0 | the original set |
+| 2 | the PIN handshake on `Hello` (`PinChallenge`, `Hello.client_nonce`, `Hello.pin_proof`, error `BAD_PIN`) (§7) |
 | 1 | group channels (`SendChannelText`, `AddChannel`, `RemoveChannel`, `ListChannels`, `ChannelMessage`, `Channel`, `ChannelsEnd`, `NodeInfo.max_channel_text_bytes`, error `CHANNEL_LIMIT`) and `SetName` |
 
 ## 1. Transports
@@ -161,6 +162,7 @@ Notes on the requests:
 | 25 | `ChannelMessage` (1.1) | `channel` (name), `src`, `msg_id`, `text` | a group channel message arrived (queued like `TextMessage`) |
 | 26 | `Channel` (1.1) | `name`, `psk` | reply to `ListChannels` (the key lets the app share the channel) |
 | 27 | `ChannelsEnd` (1.1) | `count` | ends `ListChannels` |
+| 28 | `PinChallenge` (1.2) | `nonce` (16 bytes) | reply to `Hello` on a link that needs a PIN (§7) |
 
 `NodeInfo` (1.1) also carries `protocol_minor` and `max_channel_text_bytes`.
 
@@ -194,6 +196,7 @@ Notes on the events:
 | 11 | `TOO_MANY_CLIENTS` | a 5th connection. Sent, then the link is closed. |
 | 12 | `NO_IDENTITY` | the operation needs an Ed25519 identity (`SetName` on a legacy node) |
 | 13 | `CHANNEL_LIMIT` | `AddChannel`: the node already holds the most channels it can (8) |
+| 14 | `BAD_PIN` | `Hello`: the `pin_proof` is wrong, malformed or reused. Ask for a new challenge. |
 
 ## 5. No client connected: the event queue
 
@@ -243,17 +246,41 @@ Test vectors are byte-exact frames checked by `firmware/tests/test_client_proto.
 | `FromRadio{Delivered{a1b2c3d4, 01020304, 42}}` | `94c30f0001 620c 0dd4c3b2a1 1504030201 182a` |
 | `ToRadio{req_id 3, SendChannelText{"ops", "hi", 7}}` (1.1) | `94c3110001 0803 aa010b 0a036f7073 12026869 1807` |
 
+PIN proof vector: PIN `424242`, `nonce` = bytes 00..0f, `client_nonce` = bytes 10..1f gives
+`5e5862bce3b4059e23916b5f749966ec2429362592017600dab003d8da215319`.
+
 ## 7. Security
 
-- **No authentication yet:** v1 has no client authentication. Whoever reaches the TCP port can read
-  the node's DMs, send as the node, pin keys and raise or ack SOS. This is why `--client-tcp` binds
-  to 127.0.0.1 unless a host is named.
-- **Binding elsewhere:** `--client-tcp 0.0.0.0:4403`, or a LAN address, is for testing on a trusted
-  network. The daemon prints a warning when it does this.
+- **PIN on TCP (1.2):** a link bound to anything but loopback requires a PIN. `ghostwaved` makes a
+  6-digit one on first use, prints it at start and keeps it in `<key file>.pin` (mode 600).
+  `--client-pin PIN` (4–16 digits) sets one, and also turns the check on for loopback, which otherwise
+  has none: `--client-tcp` binds to 127.0.0.1 unless a host is named.
+- **Handshake:**
+  1. The app sends `Hello`. The node answers `PinChallenge{nonce}`, not `NodeInfo`.
+  2. The app sends `Hello` again with a random 16-byte `client_nonce` and `pin_proof`, the first 32 bytes
+     of `HMAC-SHA-512(PIN, "ghostwave-pin-v1" || nonce || client_nonce)`. The PIN never crosses the link.
+  3. The node answers `NodeInfo`, or `BAD_PIN`. Until then every other request gets `NEED_HELLO` and
+     held events stay held. Each nonce works once.
+- **Guessing:** wrong proofs are counted across all connections. From the third in a row the node
+  answers `RATE_LIMITED` for 1 s, doubling up to 5 minutes; a right PIN resets the count. Someone
+  guessing can therefore also keep the owner out for a few minutes at a time.
+- **What the PIN does not do (threat model).** There is no TLS: it needs certificates that a phone can
+  check for a device on a LAN address, which is not simple to do well. So on the network path:
+  - All traffic after the handshake is in clear, and an eavesdropper can read DMs (as plaintext between
+    app and node), channel keys and positions.
+  - An eavesdropper who captures one handshake can test all 10^6 six-digit PINs offline in moments, then
+    log in. A longer `--client-pin` raises that cost.
+  - Someone who can alter traffic can take over a session after it is authenticated.
+  - A fake node can collect a handshake to attack the PIN the same way; the app does not authenticate
+    the node.
+
+  The PIN stops other people on the network from simply connecting and driving the node. It does not make
+  an untrusted network safe, so use a Wi-Fi you trust. The radio mesh's end-to-end encryption is separate.
+- **Why not on BLE:** the PIN applies to TCP only. BLE already requires an encrypted, passkey-paired link
+  (below), and a second PIN would add a step with no added protection.
 - **BLE:** every attribute needs an encrypted, MITM-protected LE Secure Connections link, so a phone
   must pair (with the passkey the node prints on its serial console) before it can read, write or
   subscribe. See §9.
-- **Planned:** a `Hello` that proves knowledge of a pairing secret. TLS is not planned.
 - **Keys:** private keys never cross the link. `NodeInfo` and `Contact` carry public keys only.
 
 ## 8. Notes for the Flutter app (Part 2)

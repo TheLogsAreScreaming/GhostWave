@@ -7,6 +7,7 @@ import '../app/mesh_alerts.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
+import '../link/node_link.dart';
 import 'contacts_screen.dart';
 import 'map_screen.dart';
 import 'me_screen.dart';
@@ -38,6 +39,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     // ask once for notification permission (Android 13+, iOS), after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _askNotificationsOnce());
     _sosTaps = LocalMeshAlerts.sosTaps.listen(_openSos);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(nodeLinkProvider).state case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
+    });
   }
 
   @override
@@ -73,6 +78,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(linkStateProvider, (_, next) {
+      if (next.value case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
+    });
     ref.listen(mapFocusProvider, (_, f) {
       if (f != null) setState(() => _tab = _mapTab);
     });

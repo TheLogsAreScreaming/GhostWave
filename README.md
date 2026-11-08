@@ -159,7 +159,7 @@ Env vars: `VMESH_VLOG=1` logs every frame, `VMESH_KEEP=1` keeps the logs, and `V
 `ghostwaved --client-tcp [HOST:]PORT` lets an app drive the node. The link is specified in
 [docs/CLIENT_PROTOCOL.md](docs/CLIENT_PROTOCOL.md): framed protobuf, schema in
 [proto/ghostwave.proto](proto/ghostwave.proto). It is off by default. A bare port listens on
-127.0.0.1 only. The stdin commands keep working alongside it.
+127.0.0.1 only. Bound to anything else, it requires a PIN, printed at start (`gwclient.py --pin`). The stdin commands keep working alongside it.
 
 Connect a client to a virtual node:
 
@@ -208,11 +208,10 @@ clients must use that address too, because the port is not also on loopback.
 The phone and computer must be on the same network, and the computer's firewall must allow
 incoming TCP on those ports. macOS asks the first time.
 
-**Safety:** the client link has **no authentication yet**. Anyone who can reach a bound port can
-read that node's DMs, send messages as it, pin keys, and raise or ack an SOS. Only bind to a LAN
-address on a network you trust, such as home Wi-Fi, never café or event Wi-Fi. Stop the mesh when
-done. These are virtual nodes with throwaway keys, but treat the habit as if they were real.
-`ghostwaved` prints a warning whenever its client port is not on loopback.
+**Safety:** a client port on a network needs the PIN the node prints at start, but the link is not
+encrypted. Someone on the same network can read the traffic and could work out a 6-digit PIN from a
+captured handshake (docs/CLIENT_PROTOCOL.md §7). Use `--lan` / `--bind` only on a network you trust, and
+stop the mesh when you are done.
 
 ## Run on the Pi HAT
 

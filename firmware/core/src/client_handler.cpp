@@ -117,6 +117,7 @@ void Handler::handle(Conn& c, const ToRadio& m, uint64_t now) {
         c.closing = true;
         return;
       }
+      if (!pin_.empty() && !c.hello && !checkPin(c, m, now)) return;
       FromRadio info;
       info.reqId = req;
       info.kind = FromKind::NodeInfo;
@@ -381,6 +382,55 @@ void Handler::onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) {
   event(m, false);   // live view only: a stale neighbor list is worse than none
 }
 
+
+// ----------------------------------------------------- protocol 1.2 (PIN) --
+
+void Handler::requirePin(const std::string& pin, std::function<void(uint8_t*, size_t)> random) {
+  pin_ = pin;
+  random_ = std::move(random);
+}
+
+bool Handler::checkPin(Conn& c, const ToRadio& m, uint64_t now) {
+  const uint32_t req = m.reqId;
+  if (m.pinProof.empty()) {   // first Hello: send a challenge
+    random_(c.pinNonce.data(), c.pinNonce.size());
+    c.pinNonceSet = true;
+    FromRadio f;
+    f.reqId = req;
+    f.kind = FromKind::PinChallenge;
+    f.nonce.assign(c.pinNonce.begin(), c.pinNonce.end());
+    send(c, f);
+    return false;
+  }
+  // Wrong guesses are counted across connections, so reconnecting does not
+  // reset them. The third in a row starts a lockout: 1 s, doubling, at most 5 min.
+  if (now < pinLockUntil_) {
+    c.pinNonceSet = false;
+    error(c, req, ErrorCode::RateLimited,
+          "too many wrong PINs, try again in " + std::to_string((pinLockUntil_ - now) / 1000 + 1) + " s");
+    return false;
+  }
+  bool good = false;
+  if (c.pinNonceSet && m.clientNonce.size() == gw::kPinNonceSize && m.pinProof.size() == gw::kPinProofSize) {
+    uint8_t want[gw::kPinProofSize];
+    gw::pinProof(pin_, c.pinNonce.data(), m.clientNonce.data(), want);
+    good = gw::pinProofEqual(want, m.pinProof.data());
+    gw::wipe(want, sizeof want);
+  }
+  c.pinNonceSet = false;   // each nonce works once
+  if (good) {
+    pinFails_ = 0;
+    return true;
+  }
+  ++pinFails_;
+  if (pinFails_ >= 3) {
+    uint32_t shift = std::min<uint32_t>(pinFails_ - 3, 9);
+    pinLockUntil_ = now + std::min<uint64_t>(1000ull << shift, 300000);
+  }
+  t_.log("client " + c.peer + " sent a wrong PIN");
+  error(c, req, ErrorCode::BadPin, "wrong PIN");
+  return false;
+}
 
 // ------------------------------------------------- protocol 1.1 (channels) --
 

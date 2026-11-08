@@ -50,6 +50,22 @@ uint32_t nodeIdOf(const uint8_t edPub[kKeySize]) {
   return h[0] | (h[1] << 8) | (h[2] << 16) | (static_cast<uint32_t>(h[3]) << 24);
 }
 
+void pinProof(const std::string& pin, const uint8_t serverNonce[kPinNonceSize],
+              const uint8_t clientNonce[kPinNonceSize], uint8_t out[kPinProofSize]) {
+  static const char kTag[] = "ghostwave-pin-v1";
+  uint8_t msg[sizeof kTag - 1 + 2 * kPinNonceSize], h[64];
+  std::memcpy(msg, kTag, sizeof kTag - 1);
+  std::memcpy(msg + sizeof kTag - 1, serverNonce, kPinNonceSize);
+  std::memcpy(msg + sizeof kTag - 1 + kPinNonceSize, clientNonce, kPinNonceSize);
+  crypto_sha512_hmac(h, reinterpret_cast<const uint8_t*>(pin.data()), pin.size(), msg, sizeof msg);
+  std::memcpy(out, h, kPinProofSize);
+  crypto_wipe(h, sizeof h);
+}
+
+bool pinProofEqual(const uint8_t a[kPinProofSize], const uint8_t b[kPinProofSize]) {
+  return crypto_verify32(a, b) == 0;
+}
+
 uint32_t groupChannelId(const uint8_t key[kKeySize]) {
   static const char kTag[] = "ghostwave-chan-v1";
   uint8_t msg[sizeof kTag - 1 + kKeySize], h[64];

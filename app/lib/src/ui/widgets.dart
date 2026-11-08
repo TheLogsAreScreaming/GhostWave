@@ -20,6 +20,7 @@ class LinkChip extends ConsumerWidget {
       LinkConnecting() => (Icons.sync, 'Connecting'),
       LinkWaiting() => (Icons.schedule, 'Retrying'),
       LinkFailed() => (Icons.error_outline, 'Stopped'),
+      LinkNeedsPin() => (Icons.lock_outline, 'PIN'),
       LinkIdle() => (Icons.link_off, 'Offline'),
     };
     return Padding(
@@ -61,6 +62,11 @@ class ConnectionBar extends ConsumerWidget {
         'Reconnecting to $target in ${retryIn.inSeconds} s',
       ),
       LinkFailed(:final reason) => (Icons.error_outline, scheme.error, 'Stopped: $reason'),
+      LinkNeedsPin(:final wrong) => (
+        Icons.lock_outline,
+        scheme.error,
+        wrong ? 'Wrong PIN · tap to enter it again' : 'This node needs a PIN · tap to enter it',
+      ),
       LinkIdle() => (Icons.link_off, scheme.outline, address == null ? 'Not connected' : 'Offline · tap to connect'),
     };
     return Material(
@@ -123,6 +129,60 @@ class NotConnected extends StatelessWidget {
       ),
     ),
   );
+}
+
+bool _pinDialogOpen = false;
+
+/// Asks for the PIN [s] needs, unless the dialog is already up.
+Future<void> askForPin(BuildContext context, WidgetRef ref, LinkNeedsPin s) async {
+  if (_pinDialogOpen) return;
+  _pinDialogOpen = true;
+  final ctl = TextEditingController();
+  final pin = await showDialog<String>(
+    context: context,
+    builder: (dialog) => StatefulBuilder(
+      builder: (dialog, setState) {
+        final ok = RegExp(r'^[0-9]{4,16}$').hasMatch(ctl.text.trim());
+        return AlertDialog(
+          title: const Text('Enter the node\'s PIN'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(s.target, style: GwText.mono),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctl,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(
+                  labelText: 'PIN',
+                  border: const OutlineInputBorder(),
+                  errorText: s.wrong ? 'That PIN was wrong.' : null,
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => ok ? Navigator.pop(dialog, ctl.text.trim()) : null,
+              ),
+              const SizedBox(height: 8),
+              const Text('The node prints it when it starts. The app remembers it for this node.'),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: ok ? () => Navigator.pop(dialog, ctl.text.trim()) : null,
+              child: const Text('Connect'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+  // not disposed here: the dialog's closing animation still uses it
+  _pinDialogOpen = false;
+  if (pin != null) await ref.read(nodeAddressProvider.notifier).submitPin(s.target, pin);
 }
 
 /// Shows [message] in a snack bar.

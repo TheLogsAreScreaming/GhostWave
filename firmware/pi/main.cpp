@@ -15,8 +15,11 @@
 //                     uses a short max.
 //        [--client-tcp [HOST:]PORT]   app link (docs/CLIENT_PROTOCOL.md); off by
 //                     default, HOST defaults to 127.0.0.1. Any other host lets
-//                     every machine that can reach it drive this node: there is
-//                     no authentication yet.
+//                     every machine that can reach it drive this node, so such a
+//                     link needs a PIN: made on first use, printed, and kept in
+//                     <key file>.pin (mode 600).
+//        [--client-pin PIN]  require this PIN (4-16 digits) on the client link,
+//                     on loopback too. Not encryption: docs/CLIENT_PROTOCOL.md §7.
 // stdin commands:  send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | pos
 //                  keys | peer [<hex-id>] <hex-pubkey> | ident <hex-id>
 //                  sos <text> | sosstop | sosack <hex-id>
@@ -93,6 +96,7 @@ struct Options {
   std::string pskFile, peersFile;
   bool requireEnc = false, responder = false, legacyX25519 = false;
   std::string clientTcp;   // empty = no client link
+  std::string clientPin;   // empty = automatic: required unless on loopback
   uint32_t beaconMinS = 0, beaconMaxS = 0;   // 0 = Config defaults
 };
 
@@ -496,6 +500,50 @@ void handleCommand(const std::string& line, gw::Router& r, HostRadio& radio,
 
 }  // namespace
 
+static bool validPin(const std::string& pin) {
+  if (pin.size() < 4 || pin.size() > 16) return false;
+  for (char c : pin)
+    if (c < '0' || c > '9') return false;
+  return true;
+}
+
+// The client-link PIN in <key file>.pin, created (6 digits, mode 600) if missing.
+static bool loadOrCreatePin(const std::string& path, std::string& pin) {
+  std::ifstream f(path);
+  if (f) {
+    std::getline(f, pin);
+    while (!pin.empty() && (pin.back() == '\r' || pin.back() == ' ')) pin.pop_back();
+    if (!validPin(pin)) {
+      std::fprintf(stderr, "bad PIN in %s (want 4 to 16 digits)\n", path.c_str());
+      return false;
+    }
+    return true;
+  }
+  uint32_t v;
+  do {   // rejection sampling: every PIN equally likely
+    uint8_t b[4];
+    if (!randomBytes(b, sizeof b)) {
+      std::fprintf(stderr, "cannot read /dev/urandom\n");
+      return false;
+    }
+    v = b[0] | (b[1] << 8) | (b[2] << 16) | (static_cast<uint32_t>(b[3]) << 24);
+  } while (v >= 4294000000u);
+  char digits[7];
+  std::snprintf(digits, sizeof digits, "%06u", static_cast<unsigned>(v % 1000000));
+  pin = digits;
+  int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
+  if (fd < 0) {
+    std::fprintf(stderr, "cannot create %s\n", path.c_str());
+    return false;
+  }
+  fchmod(fd, 0600);
+  std::string body = pin + "\n";
+  bool ok = write(fd, body.data(), body.size()) == static_cast<ssize_t>(body.size());
+  close(fd);
+  if (!ok) std::fprintf(stderr, "cannot write %s\n", path.c_str());
+  return ok;
+}
+
 // <key file>.name: the node name set from the app. Written atomically, mode 600.
 static std::string nameFileOf(const std::string& keyFile) { return keyFile + ".name"; }
 
@@ -571,6 +619,10 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s needs whole seconds, 1 to %u (got '%s')\n", a.c_str(), gw::kBeaconOverrideMaxS, v);
         return 2;
       }
+    }
+    else if (a == "--client-pin") {
+      o.clientPin = next();
+      if (!validPin(o.clientPin)) { std::fprintf(stderr, "--client-pin wants 4 to 16 digits\n"); return 2; }
     }
     else if (a == "--client-tcp") {
       o.clientTcp = next();
@@ -795,10 +847,21 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "--client-tcp: %s\n", err.c_str());
       return 1;
     }
+    bool loopback = link->address().rfind("127.", 0) == 0 || link->address().rfind("[::1]", 0) == 0;
+    std::string clientPin = o.clientPin;
+    if (clientPin.empty() && !loopback && !loadOrCreatePin(o.keyFile + ".pin", clientPin)) return 1;
+    if (!clientPin.empty()) {
+      link->requirePin(clientPin, [](uint8_t* out, size_t n) {
+        if (!randomBytes(out, n)) {   // a predictable challenge would defeat the check
+          std::fprintf(stderr, "cannot read /dev/urandom\n");
+          std::exit(1);
+        }
+      });
+    }
     app.link = link.get();
     std::printf("client link on tcp %s%s\n", link->address().c_str(),
-                link->address().rfind("127.", 0) == 0 || link->address().rfind("[::1]", 0) == 0
-                    ? "" : " (reachable from the network: no client authentication yet)");
+                loopback ? "" : " (reachable from the network: PIN required, traffic not encrypted)");
+    if (!clientPin.empty()) std::printf("client PIN: %s\n", clientPin.c_str());
     std::fflush(stdout);
   }
 

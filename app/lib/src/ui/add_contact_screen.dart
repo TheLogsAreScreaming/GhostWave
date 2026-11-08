@@ -66,7 +66,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
       ),
     );
     final name = nameCtl.text.trim();
-    nameCtl.dispose();
+    // not disposed here: the dialog's closing animation still uses it
     if (ok != true) {
       if (mounted) setState(() => _busy = false);
       return;

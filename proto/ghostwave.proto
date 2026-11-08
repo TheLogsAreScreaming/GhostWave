@@ -52,6 +52,9 @@ message ToRadio {
 message Hello {
   uint32 protocol_version = 1;   // 1
   string client_name = 2;        // for logs only
+  // protocol 1.2, answering PinChallenge (docs/CLIENT_PROTOCOL.md §7)
+  bytes client_nonce = 3;        // 16 random bytes
+  bytes pin_proof = 4;           // first 32 bytes of HMAC-SHA-512(PIN, "ghostwave-pin-v1" || nonce || client_nonce)
 }
 
 // Reply: SendQueued (msg_id assigned), later Delivered when the destination's
@@ -162,6 +165,8 @@ message FromRadio {
     ChannelMessage channel_message = 25;
     Channel channel = 26;
     ChannelsEnd channels_end = 27;
+    // protocol 1.2
+    PinChallenge pin_challenge = 28;
   }
 }
 
@@ -256,6 +261,7 @@ message Error {
     TOO_MANY_CLIENTS = 11;
     NO_IDENTITY = 12;
     CHANNEL_LIMIT = 13;          // AddChannel: the node holds the most channels it can
+    BAD_PIN = 14;                // Hello: wrong pin_proof; ask for a new challenge
   }
   Code code = 1;
   string detail = 2;
@@ -306,4 +312,10 @@ message Channel {                // one per joined channel (ListChannels)
 
 message ChannelsEnd {
   uint32 count = 1;
+}
+
+// Reply to a Hello without a proof on a link that needs a PIN (protocol 1.2).
+// Send Hello again with client_nonce and pin_proof. Each nonce works once.
+message PinChallenge {
+  bytes nonce = 1;               // 16 random bytes
 }

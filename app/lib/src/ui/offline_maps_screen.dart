@@ -149,8 +149,7 @@ class OfflineMapsScreen extends ConsumerWidget {
       ),
     );
     final u = url.text, a = attr.text;
-    url.dispose();
-    attr.dispose();
+    // not disposed here: the dialog's closing animation still uses it
     if (result == 'reset') ctl.reset();
     if (result == 'save' && !ctl.set(u, a)) {
       messenger.showSnackBar(const SnackBar(content: Text('Not a valid tile URL: it needs {z}, {x} and {y}.')));
@@ -221,7 +220,7 @@ Future<void> showDownloadRegionDialog(
     ),
   );
   final n = name.text.trim();
-  name.dispose();
+  // not disposed here: the dialog's closing animation still uses it
   if (go != true || !context.mounted) return;
   showSnack(context, 'Downloading. Follow it under Offline maps.');
   unawaited(ref.read(offlineMapsProvider.notifier).download(n.isEmpty ? 'Region' : n, bounds()));
