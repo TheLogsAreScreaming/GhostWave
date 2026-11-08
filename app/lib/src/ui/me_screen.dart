@@ -9,6 +9,7 @@ import '../app/location_share.dart';
 import '../app/providers.dart';
 import '../link/contact_card.dart';
 import 'format.dart';
+import 'settings_screen.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -21,7 +22,18 @@ class MeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final info = ref.watch(nodeInfoProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Me'), actions: const [LinkChip()]),
+      appBar: AppBar(
+        title: const Text('Me'),
+        actions: [
+          IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () =>
+                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+          ),
+          const LinkChip(),
+        ],
+      ),
       body: info == null
           ? const NotConnected(what: 'your node and contact card')
           : ListView(

@@ -24,7 +24,9 @@
 // Identity (DESIGN §3, §4.5): --key holds an Ed25519 seed as "ed25519:<64 hex>".
 // It is created with mode 600 if missing. Default /var/lib/ghostwave/identity.key.
 // The node ID is nodeIdOf(public key), so --id is optional and must match it.
-// --name (up to 9 bytes) goes out in our IDENT broadcasts.
+// --name (up to 9 bytes) goes out in our IDENT broadcasts. A name set from the
+// app (SetName) is kept in <key file>.name and used when --name is not given.
+// Group channels joined from the app are kept in <key file>.channels (mode 600).
 //
 // Older key files hold a bare X25519 secret (64 hex chars or 32 raw bytes). The
 // daemon refuses them: move the file aside to make an Ed25519 identity, which
@@ -58,6 +60,7 @@
 #include <string>
 
 #include "beacon_timing.h"
+#include "channel_store.h"
 #include "client_link.h"
 #include "host_radio.h"
 #include "ghostwave/crypto.h"
@@ -349,6 +352,7 @@ int loadPeers(const std::string& path, gw::Router& r) {
 class StdoutApp : public gw::AppPort {
  public:
   ClientLink* link = nullptr;
+  const ChannelStore* channels = nullptr;
 
   void onMessage(uint32_t src, uint32_t msgId, const std::vector<uint8_t>& p) override {
     std::printf("MSG from %08x id %08x: %.*s\n", src, msgId, static_cast<int>(p.size()),
@@ -384,6 +388,13 @@ class StdoutApp : public gw::AppPort {
     std::printf("IDENT %s %08x \"%s\"\n", firstSeen ? "new peer" : "renamed", id, printable(name).c_str());
     std::fflush(stdout);
     if (link) link->onPeerIdent(id, name, firstSeen);
+  }
+  void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& p) override {
+    const ChannelEntry* e = channels ? channels->byId(chanId) : nullptr;
+    std::printf("CHAN #%s from %08x id %08x: %.*s\n", e ? printable(e->name).c_str() : "?", src, msgId,
+                static_cast<int>(p.size()), reinterpret_cast<const char*>(p.data()));
+    std::fflush(stdout);
+    if (link) link->onChannelMessage(chanId, src, msgId, p);
   }
   void onKeyChange(uint32_t id, const uint8_t newEdPub[32], const std::string& name) override {
     std::printf("WARNING: KEY CHANGE for %08x \"%s\": a signed IDENT carries a different key.\n"
@@ -485,6 +496,39 @@ void handleCommand(const std::string& line, gw::Router& r, HostRadio& radio,
 
 }  // namespace
 
+// <key file>.name: the node name set from the app. Written atomically, mode 600.
+static std::string nameFileOf(const std::string& keyFile) { return keyFile + ".name"; }
+
+static bool readNameFile(const std::string& path, std::string& name) {
+  std::ifstream f(path);
+  if (!f) return false;
+  std::getline(f, name);
+  while (!name.empty() && (name.back() == '\r' || name.back() == ' ')) name.pop_back();
+  return true;
+}
+
+static bool writeNameFile(const std::string& path, const std::string& name) {
+  std::string tmp = path + ".tmp";
+  int fd = open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  if (fd < 0) return false;
+  std::string body = name + "\n";
+  bool ok = write(fd, body.data(), body.size()) == static_cast<ssize_t>(body.size());
+  ok = fsync(fd) == 0 && ok;
+  close(fd);
+  if (!ok || rename(tmp.c_str(), path.c_str()) != 0) {
+    unlink(tmp.c_str());
+    return false;
+  }
+  return true;
+}
+
+static bool validNodeName(const std::string& name) {
+  if (name.size() > gw::kIdentNameMax) return false;
+  for (unsigned char c : name)
+    if (c < 0x20 || c == 0x7F) return false;
+  return true;
+}
+
 int main(int argc, char** argv) {
   Options o;
   for (int i = 1; i < argc; ++i) {
@@ -539,6 +583,14 @@ int main(int argc, char** argv) {
     if (std::string err = gw::applyBeaconTiming(o.beaconMinS, o.beaconMaxS, probe); !err.empty()) {
       std::fprintf(stderr, "%s\n", err.c_str());
       return 2;
+    }
+  }
+  bool nameFromFile = false;
+  if (o.name.empty() && !o.legacyX25519) {
+    std::string saved;
+    if (readNameFile(nameFileOf(o.keyFile), saved) && validNodeName(saved)) {
+      o.name = saved;
+      nameFromFile = true;
     }
   }
   if (o.name.size() > gw::kIdentNameMax) {
@@ -626,6 +678,15 @@ int main(int argc, char** argv) {
   }
   gw::wipe(secret.data(), secret.size());
   if (havePsk) router.setChannelKey(psk.data());
+  ChannelStore channels(router, o.keyFile + ".channels");
+  {
+    std::string err;
+    if (!channels.load(err)) {
+      std::fprintf(stderr, "%s\n", err.c_str());
+      return 1;
+    }
+  }
+  app.channels = &channels;
   gw::wipe(psk.data(), psk.size());
   int peers = 0;
   if (!o.peersFile.empty()) {
@@ -655,7 +716,9 @@ int main(int argc, char** argv) {
   if (pub.legacy)
     std::printf("key x25519:%s (legacy, no IDENT)", toHex(pub.key.data(), pub.key.size()).c_str());
   else
-    std::printf("key ed25519 %s, name \"%s\"", toHex(pub.key.data(), pub.key.size()).c_str(), o.name.c_str());
+    std::printf("key ed25519 %s, name \"%s\"%s", toHex(pub.key.data(), pub.key.size()).c_str(), o.name.c_str(),
+                nameFromFile ? " (set from the app)" : "");
+  if (!channels.list().empty()) std::printf(", %zu group channel%s", channels.list().size(), channels.list().size() == 1 ? "" : "s");
   std::printf(", channel key %s, %d peer key%s%s%s\n", havePsk ? "on" : "off", peers, peers == 1 ? "" : "s",
               o.requireEnc ? ", plaintext DATA refused" : "", o.responder ? ", SOS responder" : "");
   std::fflush(stdout);
@@ -699,6 +762,33 @@ int main(int argc, char** argv) {
       radio->setPosition(pos);
     };
     hooks.edKeys = &g_edKeys;
+    hooks.channels = &channels;
+    hooks.setName = [&](const std::string& name, std::string& err) -> gw::client::ErrorCode {
+      if (pub.legacy) {
+        err = "a --legacy-x25519 node has no IDENT, so no name";
+        return gw::client::ErrorCode::NoIdentity;
+      }
+      if (!validNodeName(name)) {
+        err = "name must be at most " + std::to_string(gw::kIdentNameMax) + " bytes, no control characters";
+        return gw::client::ErrorCode::BadArgument;
+      }
+      // re-sign IDENT with the new name; the seed is read again rather than kept in memory
+      Key32 seed{};
+      bool legacy = false;
+      bool ok = loadIdentity(o.keyFile, false, seed, legacy) && !legacy && router.setSigningKey(seed.data(), name);
+      gw::wipe(seed.data(), seed.size());
+      if (!ok) {
+        err = "could not re-sign the identity";
+        return gw::client::ErrorCode::SendFailed;
+      }
+      if (!writeNameFile(nameFileOf(o.keyFile), name))
+        std::fprintf(stderr, "warning: could not save the name to %s\n", nameFileOf(o.keyFile).c_str());
+      o.name = name;
+      router.announceIdent(nowMs());
+      std::printf("renamed to \"%s\" (from the app)\n", name.c_str());
+      std::fflush(stdout);
+      return gw::client::ErrorCode::None;
+    };
     link.reset(new ClientLink(router, self, pos, hooks, nowMs()));
     std::string err;
     if (!link->listen(o.clientTcp, err)) {

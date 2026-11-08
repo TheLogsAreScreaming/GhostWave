@@ -68,6 +68,59 @@ class ContactCard {
   }
 }
 
+/// Scheme prefix of a group channel card (protocol 1.1).
+const String kChannelScheme = 'ghostwave-ch:';
+
+/// Longest channel name the node keeps, in UTF-8 bytes.
+const int kMaxChannelNameBytes = 16;
+
+/// A group channel to share or join: name and 32-byte key.
+///
+/// ```
+/// ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>
+/// ```
+/// Anyone with this text can read and write the channel: share it like a password.
+class ChannelCard {
+  /// Creates a card.
+  ChannelCard({required this.name, required this.psk}) : assert(psk.length == 32, 'channel key is 32 bytes');
+
+  /// Channel name (1..16 bytes UTF-8).
+  final String name;
+
+  /// The pre-shared key.
+  final Uint8List psk;
+
+  /// The text a QR code carries.
+  String encode() => '$kChannelScheme${Uri.encodeComponent(name)}:${hexEncode(psk)}';
+
+  /// Parses card text; null if it is not a valid channel card.
+  static ChannelCard? tryParse(String text) {
+    final s = text.trim();
+    if (s.length < kChannelScheme.length || s.substring(0, kChannelScheme.length).toLowerCase() != kChannelScheme) {
+      return null;
+    }
+    final rest = s.substring(kChannelScheme.length);
+    final colon = rest.lastIndexOf(':');
+    if (colon <= 0) return null;
+    final key = hexDecode(rest.substring(colon + 1));
+    if (key == null || key.length != 32) return null;
+    String name;
+    try {
+      name = Uri.decodeComponent(rest.substring(0, colon));
+    } on ArgumentError {
+      return null;
+    }
+    if (!validChannelName(name)) return null;
+    return ChannelCard(name: name, psk: key);
+  }
+}
+
+/// Whether [name] is a usable channel name: 1..16 bytes, no control characters.
+bool validChannelName(String name) {
+  if (name.isEmpty || utf8Length(name) > kMaxChannelNameBytes) return false;
+  return !name.codeUnits.any((c) => c < 0x20 || c == 0x7F);
+}
+
 /// A node ID as 8 lowercase hex digits.
 String nodeIdHex(int id) => (id & 0xFFFFFFFF).toRadixString(16).padLeft(8, '0');
 

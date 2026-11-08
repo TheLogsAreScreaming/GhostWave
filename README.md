@@ -174,6 +174,10 @@ cd firmware && cmake -S . -B build -DGHOSTWAVE_BUILD_VIRT=ON && cmake --build bu
 `gwclient.py` is the reference client. It needs only the Python standard library. It also has
 `status`, `pos`, `contacts`, `add [ID] ED25519_HEX [NAME]`, `known ID LAT LON`, `send ID TEXT`
 (waits for the delivery receipt), `setpos LAT LON`, `sos TEXT`, `sosstop` and `sosack ID`.
+Protocol 1.1 adds group channels (DESIGN §9.3) and renaming: `channels`, `join NAME [PSK_HEX]`
+(a new random key if none; prints the `ghostwave-ch:` share text), `leave NAME`,
+`chsend NAME TEXT` and `name NAME`. The node keeps joined channels in `<key file>.channels` and a
+name set from the app in `<key file>.name`, both mode 600.
 
 **End-to-end test:** `firmware/pi/tools/clientlink_e2e.sh` starts three virtual nodes, A, B and C,
 1.5 km apart, each with a client port. It drives them only through the link:
@@ -181,9 +185,11 @@ cd firmware && cmake -S . -B build -DGHOSTWAVE_BUILD_VIRT=ON && cmake --build bu
 - A's client DMs B's client and gets the `Delivered` receipt for its `client_msg_id`.
 - A DMs C while C has no client. The message is held, then replayed when C's client connects.
 - A's client raises an SOS. B's client sees it and acks it, and A's client sees the ack.
+- A and B join a group channel. A's channel message reaches B's client, and C, on another channel,
+  cannot read it. B renames itself, and A's client hears the new name over the air.
 - The error paths are checked too.
 
-It takes about 10 s, and CI runs it.
+It takes about 20 s, and CI runs it.
 
 **A mesh for app testing:** `firmware/pi/tools/vmesh_lan.sh` starts 2–6 nodes and leaves them
 running until Ctrl-C. Each node exposes its client port and fixed positions are used. The script

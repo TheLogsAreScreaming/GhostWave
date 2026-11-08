@@ -8,7 +8,9 @@ with --client-tcp. Drives them only through the client link (gwclient.py):
 handshake, contact exchange (what a QR scan does), a DM from A's client to B's
 client with a delivery receipt keyed by client_msg_id, a DM to C while C has no
 client (queued, then replayed on connect), an SOS that B's client sees and
-acks, and the error paths. Exits nonzero on the first failed check.
+acks, group channels (protocol 1.1: join, list, a channel message that only
+members can read, leave, errors), renaming a node, and the error paths.
+Exits nonzero on the first failed check.
 """
 import os
 import socket
@@ -179,6 +181,7 @@ check(st["kind"] == "status" and st["queued"] == 0 and st["clients"] == 1, "C st
 c.close()
 
 # -------------------------------------------- SOS from A's client, B acks --
+t_sos = time.time()
 r = a.request("sos_start", text=b"e2e: twisted ankle", battery_pct=55, accuracy_m=10)
 must(r[0]["kind"] == "ok", "SosStart -> Ok")
 e = b.wait_event(lambda e: e["kind"] == "sos" and e["src"] == ia["node_id"], 70)
@@ -192,8 +195,62 @@ check(e is not None, "A's client got SosAckReceived from B")
 st = a.request("get_status")[0]
 check(st["sos_active"] and st["tx"] > 0 and st["clients"] == 1, "A status: SOS active, frames sent")
 check(a.request("sos_stop")[0]["kind"] == "ok" and not a.request("get_status")[0]["sos_active"], "SosStop")
-r = a.request("sos_start", text=b"again")
-check(r[0]["code_name"] == "RATE_LIMITED", "second SOS within a minute -> RATE_LIMITED")
+if time.time() - t_sos < 55:
+    r = a.request("sos_start", text=b"again")
+    check(r[0].get("code_name") == "RATE_LIMITED", "second SOS within a minute -> RATE_LIMITED")
+else:   # a slow step above used up the minute: the check would be meaningless
+    say("skip  second SOS within a minute (over a minute since SosStart)")
+
+# -------------------------------------------- group channels (protocol 1.1) --
+check(ia.get("protocol_minor") == 1 and ia.get("max_channel_text_bytes") == 86,
+      "NodeInfo: protocol_minor 1, max_channel_text_bytes 86")
+PSK = bytes(range(1, 33))
+for cl, who in ((a, "A"), (b, "B")):
+    must(cl.request("add_channel", name="e2e crew", psk=PSK)[0]["kind"] == "ok", "%s joins #e2e crew" % who)
+check(a.request("add_channel", name="e2e crew", psk=PSK)[0]["kind"] == "ok", "joining again with the same key -> Ok")
+r = a.request("add_channel", name="e2e crew", psk=bytes(32))
+check(r[0]["code_name"] == "BAD_ARGUMENT", "same name, another key -> BAD_ARGUMENT")
+r = a.request("add_channel", name="short key", psk=b"x" * 31)
+check(r[0]["code_name"] == "BAD_ARGUMENT", "31-byte key -> BAD_ARGUMENT")
+r = a.request("list_channels")
+check(r[-1]["kind"] == "channels_end" and r[-1]["count"] == 1 and r[0]["kind"] == "channel"
+      and r[0]["name"] == "e2e crew" and r[0]["psk"] == PSK, "ListChannels -> Channel (with its key), ChannelsEnd")
+r = a.request("send_channel_text", channel="nope", text=b"hi", client_msg_id=1)
+check(r[0]["code_name"] == "NOT_FOUND", "unknown channel -> NOT_FOUND")
+r = a.request("send_channel_text", channel="e2e crew", text=b"x" * 87, client_msg_id=1)
+check(r[0]["code_name"] == "TOO_LONG", "87-byte channel text -> TOO_LONG")
+# C joins a different channel: it relays A's frame but cannot read it
+c = g.Client(addr_c, "e2e C (channel)")
+must(c.request("add_channel", name="other", psk=bytes(range(100, 132)))[0]["kind"] == "ok", "C joins #other")
+c.close()
+r = a.request("send_channel_text", channel="e2e crew", text="crew: camp at the lake".encode(), client_msg_id=55)
+must(r[0]["kind"] == "send_queued" and r[0]["dest"] == 0xFFFFFFFF and r[0]["client_msg_id"] == 55 and r[0]["msg_id"],
+     "SendChannelText -> SendQueued (dest broadcast)")
+cmid = r[0]["msg_id"]
+e = b.wait_event(lambda e: e["kind"] == "channel_message", 30)
+check(e is not None and e["channel"] == "e2e crew" and e["src"] == ia["node_id"] and e["msg_id"] == cmid
+      and e["text"] == "crew: camp at the lake".encode(), "B's client got the channel message on #e2e crew")
+time.sleep(2)
+check(log_has("B", "CHAN #e2e crew from %08x" % ia["node_id"]) and not log_has("C", "crew: camp"),
+      "B's daemon printed it; C (another channel) could not read it")
+path = os.path.join(work, "A.key.channels")
+check(os.path.exists(path) and (os.stat(path).st_mode & 0o077) == 0 and "e2e crew" in open(path).read(),
+      "A keeps its channels in A.key.channels, mode 600")
+c = g.Client(addr_c, "e2e C (leave)")
+check(c.request("remove_channel", name="other")[0]["kind"] == "ok", "C leaves #other")
+check(c.request("remove_channel", name="other")[0]["code_name"] == "NOT_FOUND", "leaving again -> NOT_FOUND")
+c.close()
+
+# ------------------------------------------------------ SetName (1.1) --
+r = b.request("set_name", name="0123456789")
+check(r[0]["code_name"] == "BAD_ARGUMENT", "10-byte name -> BAD_ARGUMENT")
+must(b.request("set_name", name="Bee2")[0]["kind"] == "ok", "B renames itself Bee2")
+b2 = g.Client(addr_b, "e2e B (after rename)")
+check(b2.info["name"] == b"Bee2", "a new Hello reports the new name")
+b2.close()
+check(open(os.path.join(work, "B.key.name")).read().strip() == "Bee2", "B keeps the name in B.key.name")
+e = a.wait_event(lambda e: e["kind"] == "peer_ident" and e["node_id"] == ib["node_id"] and e["name"] == b"Bee2", 25)
+check(e is not None and not e["is_new"], "A's client hears B's new name over the air (IDENT, renamed)")
 
 # ---------------------------------------------------- other live events --
 nb = [e for e in a.events + b.events if e["kind"] == "neighbor"]
@@ -207,4 +264,5 @@ print()
 if failed:
     say("FAIL: %d check(s) failed: %s" % (len(failed), "; ".join(failed)))
     sys.exit(1)
-say("PASS: client link end to end (handshake, contacts, DM + receipt, offline replay, SOS + ack, errors)")
+say("PASS: client link end to end (handshake, contacts, DM + receipt, offline replay, SOS + ack, channels, "
+    "rename, errors)")

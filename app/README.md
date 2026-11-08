@@ -16,6 +16,10 @@ any other mesh app.
 | **Connect:** host:port, remembered, Hello handshake, auto-reconnect with backoff | done |
 | **Me:** node ID, name, keys, contact-card QR code (copy as text too) | done |
 | **Contacts:** scan a QR code or paste the card text → `AddContact`; last seen and position from `Neighbor` beacons; "heard nearby" list; key-change warning | done |
+| **Group channels** (node protocol 1.1): create a channel (new random key) and share it by QR code or text (`ghostwave-ch:…`), join by scanning or pasting, channel chat with sender names, leave; best effort (a few hops, no receipts), saved on the phone, offline outbox | done |
+| **Messaging:** unread badges for DMs and channels, tap or long-press to retry a failed message, long-press to copy or delete a message, delete a conversation or clear a channel | done |
+| **Key change:** a contact whose node announced a different key is marked unverified with a prominent warning until you accept the new key (pinned on the node) or keep the old one | done |
+| **Settings** (Me tab, gear): rename the node (`SetName`), reset the app's data, version, licenses (including the bundled fonts) | done |
 | **Chat:** per-contact DM threads, queued → sent → delivered (`SendQueued` / `Delivered`), live UTF-8 byte counter against the node's 73-byte limit, saved on the phone, offline outbox sent on reconnect, failed messages retry on tap | done |
 | **Map:** own node, contacts, nearby nodes and SOS alerts on OpenStreetMap tiles (online) | done |
 | **SOS:** hold 3 s to raise, "SOS active" with acks received, stop; incoming SOS banner on every tab with Ack | done |

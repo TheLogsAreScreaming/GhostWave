@@ -16,6 +16,8 @@ class StoredMesh {
     this.messages = const {},
     this.alerts = const [],
     this.ownSos = const OwnSos(),
+    this.channels = const {},
+    this.channelMessages = const {},
   });
 
   /// From [toJson].
@@ -30,11 +32,21 @@ class StoredMesh {
       final msg = ChatMessage.fromJson(m(x));
       (messages[msg.peer] ??= <ChatMessage>[]).add(msg);
     }
+    final channelMessages = <String, List<ChannelMessage>>{};
+    for (final x in (j['channelMessages'] as List<Object?>?) ?? const <Object?>[]) {
+      final msg = ChannelMessage.fromJson(m(x));
+      (channelMessages[msg.channel] ??= <ChannelMessage>[]).add(msg);
+    }
     return StoredMesh(
       contacts: contacts,
       messages: messages,
       alerts: [for (final a in (j['alerts'] as List<Object?>?) ?? const <Object?>[]) SosAlertEntry.fromJson(m(a))],
       ownSos: j['ownSos'] == null ? const OwnSos() : OwnSos.fromJson(m(j['ownSos'])),
+      channels: {
+        for (final c in (j['channels'] as List<Object?>?) ?? const <Object?>[])
+          if (GroupChannel.fromJson(m(c)) case final ch) ch.name: ch,
+      },
+      channelMessages: channelMessages,
     );
   }
 
@@ -50,6 +62,12 @@ class StoredMesh {
   /// Our SOS.
   final OwnSos ownSos;
 
+  /// Group channels, by name (as last listed by the node).
+  final Map<String, GroupChannel> channels;
+
+  /// Channel messages by channel, oldest first.
+  final Map<String, List<ChannelMessage>> channelMessages;
+
   /// JSON form.
   Map<String, Object?> toJson() => {
     'version': 1,
@@ -60,6 +78,11 @@ class StoredMesh {
     ],
     'alerts': [for (final a in alerts) a.toJson()],
     'ownSos': ownSos.toJson(),
+    'channels': [for (final c in channels.values) c.toJson()],
+    'channelMessages': [
+      for (final l in channelMessages.values)
+        for (final msg in l) msg.toJson(),
+    ],
   };
 }
 
@@ -72,6 +95,16 @@ class MeshStore {
   final Directory dir;
 
   File _file(int nodeId) => File('${dir.path}/node_${nodeIdHex(nodeId)}.json');
+
+  /// Deletes every saved history (app data reset).
+  Future<void> deleteAll() async {
+    await _queue.catchError((Object _) {});
+    if (!dir.existsSync()) return;
+    for (final f in dir.listSync()) {
+      final name = f.uri.pathSegments.isEmpty ? '' : f.uri.pathSegments.last;
+      if (f is File && name.startsWith('node_')) await f.delete();
+    }
+  }
 
   /// Loads [nodeId]'s history; empty if none or unreadable.
   Future<StoredMesh> load(int nodeId) async {

@@ -9,6 +9,9 @@
 #include <string>
 #include <vector>
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "monocypher-ed25519.h"
 #include "monocypher.h"
 #include "ghostwave/crypto.h"
@@ -16,6 +19,7 @@
 #include "ghostwave/router.h"
 #include "ghostwave/util.h"
 #include "beacon_timing.h"
+#include "channel_store.h"
 #include "vchannel.h"
 
 using namespace gw;
@@ -268,6 +272,11 @@ struct TestApp : AppPort {
   std::vector<std::pair<uint32_t, std::string>> idents;   // first-seen peers
   std::vector<std::pair<uint32_t, std::array<uint8_t, 32>>> keyChanges;
   std::vector<std::pair<uint32_t, bool>> neighbors;   // (id, isNew) per beacon
+  struct ChanMsg { uint32_t chan, src, msgId; std::vector<uint8_t> text; };
+  std::vector<ChanMsg> chanMsgs;
+  void onChannelMessage(uint32_t chan, uint32_t src, uint32_t mid, const std::vector<uint8_t>& p) override {
+    chanMsgs.push_back({chan, src, mid, p});
+  }
   void onNeighbor(uint32_t id, const Position&, bool isNew) override { neighbors.push_back({id, isNew}); }
   void onMessage(uint32_t src, uint32_t, const std::vector<uint8_t>& p) override { got.push_back({src, p}); }
   void onDelivered(uint32_t, uint32_t mid) override { delivered.push_back(mid); }
@@ -395,6 +404,208 @@ static void testBeaconTimingFlags() {
     bool met = !a.app.neighbors.empty() && !b.app.neighbors.empty();
     CHECK(met == (maxS == 60));
   }
+}
+
+// Group channels (DESIGN §9.3): channel IDs, join limits, payload cap, delivery
+// to members only, relaying by non-members, the hop radius, flood suppression.
+static void testGroupChannels() {
+  std::printf("group channels\n");
+  uint8_t k1[32], k2[32];
+  for (int i = 0; i < 32; ++i) k1[i] = static_cast<uint8_t>(i + 1), k2[i] = static_cast<uint8_t>(200 - i);
+  CHECK(groupChannelId(k1) == groupChannelId(k1));
+  CHECK(groupChannelId(k1) != groupChannelId(k2));
+  CHECK(groupChannelId(k1) != 0);
+
+  {
+    Medium m;
+    SimNode& a = m.add(0xA1, 0);
+    uint32_t id1 = a.router->addGroupChannel(k1);
+    CHECK(id1 == groupChannelId(k1));
+    CHECK(a.router->addGroupChannel(k1) == id1);   // same key: same channel
+    CHECK(a.router->hasGroupChannel(id1));
+    uint8_t k[32] = {};
+    for (size_t i = 1; i < kMaxGroupChannels; ++i) {
+      k[0] = static_cast<uint8_t>(i);
+      CHECK(a.router->addGroupChannel(k) != 0);
+    }
+    k[0] = 99;
+    CHECK(a.router->addGroupChannel(k) == 0);   // full
+    CHECK(a.router->removeGroupChannel(id1));
+    CHECK(!a.router->hasGroupChannel(id1));
+    CHECK(!a.router->removeGroupChannel(id1));
+    CHECK(a.router->addGroupChannel(k) != 0);   // room again
+    // payload cap (with a position in the frame, the largest case)
+    uint32_t id = a.router->addGroupChannel(k2) ? groupChannelId(k2) : 0;
+    CHECK(id == 0);   // still full (8)
+    a.router->removeGroupChannel(groupChannelId(k));
+    id = a.router->addGroupChannel(k2);
+    CHECK(id != 0);
+    CHECK(a.router->sendChannel(id, std::vector<uint8_t>(Router::kChannelPayloadMax, 'x'), m.now) != 0);
+    CHECK(a.router->sendChannel(id, std::vector<uint8_t>(Router::kChannelPayloadMax + 1, 'x'), m.now) == 0);
+    CHECK(a.router->sendChannel(0x12345678, {'h', 'i'}, m.now) == 0);   // not joined
+    m.run(5000);
+    for (auto& f : m.frames) CHECK(f.size() <= kMaxFrame);
+  }
+
+  {
+    // A B C D E F in a line, 2 km apart (range 2.5 km): neighbors only.
+    // C holds no key but relays; X sits next to B on another channel.
+    Medium m;
+    m.identIntervalMs = 0;
+    std::vector<SimNode*> n;
+    for (int i = 0; i < 6; ++i) n.push_back(&m.add(0xC0 + i, 2.0 * i));
+    SimNode& x = m.add(0xEE, 2.0, 0.5);
+    uint32_t id = 0;
+    for (int i : {0, 1, 3, 4, 5}) id = n[i]->router->addGroupChannel(k1);
+    x.router->addGroupChannel(k2);
+    m.run(3000);
+    std::vector<uint8_t> text = {'m', 'e', 'e', 't', ' ', '@', '5'};
+    uint32_t mid = n[0]->router->sendChannel(id, text, m.now);
+    CHECK(mid != 0);
+    m.run(20000);
+    // hops: A sends (3 left), B relays (2), C (1), D (0): E hears D, F is out of reach
+    CHECK(n[0]->app.chanMsgs.empty());   // not delivered to ourselves
+    CHECK(n[1]->app.chanMsgs.size() == 1);
+    CHECK(n[2]->app.chanMsgs.empty());   // relay without the key
+    CHECK(n[3]->app.chanMsgs.size() == 1);
+    CHECK(n[4]->app.chanMsgs.size() == 1);
+    CHECK(n[5]->app.chanMsgs.empty());   // beyond channelHops
+    CHECK(x.app.chanMsgs.empty());       // other channel
+    if (n[4]->app.chanMsgs.size() == 1) {
+      auto& got = n[4]->app.chanMsgs[0];
+      CHECK(got.chan == id && got.src == 0xC0 && got.msgId == mid && got.text == text);
+    }
+    bool clear = true;
+    for (auto& f : m.frames)
+      if (std::search(f.begin(), f.end(), text.begin(), text.end()) != f.end()) clear = false;
+    CHECK(clear);   // never on the air in clear
+  }
+
+  {
+    // dense cluster: everyone hears everyone; duplicate suppression keeps the
+    // flood small (the sender plus a few relays, not one per node)
+    Medium m;
+    m.identIntervalMs = 0;
+    std::vector<SimNode*> n;
+    for (int i = 0; i < 8; ++i) n.push_back(&m.add(0xD0 + i, 0.1 * i));
+    uint32_t id = 0;
+    for (auto* x : n) id = x->router->addGroupChannel(k1);
+    m.run(3000);
+    uint32_t before = m.count(PType::Data);
+    n[0]->router->sendChannel(id, {'h', 'i'}, m.now);
+    m.run(20000);
+    uint32_t sent = m.count(PType::Data) - before;
+    size_t got = 0;
+    for (auto* x : n) got += x->app.chanMsgs.size();
+    CHECK(got == 7);
+    CHECK(sent <= 4);   // relays were heard: no re-sends either
+    std::printf("  dense cluster: %u channel frames for 8 nodes\n", sent);
+  }
+
+  {
+    // A - B, the first copy lost at B (a collision): A hears no relay, so it
+    // re-sends, and B gets the message once
+    Medium m;
+    m.identIntervalMs = 0;
+    SimNode& a = m.add(0xE1, 0);
+    SimNode& b = m.add(0xE2, 1.5);
+    uint32_t id = a.router->addGroupChannel(k1);
+    b.router->addGroupChannel(k1);
+    m.run(3000);
+    int dropped = 0;
+    m.drop = [&](int from, const uint8_t* buf, size_t) {
+      bool chan = from == 0 && (buf[0] & 0x1F) == static_cast<uint8_t>(PType::Data);
+      return chan && dropped++ == 0;
+    };
+    uint32_t before = m.count(PType::Data);
+    a.router->sendChannel(id, {'o', 'k', '?'}, m.now);
+    m.run(30000);
+    CHECK(dropped >= 1);
+    CHECK(b.app.chanMsgs.size() == 1);
+    uint32_t sent = m.count(PType::Data) - before;
+    CHECK(sent >= 3 && sent <= 4);   // original, one re-send, B's relay (and at most one more)
+    std::printf("  lost first copy: %u channel frames, delivered %zu\n", sent, b.app.chanMsgs.size());
+  }
+
+  {
+    // nobody around to hear it: no pointless re-sends
+    Medium m;
+    m.identIntervalMs = 0;
+    SimNode& a = m.add(0xF1, 0);
+    uint32_t id = a.router->addGroupChannel(k1);
+    m.run(3000);
+    uint32_t before = m.count(PType::Data);
+    a.router->sendChannel(id, {'h', 'i'}, m.now);
+    m.run(30000);
+    CHECK(m.count(PType::Data) - before == 1);
+  }
+}
+
+// ghostwaved's channel list (pi/channel_store.h): validation, duplicates,
+// the limit, and persistence (mode 600) across a restart.
+static void testChannelStore() {
+  std::printf("channel store\n");
+  char tmpl[] = "/tmp/gwchanXXXXXX";
+  int fd = mkstemp(tmpl);
+  CHECK(fd >= 0);
+  close(fd);
+  unlink(tmpl);   // start with no file
+  std::string path = tmpl;
+  uint8_t k1[32], k2[32];
+  for (int i = 0; i < 32; ++i) k1[i] = static_cast<uint8_t>(i), k2[i] = static_cast<uint8_t>(255 - i);
+  using R = ChannelStore::Result;
+  {
+    Medium m;
+    SimNode& a = m.add(0xA7, 0);
+    ChannelStore st(*a.router, path);
+    std::string err;
+    CHECK(st.load(err));   // missing file: empty
+    CHECK(st.add("crew", k1, 32) == R::Ok);
+    CHECK(st.add("crew", k1, 32) == R::Unchanged);
+    CHECK(st.add("crew", k2, 32) == R::NameTaken);
+    CHECK(st.add("other", k1, 32) == R::KeyTaken);
+    CHECK(st.add("", k2, 32) == R::BadName);
+    CHECK(st.add(std::string(17, 'x'), k2, 32) == R::BadName);
+    CHECK(st.add("tab\there", k2, 32) == R::BadName);
+    CHECK(st.add("short", k2, 31) == R::BadKey);
+    CHECK(st.add("two", k2, 32) == R::Ok);
+    CHECK(st.byName("crew") && st.byName("crew")->id == groupChannelId(k1));
+    CHECK(a.router->hasGroupChannel(groupChannelId(k1)) && a.router->hasGroupChannel(groupChannelId(k2)));
+    struct stat sb {};
+    CHECK(stat(path.c_str(), &sb) == 0 && (sb.st_mode & 077) == 0);
+    uint8_t k[32] = {};
+    for (int i = 0; i < 6; ++i) {
+      k[0] = static_cast<uint8_t>(10 + i);
+      CHECK(st.add("c" + std::to_string(i), k, 32) == R::Ok);
+    }
+    k[0] = 99;
+    CHECK(st.add("ninth", k, 32) == R::Full);
+    CHECK(st.remove("c5") == R::Ok);
+    CHECK(st.remove("c5") == R::NotFound);
+    CHECK(!a.router->hasGroupChannel(groupChannelId(k)));
+  }
+  {
+    // a restart: the file brings the same channels back into a new router
+    Medium m;
+    SimNode& a = m.add(0xA7, 0);
+    ChannelStore st(*a.router, path);
+    std::string err;
+    CHECK(st.load(err));
+    CHECK(st.list().size() == 7);
+    CHECK(st.byName("two") && a.router->hasGroupChannel(groupChannelId(k2)));
+    CHECK(!st.byName("c5"));
+  }
+  {
+    FILE* f = std::fopen(path.c_str(), "w");
+    std::fputs("not a channel line\n", f);
+    std::fclose(f);
+    Medium m;
+    SimNode& a = m.add(0xA7, 0);
+    ChannelStore st(*a.router, path);
+    std::string err;
+    CHECK(!st.load(err) && !err.empty());
+  }
+  unlink(path.c_str());
 }
 
 static void testLine() {
@@ -1459,6 +1670,8 @@ int main() {
   testPosAge();
   testUtil();
   testBeaconTimingFlags();
+  testGroupChannels();
+  testChannelStore();
   testLine();
   testDtnCarry();
   testSpray();

@@ -50,7 +50,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final mesh = ref.watch(meshProvider);
-    final unread = mesh.unread.values.fold(0, (a, b) => a + b);
+    final unread = mesh.totalUnread;
     final alerts = mesh.activeAlerts.length;
     return Scaffold(
       body: Column(
@@ -84,7 +84,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           NavigationDestination(
             icon: Badge(isLabelVisible: unread > 0, label: Text('$unread'), child: const Icon(Icons.forum_outlined)),
             selectedIcon: Badge(isLabelVisible: unread > 0, label: Text('$unread'), child: const Icon(Icons.forum)),
-            label: 'Contacts',
+            label: 'Chats',
           ),
           const NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: 'Map'),
           NavigationDestination(

@@ -48,6 +48,9 @@ class ClientLink : private gw::client::Transport {
     h_.onKeyChange(id, edPub, name);
   }
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) { h_.onNeighbor(id, pos, isNew); }
+  void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& payload) {
+    h_.onChannelMessage(chanId, src, msgId, payload);
+  }
 
  private:
   struct Client {

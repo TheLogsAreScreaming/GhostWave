@@ -27,7 +27,7 @@ document; see §11).
 - Internet-scale routing. Target: 10–500 nodes per region.
 - Voice/streaming. Text, position, small telemetry only.
 - Per-link adaptive data rate (SX126x can only listen on one SF at a time; deferred to v2).
-- Forward secrecy / group key rotation (deferred to v2; §9.3).
+- Forward secrecy / group key rotation (deferred to v2; §9.4).
 
 ---
 
@@ -449,7 +449,32 @@ benefit**.
   message from stores and a forged SOS_ACK can show a false "help acknowledged". A truncated
   MAC under the DM or channel key is the planned fix (as for beacons).
 
-### 9.3 v2
+### 9.3 Group channels (v1.1)
+
+A group channel is a name plus a pre-shared 256-bit key. Everyone who holds the key can read and
+write it, so the key is shared like a password, in person: the app shows it as a QR code
+(`ghostwave-ch:<name>:<key hex>`). This is separate from the single network channel key above,
+which stays the unicast fallback and the beacon MAC key.
+
+- **Frame:** `DATA` with `dst` = broadcast and mode `SCOPED_FLOOD`, sealed with the channel key
+  (same AEAD and nonce as §9.1). `hops_left` starts at `channelHops` (default 3), so a message
+  reaches members up to four radio hops from the sender. The 128-byte frame leaves 86 bytes of
+  text after the header, the sender position and the tag.
+- **Which channel:** the frame names none. A receiver tries each key it holds (a node joins up to
+  8) and delivers the message under the first one that opens it. Non-members learn nothing but
+  the sender and the frame size. Hosts tell channels apart by a 32-bit ID derived from the key,
+  `SHA-512("ghostwave-chan-v1" || key)[0..3]`. The ID never goes on the air.
+- **Relaying:** every node relays a channel frame once, member or not, after a random delay of up
+  to two frame airtimes plus jitter. Like the SOS flood (§8), a pending relay is cancelled once two
+  copies have been heard. Duplicates are dropped by `(src, msg_id)`.
+- **Best effort:** no store-and-forward, no end-to-end receipt. To cover a lost first frame, the
+  sender treats a neighbor's relay of its frame as an implicit ack. Without one, and with a
+  neighbor heard in the last five minutes, it sends the same frame again after about 4 s and
+  then about 8 s (at most twice). Receivers drop the copies.
+- **Limits:** no membership control or key rotation (§9.4). Removing someone means making a new
+  channel. Channel frames spend the originator's airtime budget like any own traffic (§6.1).
+
+### 9.4 v2
 
 Sender-key group rotation (remove a lost device from a channel), and a double-ratchet
 for DMs once a session exists.

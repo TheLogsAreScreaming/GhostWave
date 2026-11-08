@@ -50,6 +50,17 @@ uint32_t nodeIdOf(const uint8_t edPub[kKeySize]) {
   return h[0] | (h[1] << 8) | (h[2] << 16) | (static_cast<uint32_t>(h[3]) << 24);
 }
 
+uint32_t groupChannelId(const uint8_t key[kKeySize]) {
+  static const char kTag[] = "ghostwave-chan-v1";
+  uint8_t msg[sizeof kTag - 1 + kKeySize], h[64];
+  std::memcpy(msg, kTag, sizeof kTag - 1);
+  std::memcpy(msg + sizeof kTag - 1, key, kKeySize);
+  crypto_sha512(h, msg, sizeof msg);
+  uint32_t id = h[0] | (h[1] << 8) | (h[2] << 16) | (static_cast<uint32_t>(h[3]) << 24);
+  crypto_wipe(msg, sizeof msg);
+  return id ? id : 1;
+}
+
 bool nodeIdUsable(uint32_t id) { return id != 0 && id != 0xFFFFFFFFu && (id & 0xFFFF) != 0; }
 
 bool identBody(const uint8_t seed[kKeySize], const std::string& name, std::vector<uint8_t>& out) {

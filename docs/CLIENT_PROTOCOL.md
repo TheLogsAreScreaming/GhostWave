@@ -1,4 +1,4 @@
-# GhostWave client protocol, v1
+# GhostWave client protocol, v1.1
 
 The link an app (the Flutter phone app, a desktop tool, a script) uses to drive one GhostWave
 node. This is DESIGN §10 made concrete.
@@ -11,6 +11,16 @@ node. This is DESIGN §10 made concrete.
 - **Daemon transport:** `ghostwaved --client-tcp [HOST:]PORT` (`firmware/pi/client_link.cpp`).
 - **MCU transport:** BLE on the nRF52 boards (`firmware/mcu/src/ble_link.cpp`, §9).
 - **Reference client:** `firmware/pi/tools/gwclient.py`, Python stdlib only.
+
+**Versions.** The frame version and `Hello.protocol_version` stay 1. Minor versions only add
+messages and fields, and `NodeInfo.protocol_minor` says which ones a node has. Absent, or 0, means
+the original 1.0. A newer app checks it before using 1.1 features. An older node answers 1.1
+requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
+
+| Minor | Adds |
+|---|---|
+| 0 | the original set |
+| 1 | group channels (`SendChannelText`, `AddChannel`, `RemoveChannel`, `ListChannels`, `ChannelMessage`, `Channel`, `ChannelsEnd`, `NodeInfo.max_channel_text_bytes`, error `CHANNEL_LIMIT`) and `SetName` |
 
 ## 1. Transports
 
@@ -77,8 +87,9 @@ Encoding conventions:
 ## 4. Messages
 
 Every `ToRadio` may carry a `req_id`. Each reply to it echoes that `req_id`. Unsolicited events
-have `req_id` 0. A request gets exactly one reply: its result, `Ok` or `Error`. The exception is
-`ListContacts`, which gets zero or more `Contact` and then `ContactsEnd`.
+have `req_id` 0. A request gets exactly one reply: its result, `Ok` or `Error`. The exceptions are
+`ListContacts`, which gets zero or more `Contact` and then `ContactsEnd`, and `ListChannels`, which
+gets zero or more `Channel` and then `ChannelsEnd`.
 
 ### App → node (`ToRadio`)
 
@@ -95,6 +106,11 @@ have `req_id` 0. A request gets exactly one reply: its result, `Ok` or `Error`. 
 | 18 | `GetStatus` | none | `Status` |
 | 19 | `GetPosition` | none | `OwnPosition{pos}` |
 | 20 | `SetOwnPosition` | `pos` (absent = clear) | `Ok`. The phone's GPS becomes the node's position, for nodes without GPS. A node GPS fix overrides it. |
+| 21 | `SendChannelText` (1.1) | `channel` (name), `text` (≤ `max_channel_text_bytes`, 86), `client_msg_id` | `SendQueued{dest = 0xFFFFFFFF, msg_id, client_msg_id}` / `NOT_FOUND` / `TOO_LONG`. No `Delivered` follows. |
+| 22 | `AddChannel` (1.1) | `name` (1–16 bytes UTF-8), `psk` (32 bytes) | `Ok` (also for the same name and key again) / `BAD_ARGUMENT` / `CHANNEL_LIMIT` |
+| 23 | `RemoveChannel` (1.1) | `name` | `Ok` / `NOT_FOUND` |
+| 24 | `ListChannels` (1.1) | none | `Channel`…, `ChannelsEnd{count}` |
+| 25 | `SetName` (1.1) | `name` (≤ 9 bytes UTF-8) | `Ok` / `BAD_ARGUMENT` / `NO_IDENTITY`. The node re-signs and announces its IDENT. |
 
 Notes on the requests:
 
@@ -111,6 +127,17 @@ Notes on the requests:
 - **SOS:** accuracy is carried in 4 m steps on the air, so it comes back rounded up. A second
   `SosStart` within a minute of the last one gets `RATE_LIMITED` (DESIGN §8). Calling `SosStart`
   again while an SOS is active updates its text.
+
+- **Group channels (1.1, DESIGN §9.3)** are flooded a few hops to every node holding the key:
+  best effort, with no receipt. A channel is a name and a 32-byte key. A node holds up to 8.
+  `ghostwaved` keeps them across restarts. The MCU firmware (BLE) holds them in RAM for now, so
+  the app joins them again after a reboot. Share one as text or a QR code:
+  `ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>`. Anyone with it can read and write the
+  channel. An `AddChannel` with a name already in use under another key, or a key already joined
+  under another name, gets `BAD_ARGUMENT`.
+- **SetName** changes the IDENT name (`ghostwaved` keeps it across restarts). Nodes without an
+  Ed25519 identity, such as the MCU firmware today, answer `NO_IDENTITY`. Peers see it as
+  `PeerIdent{is_new = false}`. A new `Hello` returns it in `NodeInfo.name`.
 
 ### Node → app (`FromRadio`)
 
@@ -131,6 +158,11 @@ Notes on the requests:
 | 22 | `Ok` | none | success with no data |
 | 23 | `PeerIdent` | `node_id`, `name`, `is_new` | a verified IDENT taught a new key, or a new name |
 | 24 | `KeyChange` | `node_id`, `ed25519_pub`, `name` | a signed IDENT carries a different key (DESIGN §9.2). Warn the user. The node keeps the old key. |
+| 25 | `ChannelMessage` (1.1) | `channel` (name), `src`, `msg_id`, `text` | a group channel message arrived (queued like `TextMessage`) |
+| 26 | `Channel` (1.1) | `name`, `psk` | reply to `ListChannels` (the key lets the app share the channel) |
+| 27 | `ChannelsEnd` (1.1) | `count` | ends `ListChannels` |
+
+`NodeInfo` (1.1) also carries `protocol_minor` and `max_channel_text_bytes`.
 
 Notes on the events:
 
@@ -160,7 +192,8 @@ Notes on the events:
 | 9 | `KEY_REJECTED` | the key does not hash to the ID, is low-order, or the peer table is full of pinned keys |
 | 10 | `SEND_FAILED` | the router refused the message |
 | 11 | `TOO_MANY_CLIENTS` | a 5th connection. Sent, then the link is closed. |
-| 12 | `NO_IDENTITY` | the operation needs an Ed25519 identity (reserved) |
+| 12 | `NO_IDENTITY` | the operation needs an Ed25519 identity (`SetName` on a legacy node) |
+| 13 | `CHANNEL_LIMIT` | `AddChannel`: the node already holds the most channels it can (8) |
 
 ## 5. No client connected: the event queue
 
@@ -208,6 +241,7 @@ Test vectors are byte-exact frames checked by `firmware/tests/test_client_proto.
 | `ToRadio{req_id 1, Hello{1, "app"}}` | `94c30c0001 0801 5207 0801 1203 617070` |
 | `ToRadio{req_id 2, SendText{a1b2c3d4, "hi", 42}}` | `94c3100001 0802 5a0b 0dd4c3b2a1 12026869 182a` |
 | `FromRadio{Delivered{a1b2c3d4, 01020304, 42}}` | `94c30f0001 620c 0dd4c3b2a1 1504030201 182a` |
+| `ToRadio{req_id 3, SendChannelText{"ops", "hi", 7}}` (1.1) | `94c3110001 0803 aa010b 0a036f7073 12026869 1807` |
 
 ## 7. Security
 

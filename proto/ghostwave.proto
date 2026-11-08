@@ -39,6 +39,12 @@ message ToRadio {
     GetStatus get_status = 18;
     GetPosition get_position = 19;
     SetOwnPosition set_own_position = 20;
+    // protocol 1.1 (NodeInfo.protocol_minor >= 1)
+    SendChannelText send_channel_text = 21;
+    AddChannel add_channel = 22;
+    RemoveChannel remove_channel = 23;
+    ListChannels list_channels = 24;
+    SetName set_name = 25;
   }
 }
 
@@ -96,6 +102,41 @@ message SetOwnPosition {
   Position pos = 1;
 }
 
+// Group channels (protocol 1.1, DESIGN §9.3). A channel is a name (1..16
+// bytes UTF-8, unique on the node) and a 32-byte pre-shared key. Messages are
+// flooded a few hops to everyone holding the key: best effort, no Delivered.
+// Share a channel as text or QR: "ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>".
+
+// Reply: SendQueued (dest = 0xFFFFFFFF). Errors: NOT_FOUND (no such channel),
+// TOO_LONG (over NodeInfo.max_channel_text_bytes), BAD_ARGUMENT, SEND_FAILED.
+message SendChannelText {
+  string channel = 1;            // channel name
+  bytes text = 2;                // UTF-8
+  uint32 client_msg_id = 3;      // echoed in SendQueued
+}
+
+// Joins a channel (kept across node restarts). Reply: Ok; adding the same
+// name with the same key again is Ok too. Errors: BAD_ARGUMENT (name or key
+// malformed, name taken by another key, key joined under another name),
+// CHANNEL_LIMIT (the node holds the most it can).
+message AddChannel {
+  string name = 1;
+  bytes psk = 2;                 // 32 bytes
+}
+
+message RemoveChannel {          // Reply: Ok, or NOT_FOUND
+  string name = 1;
+}
+
+// Reply: one Channel per joined channel, then ChannelsEnd.
+message ListChannels {}
+
+// Sets the node's name (IDENT, <= 9 bytes UTF-8), kept across restarts, and
+// announces it. Reply: Ok. Errors: BAD_ARGUMENT, NO_IDENTITY (legacy node).
+message SetName {
+  string name = 1;
+}
+
 // --------------------------------------------------------------- node -> app
 
 message FromRadio {
@@ -117,6 +158,10 @@ message FromRadio {
     Ok ok = 22;
     PeerIdent peer_ident = 23;
     KeyChange key_change = 24;
+    // protocol 1.1
+    ChannelMessage channel_message = 25;
+    Channel channel = 26;
+    ChannelsEnd channels_end = 27;
   }
 }
 
@@ -129,6 +174,8 @@ message NodeInfo {
   bool legacy = 6;               // X25519-only node: no ed25519_pub, no IDENT
   string firmware = 7;
   uint32 max_text_bytes = 8;     // SendText.text limit with a DM key
+  uint32 protocol_minor = 9;     // 0 = original 1.0 node; 1 = channels, SetName
+  uint32 max_channel_text_bytes = 10;   // SendChannelText.text limit (1.1)
 }
 
 message TextMessage {
@@ -208,6 +255,7 @@ message Error {
     SEND_FAILED = 10;
     TOO_MANY_CLIENTS = 11;
     NO_IDENTITY = 12;
+    CHANNEL_LIMIT = 13;          // AddChannel: the node holds the most channels it can
   }
   Code code = 1;
   string detail = 2;
@@ -240,4 +288,22 @@ message KeyChange {
   fixed32 node_id = 1;
   bytes ed25519_pub = 2;
   bytes name = 3;
+}
+
+// A group channel message, on a channel this node joined (protocol 1.1).
+message ChannelMessage {
+  string channel = 1;            // channel name
+  fixed32 src = 2;
+  fixed32 msg_id = 3;
+  bytes text = 4;                // as received; usually UTF-8, not guaranteed
+  Position pos = 5;              // sender position, if the frame carried one
+}
+
+message Channel {                // one per joined channel (ListChannels)
+  string name = 1;
+  bytes psk = 2;                 // the key, so the app can share the channel
+}
+
+message ChannelsEnd {
+  uint32 count = 1;
 }
