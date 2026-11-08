@@ -304,6 +304,7 @@ struct Medium {
   double rangeM = 2500;
   uint32_t identIntervalMs = 60 * 60 * 1000;
   uint32_t beaconMinS = 0, beaconMaxS = 0;   // ghostwaved --beacon-*-s overrides; 0 = defaults
+  bool requireBeaconMac = false;
   uint64_t now = 0;
   uint32_t txCount = 0;
   std::vector<uint8_t> txTypes;
@@ -320,6 +321,7 @@ struct Medium {
     c.responder = responder;
     c.rngSeed = id * 7919ull + 1;
     c.identIntervalMs = identIntervalMs;
+    c.requireBeaconMac = requireBeaconMac;
     applyBeaconTiming(beaconMinS, beaconMaxS, c);
     n->router = std::make_unique<Router>(c, n->radio, n->app);
     n->pos = {45.0 + kmNorth * 0.0089932, -110.0 + kmEast * 0.0127, true};
@@ -1731,6 +1733,78 @@ static void testSosLostRelayFlood() {
   CHECK(m.now - got <= 3 * 60 * 1000);     // was the next 15-min beacon
 }
 
+// Beacon MAC (DESIGN §9.1).
+static void testBeaconMac() {
+  std::printf("beacon MAC\n");
+  uint8_t k1[32], k2[32];
+  fillKey(k1, 11);
+  fillKey(k2, 12);
+  auto beaconFrom = [](const Medium& m, uint32_t id, Packet& out) {
+    for (auto& f : m.frames)
+      if (decode(f.data(), f.size(), out) && out.type == PType::Beacon && out.src == id) return true;
+    return false;
+  };
+  {   // same key: tagged, 4 bytes longer, accepted, and gossip parsing is unaffected
+    Medium m;
+    auto& a = m.add(0xA1, 0);
+    auto& b = m.add(0xB1, 1);
+    a.router->setChannelKey(k1);
+    b.router->setChannelKey(k1);
+    m.run(5000);
+    Packet p;
+    CHECK(beaconFrom(m, 0xA1, p) && (p.payload[0] & 0x40) && (p.payload.size() - 13) % 11 == 4);
+    CHECK(b.router->neighborCount(m.now) == 1 && b.router->stats().beaconMacBad == 0);
+  }
+  {   // no key on the receiver: a tagged beacon is an ordinary one
+    Medium m;
+    auto& a = m.add(0xA1, 0);
+    auto& b = m.add(0xB1, 1);
+    a.router->setChannelKey(k1);
+    m.run(5000);
+    CHECK(b.router->neighborCount(m.now) == 1);
+    CHECK(a.router->neighborCount(m.now) == 1);   // an untagged beacon is accepted by default
+  }
+  {   // wrong key, default policy: counted, still a neighbor
+    Medium m;
+    auto& a = m.add(0xA1, 0);
+    auto& b = m.add(0xB1, 1);
+    a.router->setChannelKey(k1);
+    b.router->setChannelKey(k2);
+    m.run(5000);
+    CHECK(b.router->neighborCount(m.now) == 1 && b.router->stats().beaconMacBad >= 1);
+  }
+  {   // required: wrong key and no MAC are dropped, the right key passes
+    Medium m;
+    m.requireBeaconMac = true;
+    auto& a = m.add(0xA1, 0);
+    auto& b = m.add(0xB1, 1);
+    auto& c = m.add(0xC1, 2);
+    m.requireBeaconMac = false;
+    auto& d = m.add(0xD1, 1.5);                // no key, untagged
+    auto& e = m.add(0xE1, 0.5);                // the wrong key
+    a.router->setChannelKey(k1);
+    b.router->setChannelKey(k1);
+    c.router->setChannelKey(k1);
+    e.router->setChannelKey(k2);
+    m.run(5000);
+    Velocity v;
+    CHECK(b.router->neighborVelocity(0xA1, v));
+    CHECK(!b.router->neighborVelocity(d.router->id(), v));
+    CHECK(!b.router->neighborVelocity(e.router->id(), v));
+    CHECK(b.router->stats().beaconMacBad >= 2);
+
+    // a forged position under a valid-looking frame fails: the CRC is recomputed, the MAC cannot be
+    Packet p;
+    CHECK(beaconFrom(m, 0xC1, p));
+    p.fwdPos.lat += 0.5;
+    uint8_t buf[kMaxFrame];
+    size_t n = encode(p, buf, sizeof buf);
+    uint32_t bad = a.router->stats().beaconMacBad;
+    a.router->onReceive(buf, n, -100, m.now);
+    CHECK(a.router->stats().beaconMacBad == bad + 1);
+  }
+}
+
 static void testVirtualChannel() {
   std::printf("virtual radio: path loss, range, capture, busy\n");
   ChannelModel m;
@@ -1888,6 +1962,7 @@ int main() {
   testUtil();
   testBeaconTimingFlags();
   testBeaconVelocity();
+  testBeaconMac();
   testBeaconRecoveryAfterMove();
   testBeaconRecoveryBounds();
   testBeaconRecoveryIdent();

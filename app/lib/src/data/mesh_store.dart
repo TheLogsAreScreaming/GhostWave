@@ -96,6 +96,47 @@ class MeshStore {
 
   File _file(int nodeId) => File('${dir.path}/node_${nodeIdHex(nodeId)}.json');
 
+  static final RegExp _nodeFile = RegExp(r'^node_([0-9a-f]{8})\.json$');
+
+  /// Whether [id] is a node ID as used in file names (8 lowercase hex digits).
+  static bool isNodeKey(String id) => RegExp(r'^[0-9a-f]{8}$').hasMatch(id);
+
+  /// Every saved history, as JSON by node ID. Unreadable files are left out.
+  Future<Map<String, Map<String, Object?>>> exportAll() async {
+    await idle;
+    final out = <String, Map<String, Object?>>{};
+    if (!dir.existsSync()) return out;
+    for (final f in dir.listSync().whereType<File>()) {
+      final id = _nodeFile.firstMatch(f.uri.pathSegments.last)?.group(1);
+      if (id == null) continue;
+      try {
+        out[id] = (jsonDecode(await f.readAsString()) as Map<Object?, Object?>).cast<String, Object?>();
+      } on FormatException {
+        // a damaged history cannot be backed up; the app sets it aside when it next loads it
+      }
+    }
+    return out;
+  }
+
+  /// Replaces every saved history with [nodes], writing all of them to a
+  /// staging folder first so a failed write leaves the old data in place.
+  Future<void> replaceAll(Map<String, Map<String, Object?>> nodes) async {
+    await idle;
+    await dir.create(recursive: true);
+    final staging = Directory('${dir.path}/restore_staging');
+    if (staging.existsSync()) await staging.delete(recursive: true);
+    await staging.create();
+    for (final MapEntry(:key, :value) in nodes.entries) {
+      if (!isNodeKey(key)) throw ArgumentError.value(key, 'node id');
+      await File('${staging.path}/node_$key.json').writeAsString(jsonEncode(value), flush: true);
+    }
+    await deleteAll();
+    for (final f in staging.listSync().whereType<File>()) {
+      await f.rename('${dir.path}/${f.uri.pathSegments.last}');
+    }
+    await staging.delete();
+  }
+
   /// Deletes every saved history (app data reset).
   Future<void> deleteAll() async {
     await _queue.catchError((Object _) {});

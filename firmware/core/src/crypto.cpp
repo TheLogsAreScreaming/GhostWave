@@ -66,6 +66,12 @@ bool pinProofEqual(const uint8_t a[kPinProofSize], const uint8_t b[kPinProofSize
   return crypto_verify32(a, b) == 0;
 }
 
+void beaconMac(const uint8_t key[kKeySize], const uint8_t* msg, size_t len, uint8_t out[kBeaconMacSize]) {
+  uint8_t h[kBeaconMacSize];
+  crypto_blake2b_keyed(h, sizeof h, key, kKeySize, msg, len);
+  std::memcpy(out, h, sizeof h);
+}
+
 uint32_t groupChannelId(const uint8_t key[kKeySize]) {
   static const char kTag[] = "ghostwave-chan-v1";
   uint8_t msg[sizeof kTag - 1 + kKeySize], h[64];

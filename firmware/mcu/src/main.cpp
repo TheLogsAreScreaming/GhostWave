@@ -273,6 +273,12 @@ void printStatus() {
   Serial.printf("node %08x %s, %.3f MHz, %d dBm out (%d dBm drive), radio %s, crc err %u, tx err %u\n",
                 g_router->id(), GW_BOARD_NAME, g_set.freqMHz, g_radio.outputDbm(), g_radio.driveDbm(),
                 g_radioOk ? "ok" : "FAILED", g_radio.crcErrors(), g_radio.txErrors());
+  if (g_radio.duty().capped())
+    Serial.printf("region %s, duty cycle %lu of %lu ms this hour, %u frames dropped at the cap\n",
+                  gw::mcu::regionInfo(g_set.region).name, static_cast<unsigned long>(g_radio.duty().usedMs(nowMs())),
+                  static_cast<unsigned long>(g_radio.duty().limitMs()), static_cast<unsigned>(g_radio.dutyDropped()));
+  else
+    Serial.printf("region %s, no duty-cycle cap\n", gw::mcu::regionInfo(g_set.region).name);
   Serial.printf("tables: store %u/%u seen %u/%u neighbors %u/%u sos %u/%u, peer keys %u stored\n",
                 static_cast<unsigned>(g_router->storeSize()), static_cast<unsigned>(g_cfg.storeCapacity),
                 static_cast<unsigned>(g_router->seenSize()), static_cast<unsigned>(g_cfg.seenCapacity),
@@ -302,7 +308,7 @@ void printHelp() {
       "commands: send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | status | pos\n"
       "          keys | peer <hex-id> <hex-pubkey> | sos <text> | sosstop | sosack <hex-id>\n"
       "settings (saved): setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
-      "          power <dBm> | freq <MHz> | responder on|off | requireenc on|off | reboot\n"
+      "          power <dBm> | freq <MHz> | region us915|eu868 | responder on|off | requireenc on|off | reboot\n"
 #if GW_HAS_BLE
       "app link: ble | ble on|off (saved) | ble clear (forget paired phones)\n"
 #endif
@@ -429,12 +435,29 @@ void handleCommand(std::string line) {
                   gw::mcu::saveRadio(g_set) ? "" : ", save failed");
   } else if (cmd == "freq") {
     double v;
-    if (!parseDouble(word(line), v) || v < kMinFreqMHz || v > kMaxFreqMHz) {
-      Serial.printf("usage: freq <MHz, %.4f..%.4f> (takes effect on reboot)\n", kMinFreqMHz, kMaxFreqMHz);
+    const gw::mcu::RegionInfo& reg = gw::mcu::regionInfo(g_set.region);
+    if (!parseDouble(word(line), v) || v < reg.minMHz || v > reg.maxMHz) {
+      Serial.printf("usage: freq <MHz, %.4f..%.4f in %s> (takes effect on reboot)\n", reg.minMHz, reg.maxMHz, reg.name);
       return;
     }
     g_set.freqMHz = static_cast<float>(v);
     Serial.println(gw::mcu::saveRadio(g_set) ? "saved, takes effect on reboot" : "save failed");
+  } else if (cmd == "region") {
+    const std::string name = word(line);
+    if (name.empty()) {
+      Serial.printf("region %s\n", gw::mcu::regionInfo(g_set.region).name);
+      return;
+    }
+    gw::mcu::Region next;
+    if (!gw::mcu::regionFromName(name.c_str(), next)) {
+      Serial.println("usage: region us915|eu868 (takes effect on reboot; check your board's antenna and RF path suit the band)");
+      return;
+    }
+    const gw::mcu::RegionInfo& reg = gw::mcu::regionInfo(next);
+    g_set.region = next;
+    if (g_set.freqMHz < reg.minMHz || g_set.freqMHz > reg.maxMHz) g_set.freqMHz = reg.defaultMHz;
+    Serial.printf(gw::mcu::saveRadio(g_set) ? "%s, %.3f MHz: saved, takes effect on reboot\n" : "%s, %.3f MHz: save failed\n",
+                  reg.name, g_set.freqMHz);
   } else if (cmd == "responder" || cmd == "requireenc") {
     bool v;
     if (!parseOnOff(word(line), v)) {
@@ -635,8 +658,9 @@ void gwSetup() {
   if (g_set.havePsk) g_router->setChannelKey(g_set.psk.data());
   for (size_t i = 0; i < g_set.peerCount; ++i) g_router->addPeerKey(g_set.peers[i].id, g_set.peers[i].pub.data());
 
-  if (g_set.freqMHz < kMinFreqMHz || g_set.freqMHz > kMaxFreqMHz) g_set.freqMHz = 914.875f;
-  int16_t st = g_radio.begin(g_cfg.phy, g_set.freqMHz, g_set.outputDbm);
+  const gw::mcu::RegionInfo& region = gw::mcu::regionInfo(g_set.region);
+  if (g_set.freqMHz < region.minMHz || g_set.freqMHz > region.maxMHz) g_set.freqMHz = region.defaultMHz;
+  int16_t st = g_radio.begin(g_cfg.phy, g_set.freqMHz, g_set.outputDbm, region.dutyPermille);
   g_radioOk = st == 0;
   if (!g_radioOk) Serial.printf("radio init failed: %d\n", st);
 
