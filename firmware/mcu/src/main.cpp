@@ -26,6 +26,7 @@
 #if GW_HAS_BLE
 #include <map>
 
+#include "app_state.h"
 #include "ble_link.h"
 #include "ghostwave/client_handler.h"
 #endif
@@ -214,10 +215,34 @@ std::string g_cmdLine, g_gpsLine;
 #if GW_HAS_BLE
 gw::mcu::BleLink g_ble;
 std::unique_ptr<gw::client::Handler> g_handler;
-std::map<uint32_t, std::array<uint8_t, 32>> g_edKeys;   // Ed25519 keys the app pinned (RAM only)
-// Group channels joined from the app (protocol 1.1). RAM only for now: they
-// are gone after a reboot, and the app joins them again.
-std::unique_ptr<gw::ChannelBook> g_channels;
+std::map<uint32_t, std::array<uint8_t, 32>> g_edKeys;   // Ed25519 keys the app pinned (saved: /gw/edkeys)
+
+// Group channels joined from the app (protocol 1.1), saved in /gw/channels.
+class SavedChannelBook : public gw::ChannelBook {
+ public:
+  using gw::ChannelBook::ChannelBook;
+
+  void load() {
+    std::vector<gw::mcu::SavedChannel> saved;
+    if (!gw::mcu::loadChannels(saved)) return;
+    for (auto& c : saved) {
+      Result r = restore(c.name, c.key.data());
+      if (r != Result::Ok) Serial.printf("saved channel \"%s\" not joined: %s\n", c.name.c_str(), describe(r));
+      gw::wipe(c.key.data(), c.key.size());
+    }
+  }
+
+ protected:
+  bool persist() const override {
+    std::vector<gw::mcu::SavedChannel> out;
+    for (const Entry& e : list()) out.push_back({e.name, e.key});
+    bool ok = gw::mcu::saveChannels(out);
+    for (auto& c : out) gw::wipe(c.key.data(), c.key.size());
+    return ok;
+  }
+};
+
+std::unique_ptr<SavedChannelBook> g_channels;
 uint64_t g_bootMs = 0;
 #endif
 
@@ -482,6 +507,30 @@ void pollGps(uint64_t now) {
 #if GW_HAS_BLE
 // AddContact from the app: an Ed25519 key (its node ID is derived from it) or,
 // for a legacy node, an X25519 key plus the node ID. Saved like `peer`.
+// Only pins whose peer key is itself stored are kept: the pin is only
+// meaningful next to that key, and it bounds the file.
+bool saveEdPins() {
+  std::map<uint32_t, std::array<uint8_t, 32>> keep;
+  for (size_t i = 0; i < g_set.peerCount; ++i) {
+    auto it = g_edKeys.find(g_set.peers[i].id);
+    if (it != g_edKeys.end()) keep.insert(*it);
+  }
+  return gw::mcu::saveEdKeys(keep);
+}
+
+// A pin is restored only if it still converts to the stored X25519 key: the
+// `peer` CLI command can replace that key without touching the pin.
+void loadEdPins() {
+  std::map<uint32_t, std::array<uint8_t, 32>> saved;
+  if (!gw::mcu::loadEdKeys(saved)) return;
+  for (const auto& e : saved) {
+    Key32 x{};
+    gw::ed25519ToX25519(e.second.data(), x.data());
+    for (size_t i = 0; i < g_set.peerCount; ++i)
+      if (g_set.peers[i].id == e.first && g_set.peers[i].pub == x) g_edKeys[e.first] = e.second;
+  }
+}
+
 uint32_t addPeerFromApp(uint32_t id, const gw::client::Bytes& ed, const gw::client::Bytes& x, std::string& err) {
   Key32 xPub;
   if (ed.size() == gw::kKeySize && x.empty()) {
@@ -514,6 +563,7 @@ uint32_t addPeerFromApp(uint32_t id, const gw::client::Bytes& ed, const gw::clie
   if (!gw::mcu::savePeer(g_set, id, xPub))
     Serial.printf("app added %08x, but not saved (%u peer keys already stored)\n", static_cast<unsigned>(id),
                   static_cast<unsigned>(gw::mcu::kMaxStoredPeers));
+  if (!saveEdPins()) Serial.println("contact key pin not saved: it lasts until the next reboot");
   return id;
 }
 
@@ -534,7 +584,9 @@ void startBle() {
     g_router->setPosition(g_pos, nowMs());
   };
   hooks.edKeys = &g_edKeys;
-  g_channels.reset(new gw::ChannelBook(*g_router));
+  loadEdPins();
+  g_channels.reset(new SavedChannelBook(*g_router));
+  g_channels->load();
   hooks.channels = g_channels.get();
   // no setName hook: this X25519 identity sends no IDENT, so it has no name to change (NO_IDENTITY)
   // 32 held events, not ghostwaved's 64: each can hold a 128-byte text in RAM.
