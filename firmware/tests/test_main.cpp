@@ -408,6 +408,53 @@ static void testBeaconTimingFlags() {
 
 // Group channels (DESIGN §9.3): channel IDs, join limits, payload cap, delivery
 // to members only, relaying by non-members, the hop radius, flood suppression.
+// Beacon velocity (DESIGN §4.4): measured from fixes, decoded by neighbors.
+static void testBeaconVelocity() {
+  std::printf("beacon velocity\n");
+  Medium m;
+  m.identIntervalMs = 0;
+  auto& a = m.add(0xA1, 0);
+  auto& b = m.add(0xB1, 1);
+  m.run(5000);
+  Velocity v;
+  CHECK(!b.router->neighborVelocity(0x99, v));
+  CHECK(b.router->neighborVelocity(0xA1, v) && v.speedMps == 0);   // stationary
+
+  // walking north-east at 2 m/s each axis (about 2.8 m/s, heading 45 degrees)
+  for (int i = 1; i <= 70; ++i) {
+    m.move(a, 0.002 * i, 0.002 * i);
+    m.run(1000, 50);
+  }
+  uint64_t t0 = m.now;
+  uint32_t before = m.count(PType::Beacon);
+  while (m.count(PType::Beacon) == before && m.now - t0 < 90000) {
+    double step = 0.002 * (70 + (m.now - t0) / 1000.0);
+    m.move(a, step, step);
+    m.run(1000, 50);
+  }
+  CHECK(m.count(PType::Beacon) > before);
+  CHECK(b.router->neighborVelocity(0xA1, v));
+  CHECK(std::fabs(v.speedMps - 2.83) < 0.3);
+  CHECK(std::fabs(v.headingDeg - 45) < 5);
+
+  // stopped: no fresh measurement, so the next beacon must not read as moving
+  m.run(16 * 60 * 1000, 50);
+  CHECK(b.router->neighborVelocity(0xA1, v) && v.speedMps == 0);
+
+  // a fast teleport clamps to the 9-bit field rather than wrapping
+  Medium f;
+  f.identIntervalMs = 0;
+  auto& c = f.add(0xC1, 0);
+  auto& d = f.add(0xD1, 1);
+  f.run(61000, 50);
+  f.move(c, 0.5);
+  f.run(25000, 50);
+  f.move(c, 2);                          // 1.5 km in 25 s: 60 m/s, over the 51.1 m/s field
+  f.run(40000, 50);
+  CHECK(d.router->neighborVelocity(0xC1, v));
+  CHECK(std::fabs(v.speedMps - 51.1) < 0.01);
+}
+
 static void testGroupChannels() {
   std::printf("group channels\n");
   uint8_t k1[32], k2[32];
@@ -1670,6 +1717,7 @@ int main() {
   testPosAge();
   testUtil();
   testBeaconTimingFlags();
+  testBeaconVelocity();
   testGroupChannels();
   testChannelStore();
   testLine();
