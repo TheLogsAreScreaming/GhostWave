@@ -202,7 +202,7 @@ else:   # a slow step above used up the minute: the check would be meaningless
     say("skip  second SOS within a minute (over a minute since SosStart)")
 
 # -------------------------------------------- group channels (protocol 1.1) --
-check(ia.get("protocol_minor") == 2 and ia.get("max_channel_text_bytes") == 86,
+check(ia.get("protocol_minor") == 3 and ia.get("max_channel_text_bytes") == 86,
       "NodeInfo: protocol_minor 3, max_channel_text_bytes 86")
 PSK = bytes(range(1, 33))
 for cl, who in ((a, "A"), (b, "B")):
