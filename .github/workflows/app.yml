@@ -131,7 +131,12 @@ jobs:
           apk=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           certs=$("$ANDROID_HOME/build-tools/$bt/apksigner" verify --print-certs "$apk")
           echo "$certs" | grep -i "certificate SHA-256"
-          got=$(echo "$certs" | grep -i "Signer #1 certificate SHA-256 digest" | awk '{print $NF}' | tr 'A-F' 'a-f')
+          # every signer line ("Signer #1 certificate ..." or "V2 Signer: certificate ...",
+          # depending on the apksigner version) must name one and the same certificate
+          got=$(echo "$certs" | grep -i "certificate SHA-256 digest" | awk '{print $NF}' | tr 'A-F' 'a-f' | sort -u)
+          if [ -z "$got" ] || [ "$(echo "$got" | wc -l)" -ne 1 ]; then
+            echo "::error::could not read one signer certificate from apksigner"; exit 1
+          fi
           if [ "$HAS_DEV_KEY" = "true" ]; then
             if [ "$got" != "$DEV_CERT_SHA256" ]; then
               echo "::error::APK signed with $got, expected the dev key $DEV_CERT_SHA256"
