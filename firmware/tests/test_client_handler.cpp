@@ -44,6 +44,7 @@ struct FakeTransport : Transport {
     Conn conn;
     bool open = true;
     Bytes out;
+    uint64_t seenTx = 0, sentRx = 0;
   };
   std::deque<C> conns;
   bool hold = true;
@@ -75,7 +76,14 @@ struct FakeTransport : Transport {
     Bytes body;
     while (r.next(ver, body) == FrameReader::Result::Frame) {
       FromRadio m;
-      if (ver == kProtocolVersion && decodeFrom(body.data(), body.size(), m)) v.push_back(m);
+      if (ver == kSecureVersion && c.conn.secure) {   // sealed by the node: open as a client would
+        Bytes plain(body.size() - gw::kLinkTagSize);
+        if (gw::linkOpen(c.conn.txKey.data(), c.seenTx++, body.data(), body.size(), plain.data()) &&
+            decodeFrom(plain.data(), plain.size(), m))
+          v.push_back(m);
+        else
+          v.push_back(FromRadio());
+      } else if (ver == kProtocolVersion && decodeFrom(body.data(), body.size(), m)) v.push_back(m);
       else v.push_back(FromRadio());   // kind None marks a bad frame
     }
     return v;
@@ -127,9 +135,18 @@ struct Rig {
   }
 
   // Sends one ToRadio from connection `c` as a frame.
+  // A plain frame as an authenticated client would send it.
+  static Bytes sealed(FakeTransport::C& c, const Bytes& f) {
+    size_t pb = f.size() - kFrameHeader - 1, len = 1 + pb + gw::kLinkTagSize;
+    Bytes s(kFrameHeader + len);
+    s[0] = kMagic0, s[1] = kMagic1, s[2] = static_cast<uint8_t>(len), s[3] = 0, s[4] = kSecureVersion;
+    gw::linkSeal(c.conn.rxKey.data(), c.sentRx++, f.data() + kFrameHeader + 1, pb, s.data() + kFrameHeader + 1);
+    return s;
+  }
   void req(FakeTransport::C& c, const ToRadio& m, uint64_t now = 1000) {
     Bytes f;
     frameTo(m, f);
+    if (c.conn.secure) f = sealed(c, f);
     FrameReader in;
     in.push(f.data(), f.size());
     h.receive(c.conn, in, now);
@@ -526,42 +543,63 @@ void testProtocol11() {
 // The PIN handshake (protocol 1.2).
 void testPin() {
   std::printf("client handler: PIN\n");
-  // golden vector: Python hmac, the Dart app and this must agree
-  uint8_t sn[16], cn[16], out[32];
-  for (int i = 0; i < 16; ++i) sn[i] = static_cast<uint8_t>(i), cn[i] = static_cast<uint8_t>(16 + i);
-  gw::pinProof("424242", sn, cn, out);
-  const uint8_t golden[32] = {0x5e, 0x58, 0x62, 0xbc, 0xe3, 0xb4, 0x05, 0x9e, 0x23, 0x91, 0x6b, 0x5f, 0x74, 0x99, 0x66, 0xec,
-                              0x24, 0x29, 0x36, 0x25, 0x92, 0x01, 0x76, 0x00, 0xda, 0xb0, 0x03, 0xd8, 0xda, 0x21, 0x53, 0x19};
-  CHECK(std::memcmp(out, golden, 32) == 0);
-  CHECK(gw::pinProofEqual(out, golden));
-  out[31] ^= 1;
-  CHECK(!gw::pinProofEqual(out, golden));
+  // golden vector: the Dart app and gwclient.py check the same values
+  {
+    uint8_t nonce[16], a[32], b[32], ya[32], yb[32], sealedText[5 + 16];
+    for (int i = 0; i < 16; ++i) nonce[i] = static_cast<uint8_t>(i);
+    for (int i = 0; i < 32; ++i) a[i] = static_cast<uint8_t>(0x20 + i), b[i] = static_cast<uint8_t>(0x40 + i);
+    gw::linkShare("424242", nonce, a, ya);
+    gw::linkShare("424242", nonce, b, yb);
+    gw::LinkKeys ka{}, kb{};
+    CHECK(gw::linkKeys(a, yb, nonce, ya, yb, ka) && gw::linkKeys(b, ya, nonce, ya, yb, kb));
+    CHECK(std::memcmp(&ka, &kb, sizeof ka) == 0);
+    uint8_t other[32];
+    gw::linkShare("000000", nonce, b, other);
+    gw::LinkKeys wrong{};
+    CHECK(gw::linkKeys(a, other, nonce, ya, other, wrong) && std::memcmp(wrong.confirm, ka.confirm, 32) != 0);
+    gw::linkSeal(ka.clientToNode, 1, reinterpret_cast<const uint8_t*>("hello"), 5, sealedText);
+    uint8_t opened[5];
+    CHECK(gw::linkOpen(kb.clientToNode, 1, sealedText, sizeof sealedText, opened) && !std::memcmp(opened, "hello", 5));
+    CHECK(!gw::linkOpen(kb.clientToNode, 2, sealedText, sizeof sealedText, opened));
+    auto hex = [](const char* n, const uint8_t* p, size_t l) {
+      std::printf("  %s ", n);
+      for (size_t i = 0; i < l; ++i) std::printf("%02x", p[i]);
+      std::printf("\n");
+    };
+    hex("server_share", ya, 32), hex("client_share", yb, 32), hex("c2s", ka.clientToNode, 32);
+    hex("s2c", ka.nodeToClient, 32), hex("confirm", ka.confirm, 32), hex("sealed", sealedText, sizeof sealedText);
+  }
 
   Rig r;
   uint8_t counter = 0;
   r.h.requirePin("424242", [&](uint8_t* p, size_t n) { std::memset(p, ++counter, n); });
   auto& c = r.t.add("tcp");
-  auto hello = [&](uint64_t now, const Bytes& cnonce, const Bytes& proof) {
+  struct Challenge { Bytes nonce, share; };
+  struct Answer { Bytes share, proof; };
+  auto hello = [&](uint64_t now, const Answer& a) {
     ToRadio m;
-    m.reqId = 5, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientNonce = cnonce, m.pinProof = proof;
+    m.reqId = 5, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientShare = a.share, m.pinProof = a.proof;
     r.req(c, m, now);
     return FakeTransport::drain(c);
   };
   auto challenge = [&](uint64_t now) {
-    auto v = hello(now, {}, {});
-    CHECK(v.size() == 1 && v[0].kind == FromKind::PinChallenge && v[0].reqId == 5 && v[0].nonce.size() == 16);
-    return v.empty() ? Bytes(16) : v[0].nonce;
+    auto v = hello(now, {});
+    CHECK(v.size() == 1 && v[0].kind == FromKind::PinChallenge && v[0].reqId == 5 && v[0].nonce.size() == 16 &&
+          v[0].serverShare.size() == 32);
+    return v.empty() ? Challenge{Bytes(16), Bytes(32)} : Challenge{v[0].nonce, v[0].serverShare};
   };
-  auto proof = [&](const Bytes& nonce, const std::string& pin) {
-    Bytes cnonce(16, 0x77), p(32);
-    gw::pinProof(pin, nonce.data(), cnonce.data(), p.data());
-    return p;
+  auto answer = [&](const Challenge& ch, const std::string& pin) {
+    Bytes secret(32, 0x77), share(32), proof(32);
+    gw::linkShare(pin, ch.nonce.data(), secret.data(), share.data());
+    gw::LinkKeys k{};
+    CHECK(gw::linkKeys(secret.data(), ch.share.data(), ch.nonce.data(), ch.share.data(), share.data(), k));
+    std::memcpy(proof.data(), k.confirm, 32);
+    return Answer{share, proof};
   };
-  Bytes cnonce(16, 0x77);
 
   r.h.onMessage(0xAAAA0001, 1, {'s', 'e', 'c', 'r', 'e', 't'});   // held for an authenticated client
 
-  Bytes n = challenge(1000);
+  Challenge n = challenge(1000);
   CHECK(!c.conn.hello);
   ToRadio st;
   st.reqId = 6, st.kind = ToKind::GetStatus;
@@ -569,19 +607,19 @@ void testPin() {
   auto v = FakeTransport::drain(c);
   CHECK(v.size() == 1 && v[0].error == ErrorCode::NeedHello);   // a challenge opens nothing
 
-  v = hello(1000, cnonce, proof(n, "000000"));
+  v = hello(1000, answer(n, "000000"));
   CHECK(v.size() == 1 && v[0].error == ErrorCode::BadPin && !c.conn.hello);
   // the nonce is spent: even the right PIN needs a new challenge (replay)
-  v = hello(1000, cnonce, proof(n, "424242"));
+  v = hello(1000, answer(n, "424242"));
   CHECK(v.size() == 1 && v[0].error == ErrorCode::BadPin);
   CHECK(r.h.queued() == 1);   // nothing leaked
 
   // malformed proofs are wrong PINs, not crashes (third failure: 1 s lockout)
   n = challenge(1000);
-  v = hello(1000, Bytes(3, 1), Bytes(5, 1));
+  v = hello(1000, Answer{Bytes(3, 1), Bytes(5, 1)});
   CHECK(v.size() == 1 && v[0].error == ErrorCode::BadPin);
   n = challenge(1000);
-  v = hello(1500, cnonce, proof(n, "424242"));
+  v = hello(1500, answer(n, "424242"));
   CHECK(v.size() == 1 && v[0].error == ErrorCode::RateLimited);   // locked, even with the right PIN
   // the lockout covers other connections too
   auto& c2 = r.t.add("tcp2");
@@ -590,14 +628,14 @@ void testPin() {
   r.req(c2, h2, 1500);
   auto w = FakeTransport::drain(c2);
   CHECK(w.size() == 1 && w[0].kind == FromKind::PinChallenge);
-  h2.clientNonce = cnonce, h2.pinProof = proof(w[0].nonce, "424242");
+  { auto an = answer({w[0].nonce, w[0].serverShare}, "424242"); h2.clientShare = an.share, h2.pinProof = an.proof; }
   r.req(c2, h2, 1500);
   w = FakeTransport::drain(c2);
   CHECK(w.size() == 1 && w[0].error == ErrorCode::RateLimited);
 
   n = challenge(2100);   // lockout over
-  v = hello(2100, cnonce, proof(n, "424242"));
-  CHECK(v.size() >= 1 && v[0].kind == FromKind::NodeInfo && c.conn.hello);
+  v = hello(2100, answer(n, "424242"));
+  CHECK(v.size() >= 1 && v[0].kind == FromKind::NodeInfo && c.conn.hello && c.conn.secure);
   CHECK(v.size() == 2 && v[1].kind == FromKind::Text);   // held events only now
   r.req(c, st, 2100);
   v = FakeTransport::drain(c);
@@ -608,6 +646,64 @@ void testPin() {
   v = FakeTransport::drain(c);
   CHECK(v.size() == 1 && v[0].kind == FromKind::NodeInfo);
 
+  // once encrypted, a plain frame, a replay or a tampered frame ends the link
+  auto sendRaw = [&](FakeTransport::C& to, const Bytes& f) {
+    FrameReader in;
+    in.push(f.data(), f.size());
+    r.h.receive(to.conn, in, 2300);
+  };
+  {
+    Bytes plain;
+    frameTo(st, plain);
+    auto& s1 = c;
+    Bytes sealedFrame = Rig::sealed(s1, plain);
+    sendRaw(s1, sealedFrame);
+    auto ok = FakeTransport::drain(s1);
+    CHECK(ok.size() == 1 && ok[0].kind == FromKind::Status && !s1.conn.closing);
+    sendRaw(s1, sealedFrame);   // same counter value again
+    CHECK(s1.conn.closing);
+    CHECK(FakeTransport::drain(s1).empty());
+  }
+  auto secureConn = [&](const std::string& name, uint64_t t) -> FakeTransport::C& {
+    auto& d = r.t.add(name);
+    ToRadio m;
+    m.kind = ToKind::Hello, m.protocolVersion = 1;
+    r.req(d, m, t);
+    auto got2 = FakeTransport::drain(d);
+    auto an = answer({got2[0].nonce, got2[0].serverShare}, "424242");
+    m.clientShare = an.share, m.pinProof = an.proof;
+    r.req(d, m, t);
+    FakeTransport::drain(d);
+    CHECK(d.conn.secure);
+    return d;
+  };
+  {
+    auto& d = secureConn("plain-after", 2400);
+    Bytes plain;
+    frameTo(st, plain);
+    sendRaw(d, plain);
+    CHECK(d.conn.closing && FakeTransport::drain(d).empty());
+    auto& e2 = secureConn("tamper", 2400);
+    Bytes f;
+    frameTo(st, f);
+    f = Rig::sealed(e2, f);
+    f.back() ^= 1;
+    sendRaw(e2, f);
+    CHECK(e2.conn.closing && FakeTransport::drain(e2).empty());
+  }
+  // a low-order share is a wrong PIN, and never yields keys
+  {
+    auto& d = r.t.add("low-order");
+    ToRadio m;
+    m.kind = ToKind::Hello, m.protocolVersion = 1;
+    r.req(d, m, 2500);
+    FakeTransport::drain(d);
+    m.clientShare = Bytes(32, 0), m.pinProof = Bytes(32, 0);
+    r.req(d, m, 2500);
+    auto got3 = FakeTransport::drain(d);
+    CHECK(got3.size() == 1 && got3[0].error == ErrorCode::BadPin && !d.conn.secure);
+  }
+
   // lockouts double, capped at 5 minutes, and success resets the count
   uint64_t now = 10000;
   for (int i = 0; i < 12; ++i) {
@@ -616,7 +712,7 @@ void testPin() {
     bad.kind = ToKind::Hello, bad.protocolVersion = 1;
     r.req(d, bad, now);
     auto got = FakeTransport::drain(d);
-    bad.clientNonce = cnonce, bad.pinProof = proof(got[0].nonce, "111111");
+    { auto an = answer({got[0].nonce, got[0].serverShare}, "111111"); bad.clientShare = an.share, bad.pinProof = an.proof; }
     r.req(d, bad, now);
     got = FakeTransport::drain(d);
     CHECK(got.size() == 1 && got[0].error == ErrorCode::BadPin);
@@ -627,7 +723,7 @@ void testPin() {
   q.kind = ToKind::Hello, q.protocolVersion = 1;
   r.req(e, q, now - 1);
   auto got = FakeTransport::drain(e);
-  q.clientNonce = cnonce, q.pinProof = proof(got[0].nonce, "424242");
+  { auto an = answer({got[0].nonce, got[0].serverShare}, "424242"); q.clientShare = an.share, q.pinProof = an.proof; }
   r.req(e, q, now - 1);
   got = FakeTransport::drain(e);
   CHECK(got.size() >= 1 && got[0].kind == FromKind::NodeInfo);   // 5 min cap held

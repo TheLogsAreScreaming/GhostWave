@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:ghostwave_app/src/link/frame_codec.dart';
-import 'package:ghostwave_app/src/link/session.dart';
+import 'package:ghostwave_app/src/link/link_crypto.dart';
 import 'package:ghostwave_app/src/link/transport.dart';
 
 class FakeConnection implements TransportConnection {
@@ -17,6 +17,17 @@ class FakeConnection implements TransportConnection {
   final FrameReader _reader = FrameReader();
   bool closed = false;
 
+  /// Set once the PIN handshake succeeds; frames are then sealed both ways.
+  LinkCipher? rx;
+  LinkCipher? tx;
+
+  /// Frames that failed to open, and plain frames after the handshake.
+  int badFrames = 0;
+  int plainAfterKeys = 0;
+
+  /// The node's handshake secret and share, while a challenge is out.
+  List<int>? share;
+
   @override
   Stream<Uint8List> get input => _in.stream;
 
@@ -24,7 +35,18 @@ class FakeConnection implements TransportConnection {
   void write(List<int> bytes) {
     _reader.push(bytes);
     for (final e in _reader.drain()) {
-      if (e is Frame) node._onRequest(this, pb.ToRadio.fromBuffer(e.body));
+      if (e is! Frame) continue;
+      if (e.version == kSecureVersion) {
+        final plain = rx?.open(e.body);
+        if (plain == null) {
+          badFrames++;
+          continue;
+        }
+        node._onRequest(this, pb.ToRadio.fromBuffer(plain));
+      } else {
+        if (rx != null) plainAfterKeys++;
+        node._onRequest(this, pb.ToRadio.fromBuffer(e.body));
+      }
     }
   }
 
@@ -33,8 +55,14 @@ class FakeConnection implements TransportConnection {
     if (!closed) _in.add(Uint8List.fromList(bytes));
   }
 
-  void send(pb.FromRadio m, {int version = kProtocolVersion}) =>
+  void send(pb.FromRadio m, {int version = kProtocolVersion}) {
+    final sealer = tx;
+    if (sealer != null && version == kProtocolVersion) {
+      sendRaw(encodeFrame(sealer.seal(m.writeToBuffer()), version: kSecureVersion));
+    } else {
       sendRaw(encodeFrame(m.writeToBuffer(), version: version));
+    }
+  }
 
   /// The node drops the link.
   Future<void> drop() async {
@@ -58,6 +86,12 @@ class FakeNode implements Transport {
 
   /// When set, Hello must prove this PIN.
   String? pin;
+
+  /// [Transport.needsEncryption].
+  bool encryptionRequired = false;
+
+  /// Leaves the share out of the challenge, as a node from before 1.3 would.
+  bool oldChallenge = false;
 
   /// NodeInfo.firmware.
   String firmware = 'fake';
@@ -90,6 +124,9 @@ class FakeNode implements Transport {
   String get label => 'fake:${nodeId.toRadixString(16)}';
 
   @override
+  bool get needsEncryption => encryptionRequired;
+
+  @override
   Future<TransportConnection> open() async {
     opens++;
     if (failOpens > 0) {
@@ -104,31 +141,49 @@ class FakeNode implements Transport {
   void _onRequest(FakeConnection c, pb.ToRadio r) {
     requests.add(r);
     final needed = pin;
-    if (autoHello && r.hasHello() && needed != null && r.hello.pinProof.isEmpty) {
-      final nonce = List<int>.filled(16, 0x42);
-      scheduleMicrotask(
-        () => c.send(
-          pb.FromRadio(
-            reqId: r.reqId,
-            pinChallenge: pb.PinChallenge(nonce: nonce),
-          ),
-        ),
-      );
-    } else if (autoHello &&
-        r.hasHello() &&
-        needed != null &&
-        !listEquals(r.hello.pinProof, pinProof(needed, List<int>.filled(16, 0x42), r.hello.clientNonce))) {
-      scheduleMicrotask(
-        () => c.send(
-          pb.FromRadio(
-            reqId: r.reqId,
-            error: pb.Error(code: pb.Error_Code.BAD_PIN),
-          ),
-        ),
-      );
+    if (autoHello && r.hasHello() && needed != null && c.rx == null) {
+      unawaited(_pinHandshake(c, r, needed));
     } else if (autoHello && r.hasHello()) {
       scheduleMicrotask(() => c.send(pb.FromRadio(reqId: r.reqId, nodeInfo: info)));
     }
     _reqs.add((c, r));
+  }
+
+  static final List<int> _nonce = List<int>.filled(16, 0x42);
+  static final List<int> _secret = List<int>.filled(32, 0x33);
+
+  Future<void> _pinHandshake(FakeConnection c, pb.ToRadio r, String pin) async {
+    if (r.hello.pinProof.isEmpty) {
+      final share = await linkShare(pin, _nonce, _secret);
+      c.share = share;
+      c.send(
+        pb.FromRadio(
+          reqId: r.reqId,
+          pinChallenge: pb.PinChallenge(nonce: _nonce, serverShare: oldChallenge ? const <int>[] : share),
+        ),
+      );
+      return;
+    }
+    final share = c.share!;
+    final keys = await linkKeys(
+      secret: _secret,
+      theirShare: r.hello.clientShare,
+      nonce: _nonce,
+      serverShare: share,
+      clientShare: r.hello.clientShare,
+    );
+    if (keys == null || !listEquals(keys.confirm, r.hello.pinProof)) {
+      c.send(
+        pb.FromRadio(
+          reqId: r.reqId,
+          error: pb.Error(code: pb.Error_Code.BAD_PIN),
+        ),
+      );
+      return;
+    }
+    c
+      ..rx = LinkCipher(keys.clientToNode)
+      ..tx = LinkCipher(keys.nodeToClient)
+      ..send(pb.FromRadio(reqId: r.reqId, nodeInfo: info));
   }
 }

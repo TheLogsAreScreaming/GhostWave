@@ -19,7 +19,7 @@
 //                     link needs a PIN: made on first use, printed, and kept in
 //                     <key file>.pin (mode 600).
 //        [--client-pin PIN]  require this PIN (4-16 digits) on the client link,
-//                     on loopback too. Not encryption: docs/CLIENT_PROTOCOL.md §7.
+//                     on loopback too. The link is encrypted: docs/CLIENT_PROTOCOL.md §7.
 // stdin commands:  send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | pos
 //                  keys | peer [<hex-id>] <hex-pubkey> | ident <hex-id>
 //                  sos <text> | sosstop | sosack <hex-id>
@@ -866,7 +866,7 @@ int main(int argc, char** argv) {
     }
     app.link = link.get();
     std::printf("client link on tcp %s%s\n", link->address().c_str(),
-                loopback ? "" : " (reachable from the network: PIN required, traffic not encrypted)");
+                loopback ? "" : " (reachable from the network: PIN required, traffic encrypted)");
     if (!clientPin.empty()) std::printf("client PIN: %s\n", clientPin.c_str());
     std::fflush(stdout);
   }

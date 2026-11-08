@@ -5,7 +5,7 @@
 /// 0x94 0xC3 len_lo len_hi | version | protobuf ToRadio / FromRadio
 /// ```
 /// `len` counts the version byte plus the protobuf bytes and is 1..176, so a
-/// whole frame is at most 180 bytes. Plain Dart: no Flutter imports.
+/// whole frame is at most 180 bytes (sealed frames, 16 more; see §7). Plain Dart: no Flutter imports.
 library;
 
 import 'dart:async';
@@ -29,6 +29,12 @@ const int kMaxBody = kMaxFrame - kFrameHeader;
 /// The protocol version this app speaks.
 const int kProtocolVersion = 1;
 
+/// The version byte of a sealed frame, after a PIN handshake (TCP only).
+const int kSecureVersion = 2;
+
+/// Largest `len` of a sealed frame: a Poly1305 tag more than [kMaxBody].
+const int kMaxSecureBody = kMaxBody + 16;
+
 /// Thrown by [encodeFrame] when a message does not fit one frame. Messages are
 /// never cut.
 class FrameTooLargeException implements Exception {
@@ -45,7 +51,7 @@ class FrameTooLargeException implements Exception {
 /// Wraps protobuf bytes [pb] in a frame.
 Uint8List encodeFrame(List<int> pb, {int version = kProtocolVersion}) {
   final len = 1 + pb.length;
-  if (len > kMaxBody) throw FrameTooLargeException(len);
+  if (len > (version == kSecureVersion ? kMaxSecureBody : kMaxBody)) throw FrameTooLargeException(len);
   final out = Uint8List(kFrameHeader + len);
   out[0] = kMagic0;
   out[1] = kMagic1;
@@ -73,7 +79,7 @@ final class Frame extends FrameEvent {
   final Uint8List body;
 }
 
-/// A header with a length of 0 or over [kMaxBody]. The reader dropped the
+/// A header with a length of 0 or over [kMaxSecureBody]. The reader dropped the
 /// magic and searches for the next one.
 final class BadLength extends FrameEvent {
   /// Creates a bad-length event.
@@ -115,7 +121,7 @@ class FrameReader {
     }
     if (_buf.length < kFrameHeader) return null;
     final len = _buf[2] | (_buf[3] << 8);
-    if (len == 0 || len > kMaxBody) {
+    if (len == 0 || len > kMaxSecureBody) {
       _buf.removeRange(0, 2);
       return BadLength(len);
     }

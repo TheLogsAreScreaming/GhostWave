@@ -28,7 +28,7 @@ any other mesh app.
 | **Share phone location:** opt-in switch on the Me tab sends the phone's GPS to the node (`SetOwnPosition`) on 50 m of movement, at most every 30 s, only while the app is open | done |
 | **Notifications:** new DMs and SOS alerts while the app is in the background and still connected | done |
 | **Background connection (Android, optional):** foreground service keeps the link up with the screen off | built, not tried on a phone |
-| **PIN:** a node on a network asks for its PIN once; the app keeps it in the phone's secure storage and proves it without sending it | done |
+| **PIN:** a node on a network asks for its PIN once; the app keeps it in the phone's secure storage, proves it without sending it, and encrypts the link with it | done |
 | **Bluetooth** (RAK4631, T1000-E): scan, signal strength, system passkey pairing, remembered under recent nodes, drops recover by themselves | done, untested on real radios |
 | **Offline maps:** save the area on screen from a tile source you configure (Map tab or Settings), with a size estimate and limits (zoom 16, 15,000 tiles per region, 1 GB in total) | done |
 | **First run:** a four-page introduction (what GhostWave is, connecting, your QR card, how SOS works) | done |
@@ -171,9 +171,11 @@ happens. Not tried on a phone yet.
 
 - **Bluetooth has not been tried on real radios.** CI has none: the tests use a fake radio layer. Radio
   builds keep channels in memory only (the app joins them again after a reboot), and can't be renamed.
-- **The TCP link has a PIN but no encryption.** On a network the node requires a PIN (printed at start, and in
-  the `vmesh_lan.sh` table). That stops others from simply connecting, but someone on the same network can
-  read the traffic and could work out a 6-digit PIN from a captured handshake. Use a **trusted Wi-Fi only**.
+- **The TCP link's security depends on the PIN.** On a network the node requires a PIN (printed at start, and in
+  the `vmesh_lan.sh` table), and the link is encrypted with keys agreed from it, so a captured handshake gives
+  nothing to guess against. Anyone who has the PIN can connect or pose as the node, so keep it private. The
+  handshake hasn't had an independent review, and it hasn't been tried from a real phone. A node from before this
+  build can't connect, and the app refuses an unencrypted node on a network.
   See `docs/CLIENT_PROTOCOL.md` §7.
 - **Offline maps need your own tile source.** The default map uses OpenStreetMap's tile servers, whose
   [usage policy](https://operations.osmfoundation.org/policies/tiles/) does not permit offline use or

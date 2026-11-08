@@ -44,10 +44,21 @@ void Handler::receive(Conn& c, FrameReader& in, uint64_t now) {
     auto res = in.next(ver, body);
     if (res == FrameReader::Result::None) return;
     if (res == FrameReader::Result::BadLength) {
-      error(c, 0, ErrorCode::BadFrame, "frame length over 176 or zero");
+      error(c, 0, ErrorCode::BadFrame, "frame length too long or zero");
       continue;
     }
-    if (ver != kProtocolVersion) {
+    if (c.secure) {
+      // nothing unsealed is accepted once the link is encrypted: a bad frame
+      // means tampering or a lost sync, and either way the link is over
+      Bytes plain(body.size() < gw::kLinkTagSize ? 0 : body.size() - gw::kLinkTagSize);
+      if (ver != kSecureVersion || !gw::linkOpen(c.rxKey.data(), c.rxSeq, body.data(), body.size(), plain.data())) {
+        t_.log("client " + c.peer + " sent a frame that failed the link check");
+        c.closing = true;
+        return;
+      }
+      ++c.rxSeq;
+      body = std::move(plain);
+    } else if (ver != kProtocolVersion) {
       error(c, 0, ErrorCode::BadVersion, "this node speaks client protocol version 1");
       c.closing = true;
       return;
@@ -80,7 +91,16 @@ void Handler::send(Conn& c, const FromRadio& m) {
     e.detail = "reply too long for a frame";
     frameFrom(e, f);
   }
-  if (!f.empty()) t_.write(c, f.data(), f.size());
+  if (f.empty()) return;
+  if (c.secure) {
+    size_t pb = f.size() - kFrameHeader - 1, len = 1 + pb + gw::kLinkTagSize;
+    Bytes s(kFrameHeader + len);
+    s[0] = kMagic0, s[1] = kMagic1, s[2] = static_cast<uint8_t>(len & 0xFF), s[3] = static_cast<uint8_t>(len >> 8);
+    s[kFrameHeader] = kSecureVersion;
+    gw::linkSeal(c.txKey.data(), c.txSeq++, f.data() + kFrameHeader + 1, pb, s.data() + kFrameHeader + 1);
+    f = std::move(s);
+  }
+  t_.write(c, f.data(), f.size());
 }
 
 void Handler::reply(Conn& c, uint32_t reqId, FromKind kind) {
@@ -398,11 +418,14 @@ bool Handler::checkPin(Conn& c, const ToRadio& m, uint64_t now) {
   const uint32_t req = m.reqId;
   if (m.pinProof.empty()) {   // first Hello: send a challenge
     random_(c.pinNonce.data(), c.pinNonce.size());
+    random_(c.pakeSecret.data(), c.pakeSecret.size());
+    gw::linkShare(pin_, c.pinNonce.data(), c.pakeSecret.data(), c.serverShare.data());
     c.pinNonceSet = true;
     FromRadio f;
     f.reqId = req;
     f.kind = FromKind::PinChallenge;
     f.nonce.assign(c.pinNonce.begin(), c.pinNonce.end());
+    f.serverShare.assign(c.serverShare.begin(), c.serverShare.end());
     send(c, f);
     return false;
   }
@@ -415,17 +438,24 @@ bool Handler::checkPin(Conn& c, const ToRadio& m, uint64_t now) {
     return false;
   }
   bool good = false;
-  if (c.pinNonceSet && m.clientNonce.size() == gw::kPinNonceSize && m.pinProof.size() == gw::kPinProofSize) {
-    uint8_t want[gw::kPinProofSize];
-    gw::pinProof(pin_, c.pinNonce.data(), m.clientNonce.data(), want);
-    good = gw::pinProofEqual(want, m.pinProof.data());
-    gw::wipe(want, sizeof want);
+  gw::LinkKeys keys{};
+  if (c.pinNonceSet && m.clientShare.size() == gw::kKeySize && m.pinProof.size() == gw::kPinProofSize) {
+    good = gw::linkKeys(c.pakeSecret.data(), m.clientShare.data(), c.pinNonce.data(), c.serverShare.data(),
+                        m.clientShare.data(), keys) &&
+           gw::pinProofEqual(keys.confirm, m.pinProof.data());
   }
   c.pinNonceSet = false;   // each nonce works once
+  gw::wipe(c.pakeSecret.data(), c.pakeSecret.size());
   if (good) {
     pinFails_ = 0;
+    std::memcpy(c.rxKey.data(), keys.clientToNode, c.rxKey.size());
+    std::memcpy(c.txKey.data(), keys.nodeToClient, c.txKey.size());
+    c.rxSeq = c.txSeq = 0;
+    c.secure = true;   // from here on, NodeInfo included
+    gw::wipe(&keys, sizeof keys);
     return true;
   }
+  gw::wipe(&keys, sizeof keys);
   ++pinFails_;
   if (pinFails_ >= 3) {
     uint32_t shift = std::min<uint32_t>(pinFails_ - 3, 9);

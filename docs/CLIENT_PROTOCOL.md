@@ -20,7 +20,8 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | Minor | Adds |
 |---|---|
 | 0 | the original set |
-| 2 | the PIN handshake on `Hello` (`PinChallenge`, `Hello.client_nonce`, `Hello.pin_proof`, error `BAD_PIN`) (§7) |
+| 2 | the PIN handshake on `Hello` (`PinChallenge`, `Hello.pin_proof`, error `BAD_PIN`) (§7), replaced by 3 |
+| 3 | that handshake also agrees keys, and the link is encrypted after it (`PinChallenge.server_share`, `Hello.client_share`, sealed frames with version byte 2) (§7). Not compatible with minor 2: both ends must be updated. |
 | 1 | group channels (`SendChannelText`, `AddChannel`, `RemoveChannel`, `ListChannels`, `ChannelMessage`, `Channel`, `ChannelsEnd`, `NodeInfo.max_channel_text_bytes`, error `CHANNEL_LIMIT`) and `SetName` |
 
 ## 1. Transports
@@ -46,11 +47,11 @@ All transports carry one byte stream in each direction, made of frames.
 - **len:** little-endian. It counts the version byte plus the protobuf bytes.
 - **version:** `1` for this document. A node that gets a different version answers
   `Error{BAD_VERSION}` and closes the link. The app should then show "update the app or the node".
-- **Size limit:** a whole frame is at most **180 bytes** (`kMaxFrame`), so `len` ≤ 176. 180 bytes fits
+- **Size limit:** a whole frame is at most **180 bytes** (`kMaxFrame`), so `len` ≤ 176 (a sealed TCP frame, §7, may be 16 bytes longer). 180 bytes fits
   one BLE write or notification at ATT MTU 185, the smallest a current iPhone negotiates. On BLE every
   frame is then a single write, with no reassembly. The length prefix still makes the stream
   self-delimiting if a transport splits it.
-- **Bad length:** if `len` is 0 or over 176, the receiver reports `Error{BAD_FRAME}`. It then drops the
+- **Bad length:** if `len` is 0 or over 192, the receiver reports `Error{BAD_FRAME}`. It then drops the
   magic and searches for the next one.
 - **Bad protobuf:** an undecodable body gets `Error{BAD_FRAME}`, and the link stays up.
 
@@ -246,36 +247,66 @@ Test vectors are byte-exact frames checked by `firmware/tests/test_client_proto.
 | `FromRadio{Delivered{a1b2c3d4, 01020304, 42}}` | `94c30f0001 620c 0dd4c3b2a1 1504030201 182a` |
 | `ToRadio{req_id 3, SendChannelText{"ops", "hi", 7}}` (1.1) | `94c3110001 0803 aa010b 0a036f7073 12026869 1807` |
 
-PIN proof vector: PIN `424242`, `nonce` = bytes 00..0f, `client_nonce` = bytes 10..1f gives
-`5e5862bce3b4059e23916b5f749966ec2429362592017600dab003d8da215319`.
+Encrypted-link vector: PIN `424242`, `nonce` = bytes 00..0f, node secret = bytes 20..3f, client secret = bytes 40..5f:
+
+| Value | Hex |
+|---|---|
+| `server_share` | `38bf4429b49432f20f593d21ee96447c298460e41229b556954b9ed5fd9c607f` |
+| `client_share` | `2a9bc7b16628c651f031472d94e225e28c6588bcb734af4098518b4019159274` |
+| client-to-node key | `a0e4a8cb23d66cd1af1bd5994bed4459d222f81cca23aa512599386ef826fb72` |
+| node-to-client key | `3bca5414128da4100632f07dbbdfba67910e4f9c5c9f6dcea0f7ab830a8abc3e` |
+| `pin_proof` | `686c345c320e4de70c9fa8789b5735c6b5119ad7f68c23aa334074997e0b89b7` |
+| `hello` sealed with the client-to-node key, counter 1 | `cf671d1055de9274ad90eb49f9ef026827366b7a89` |
 
 ## 7. Security
 
-- **PIN on TCP (1.2):** a link bound to anything but loopback requires a PIN. `ghostwaved` makes a
+- **PIN on TCP (1.3):** a link bound to anything but loopback requires a PIN. `ghostwaved` makes a
   6-digit one on first use, prints it at start and keeps it in `<key file>.pin` (mode 600).
   `--client-pin PIN` (4–16 digits) sets one, and also turns the check on for loopback, which otherwise
   has none: `--client-tcp` binds to 127.0.0.1 unless a host is named.
-- **Handshake:**
-  1. The app sends `Hello`. The node answers `PinChallenge{nonce}`, not `NodeInfo`.
-  2. The app sends `Hello` again with a random 16-byte `client_nonce` and `pin_proof`, the first 32 bytes
-     of `HMAC-SHA-512(PIN, "ghostwave-pin-v1" || nonce || client_nonce)`. The PIN never crosses the link.
-  3. The node answers `NodeInfo`, or `BAD_PIN`. Until then every other request gets `NEED_HELLO` and
-     held events stay held. Each nonce works once.
+- **Handshake:** a balanced PAKE over X25519, shaped like CPace. The PIN never crosses the link.
+  1. The app sends `Hello`. The node picks a 16-byte `nonce` and a random secret `a`, and answers
+     `PinChallenge{nonce, server_share}`, not `NodeInfo`. Here
+     `G = Elligator2(SHA-512("ghostwave-pake-v1" || u8(len PIN) || PIN || nonce)[0..31])`
+     (top two bits ignored) and `server_share = X25519(a, G)`.
+  2. The app picks a random secret `b`, computes `client_share = X25519(b, G)` and
+     `S = X25519(b, server_share)`, which must not be all zero. Then
+     `okm = HMAC-SHA-512(S, "ghostwave-link-v1" || nonce || server_share || client_share)`. The first 32 bytes
+     of `okm` key client-to-node frames and the last 32 key node-to-client frames.
+     `pin_proof` = the first 32 bytes of `HMAC-SHA-512(okm, "ghostwave-link-confirm")`.
+     The app sends `Hello{client_share, pin_proof}`, in clear, and encrypts everything after it.
+  3. The node computes the same keys and compares the proof in constant time. It answers `NodeInfo`,
+     sealed, or `BAD_PIN` in clear. Until then every other request gets `NEED_HELLO` and held events
+     stay held. Each nonce works once. A sealed `NodeInfo` that opens is what proves the node knows the PIN.
+- **Sealed frames:** the frame is `94 C3 len | 2 | ciphertext || tag`, ChaCha20-Poly1305 with no
+  associated data. The 12-byte nonce is 4 zero bytes then a 64-bit little-endian counter that starts at
+  0 and counts per direction, so it isn't sent. A plaintext of up to 175 bytes makes `len` at most 192,
+  the one place a frame may pass 180 bytes; TCP has no MTU limit to respect. Once a link is sealed, a
+  frame that fails to open, or any unsealed frame, ends the connection. A replayed or reordered frame
+  fails to open.
+- **The app refuses to go without it.** On TCP to anything but loopback, the app won't connect to a node
+  that doesn't encrypt: it won't answer a `PinChallenge` that has no `server_share`, and it refuses a
+  plain `NodeInfo`. Otherwise someone on the network could pose as a node with no PIN. After sending its
+  proof, the app accepts only an `Error` in clear (such as `BAD_PIN`).
 - **Guessing:** wrong proofs are counted across all connections. From the third in a row the node
   answers `RATE_LIMITED` for 1 s, doubling up to 5 minutes; a right PIN resets the count. Someone
   guessing can therefore also keep the owner out for a few minutes at a time.
-- **What the PIN does not do (threat model).** There is no TLS: it needs certificates that a phone can
-  check for a device on a LAN address, which is not simple to do well. So on the network path:
-  - All traffic after the handshake is in clear, and an eavesdropper can read DMs (as plaintext between
-    app and node), channel keys and positions.
-  - An eavesdropper who captures one handshake can test all 10^6 six-digit PINs offline in moments, then
-    log in. A longer `--client-pin` raises that cost.
-  - Someone who can alter traffic can take over a session after it is authenticated.
-  - A fake node can collect a handshake to attack the PIN the same way; the app does not authenticate
-    the node.
-
-  The PIN stops other people on the network from simply connecting and driving the node. It does not make
-  an untrusted network safe, so use a Wi-Fi you trust. The radio mesh's end-to-end encryption is separate.
+- **What this protects (threat model).** On the network path:
+  - An eavesdropper sees frame sizes and timing, and nothing else: not DMs, channel keys or positions.
+    Each connection has new keys, so a PIN stolen later doesn't open recorded traffic.
+  - A captured handshake gives nothing to test PIN guesses against. Guessing means connecting (limited
+    above) or, for a fake node, getting one guess per connection from the app.
+  - Someone who can alter traffic can't take over a session after the handshake. They can still cut it,
+    or inject a false `BAD_PIN` during the handshake, which makes the app ask for the PIN again.
+- **What it doesn't do.**
+  - The security of the handshake is only as good as the PIN's secrecy: anyone who has the PIN can pose
+    as this node or connect to it. It's shown at start and kept in `<key file>.pin`.
+  - A node with no PIN (loopback by default) has a plain link. So does BLE at this layer, because pairing
+    encrypts it.
+  - Traffic inside the phone or node isn't covered: a compromised phone or Pi can read everything.
+  - The handshake follows CPace's construction but isn't the CFRG draft byte for byte, and it hasn't had
+    an independent review.
+  - The radio mesh's end-to-end encryption is separate.
 - **Why not on BLE:** the PIN applies to TCP only. BLE already requires an encrypted, passkey-paired link
   (below), and a second PIN would add a step with no added protection.
 - **BLE:** every attribute needs an encrypted, MITM-protected LE Secure Connections link, so a phone

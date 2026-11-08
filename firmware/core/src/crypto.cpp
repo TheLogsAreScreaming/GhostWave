@@ -50,16 +50,76 @@ uint32_t nodeIdOf(const uint8_t edPub[kKeySize]) {
   return h[0] | (h[1] << 8) | (h[2] << 16) | (static_cast<uint32_t>(h[3]) << 24);
 }
 
-void pinProof(const std::string& pin, const uint8_t serverNonce[kPinNonceSize],
-              const uint8_t clientNonce[kPinNonceSize], uint8_t out[kPinProofSize]) {
-  static const char kTag[] = "ghostwave-pin-v1";
-  uint8_t msg[sizeof kTag - 1 + 2 * kPinNonceSize], h[64];
-  std::memcpy(msg, kTag, sizeof kTag - 1);
-  std::memcpy(msg + sizeof kTag - 1, serverNonce, kPinNonceSize);
-  std::memcpy(msg + sizeof kTag - 1 + kPinNonceSize, clientNonce, kPinNonceSize);
-  crypto_sha512_hmac(h, reinterpret_cast<const uint8_t*>(pin.data()), pin.size(), msg, sizeof msg);
-  std::memcpy(out, h, kPinProofSize);
+// The PIN's generator: Elligator 2 on a hash of the PIN and this handshake's nonce.
+static void linkGenerator(const std::string& pin, const uint8_t nonce[kPinNonceSize], uint8_t g[kKeySize]) {
+  static const char kTag[] = "ghostwave-pake-v1";
+  uint8_t len = static_cast<uint8_t>(pin.size()), h[64];
+  crypto_sha512_ctx ctx;
+  crypto_sha512_init(&ctx);
+  crypto_sha512_update(&ctx, reinterpret_cast<const uint8_t*>(kTag), sizeof kTag - 1);
+  crypto_sha512_update(&ctx, &len, 1);
+  crypto_sha512_update(&ctx, reinterpret_cast<const uint8_t*>(pin.data()), pin.size());
+  crypto_sha512_update(&ctx, nonce, kPinNonceSize);
+  crypto_sha512_final(&ctx, h);
+  crypto_elligator_map(g, h);
   crypto_wipe(h, sizeof h);
+}
+
+void linkShare(const std::string& pin, const uint8_t nonce[kPinNonceSize], const uint8_t secret[kKeySize],
+               uint8_t share[kKeySize]) {
+  uint8_t g[kKeySize];
+  linkGenerator(pin, nonce, g);
+  crypto_x25519(share, secret, g);
+  crypto_wipe(g, sizeof g);
+}
+
+bool linkKeys(const uint8_t secret[kKeySize], const uint8_t theirShare[kKeySize], const uint8_t nonce[kPinNonceSize],
+              const uint8_t serverShare[kKeySize], const uint8_t clientShare[kKeySize], LinkKeys& out) {
+  static const char kInfo[] = "ghostwave-link-v1";
+  static const char kConfirm[] = "ghostwave-link-confirm";
+  static const uint8_t kZero[kKeySize] = {0};
+  uint8_t shared[kKeySize], okm[64], tag[64];
+  crypto_x25519(shared, secret, theirShare);
+  if (crypto_verify32(shared, kZero) == 0) return false;
+  uint8_t msg[sizeof kInfo - 1 + kPinNonceSize + 2 * kKeySize];
+  std::memcpy(msg, kInfo, sizeof kInfo - 1);
+  std::memcpy(msg + sizeof kInfo - 1, nonce, kPinNonceSize);
+  std::memcpy(msg + sizeof kInfo - 1 + kPinNonceSize, serverShare, kKeySize);
+  std::memcpy(msg + sizeof kInfo - 1 + kPinNonceSize + kKeySize, clientShare, kKeySize);
+  crypto_sha512_hmac(okm, shared, kKeySize, msg, sizeof msg);
+  crypto_sha512_hmac(tag, okm, sizeof okm, reinterpret_cast<const uint8_t*>(kConfirm), sizeof kConfirm - 1);
+  std::memcpy(out.clientToNode, okm, kKeySize);
+  std::memcpy(out.nodeToClient, okm + kKeySize, kKeySize);
+  std::memcpy(out.confirm, tag, kPinProofSize);
+  crypto_wipe(shared, sizeof shared);
+  crypto_wipe(okm, sizeof okm);
+  crypto_wipe(tag, sizeof tag);
+  return true;
+}
+
+static void linkNonce(uint64_t seq, uint8_t nonce[12]) {
+  std::memset(nonce, 0, 4);
+  for (int i = 0; i < 8; ++i) nonce[4 + i] = static_cast<uint8_t>(seq >> (8 * i));
+}
+
+void linkSeal(const uint8_t key[kKeySize], uint64_t seq, const uint8_t* plain, size_t n, uint8_t* out) {
+  uint8_t nonce[12];
+  linkNonce(seq, nonce);
+  crypto_aead_ctx ctx;
+  crypto_aead_init_ietf(&ctx, key, nonce);
+  crypto_aead_write(&ctx, out, out + n, nullptr, 0, plain, n);
+  crypto_wipe(&ctx, sizeof ctx);
+}
+
+bool linkOpen(const uint8_t key[kKeySize], uint64_t seq, const uint8_t* sealed, size_t n, uint8_t* plain) {
+  if (n < kLinkTagSize) return false;
+  uint8_t nonce[12];
+  linkNonce(seq, nonce);
+  crypto_aead_ctx ctx;
+  crypto_aead_init_ietf(&ctx, key, nonce);
+  int bad = crypto_aead_read(&ctx, plain, sealed + n - kLinkTagSize, nullptr, 0, sealed, n - kLinkTagSize);
+  crypto_wipe(&ctx, sizeof ctx);
+  return !bad;
 }
 
 bool pinProofEqual(const uint8_t a[kPinProofSize], const uint8_t b[kPinProofSize]) {

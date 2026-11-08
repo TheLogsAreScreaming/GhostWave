@@ -153,6 +153,10 @@ class BleTransport implements Transport {
   @override
   String get label => node.name;
 
+  // pairing already encrypts and authenticates the link (CLIENT_PROTOCOL §7)
+  @override
+  bool get needsEncryption => false;
+
   @override
   Future<TransportConnection> open() async {
     switch (await radio.availability()) {

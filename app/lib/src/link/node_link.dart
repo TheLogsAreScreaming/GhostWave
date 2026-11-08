@@ -229,7 +229,11 @@ class NodeLink {
       final sub = s.events.listen((e) {
         if (gen == _generation && !_events.isClosed) _events.add(e);
       });
-      final info = await s.hello(clientName, pinFor: () async => pinFor?.call(t.label));
+      final info = await s.hello(
+        clientName,
+        pinFor: () async => pinFor?.call(t.label),
+        requireEncrypted: t.needsEncryption,
+      );
       if (gen != _generation) {
         await s.close();
         return;
@@ -245,6 +249,7 @@ class NodeLink {
       if (gen != _generation) return;
       _scheduleRetry(gen, 1, reason);
     } on TransportFatalException catch (e) {
+      await s?.close();
       if (gen == _generation) _set(LinkFailed(t.label, e.reason));
     } on PinRequiredException {
       await s?.close();
