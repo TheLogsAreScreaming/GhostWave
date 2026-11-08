@@ -361,7 +361,8 @@ These replace `ghostwaved`'s command-line options. They are saved in NVS:
 | `setpos <lat> <lon>` / `setpos clear` | Stored position. Used until a GPS fix arrives. Required on the V3. |
 | `psk <64 hex>` / `psk gen` / `psk off` | Channel key. `gen` makes one and prints it once, so you can paste it on the other nodes. `off` applies after a reboot. |
 | `power <dBm>` | Output at the antenna port. Default 20, capped at 22 (see below). Applies now. |
-| `freq <MHz>` | 902.0625–927.9375. Default 914.875. Applies after `reboot`. |
+| `freq <MHz>` | Inside the region's band. Default 914.875 in `us915`. Applies after `reboot`. |
+| `region us915\|eu868` | Band and duty-cycle cap. Default `us915` (902.0625–927.9375 MHz, no cap). `eu868` is 869.4625–869.5875 MHz, default 869.525, at most 10 % of any hour on air, SOS included. Applies after `reboot`. |
 | `requireenc on\|off` | Same as `--require-enc`. Applies after `reboot`. |
 | `responder on\|off` | Same as `--responder`. Applies after `reboot`. |
 | `reboot` | Restarts the node. |

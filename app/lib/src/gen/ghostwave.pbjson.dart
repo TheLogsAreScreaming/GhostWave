@@ -841,6 +841,18 @@ const Status$json = {
     {'1': 'uptime_s', '3': 13, '4': 1, '5': 13, '10': 'uptimeS'},
     {'1': 'clients', '3': 14, '4': 1, '5': 13, '10': 'clients'},
     {'1': 'queued', '3': 15, '4': 1, '5': 13, '10': 'queued'},
+    {
+      '1': 'battery_pct',
+      '3': 16,
+      '4': 1,
+      '5': 13,
+      '9': 0,
+      '10': 'batteryPct',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_battery_pct'},
   ],
 };
 
@@ -853,7 +865,8 @@ final $typed_data.Uint8List statusDescriptor = $convert.base64Decode(
     'KA1SCXN0b3JlU2l6ZRIcCgluZWlnaGJvcnMYCiABKA1SCW5laWdoYm9ycxIZCghzb3NfaGVsZB'
     'gLIAEoDVIHc29zSGVsZBIdCgpzb3NfYWN0aXZlGAwgASgIUglzb3NBY3RpdmUSGQoIdXB0aW1l'
     'X3MYDSABKA1SB3VwdGltZVMSGAoHY2xpZW50cxgOIAEoDVIHY2xpZW50cxIWCgZxdWV1ZWQYDy'
-    'ABKA1SBnF1ZXVlZA==');
+    'ABKA1SBnF1ZXVlZBIkCgtiYXR0ZXJ5X3BjdBgQIAEoDUgAUgpiYXR0ZXJ5UGN0iAEBQg4KDF9i'
+    'YXR0ZXJ5X3BjdA==');
 
 @$core.Deprecated('Use ownPositionDescriptor instead')
 const OwnPosition$json = {

@@ -640,6 +640,45 @@ void testPin() {
   CHECK(ov.size() == 1 && ov[0].kind == FromKind::NodeInfo);
 }
 
+void testBattery() {
+  std::printf("client handler: Status battery\n");
+  NullRadio radio;
+  NullApp app;
+  gw::Config cfg = Rig::mkCfg();
+  gw::Router router(cfg, radio, app);
+  gw::Position pos;
+  auto status = [&](std::function<uint8_t()> battery) {
+    FakeTransport t;
+    Handler::Hooks hooks;
+    hooks.batteryPct = battery;
+    Handler h(router, Rig::ident(), pos, hooks, 0, t);
+    auto& c = t.add("ble");
+    auto send = [&](const ToRadio& m) {
+      Bytes f;
+      frameTo(m, f);
+      FrameReader in;
+      in.push(f.data(), f.size());
+      h.receive(c.conn, in, 1000);
+      return FakeTransport::drain(c);
+    };
+    ToRadio m;
+    m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
+    send(m);
+    m = {}, m.reqId = 2, m.kind = ToKind::GetStatus;
+    auto v = send(m);
+    CHECK(v.size() == 1 && v[0].kind == FromKind::Status);
+    return v.empty() ? OptU32{} : v[0].status.batteryPct;
+  };
+  CHECK(!status(nullptr).has);
+  CHECK(!status([] { return uint8_t(0xFF); }).has);
+  OptU32 zero = status([] { return uint8_t(0); });
+  CHECK(zero.has && zero.v == 0);
+  OptU32 most = status([] { return uint8_t(87); });
+  CHECK(most.has && most.v == 87);
+  OptU32 over = status([] { return uint8_t(140); });
+  CHECK(over.has && over.v == 100);
+}
+
 int main() {
   testHelloGate();
   testQueueAndReplay();
@@ -649,6 +688,7 @@ int main() {
   testBadFrames();
   testProtocol11();
   testPin();
+  testBattery();
   std::printf("client handler: %d passed, %d failed\n", g_pass, g_fail);
   return g_fail ? 1 : 0;
 }

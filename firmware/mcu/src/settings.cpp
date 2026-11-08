@@ -91,6 +91,8 @@ bool loadSettings(Settings& s) {
   s.lon = nvs->getDouble("lon", 0);
   s.outputDbm = nvs->getChar("power", kDefaultOutputDbm);
   s.freqMHz = nvs->getFloat("freq", 914.875f);   // clear of Meshtastic/MeshCore US defaults
+  s.region = static_cast<Region>(nvs->getUChar("region", 0));
+  if (static_cast<size_t>(s.region) >= kRegionCount) s.region = Region::Us915;
   s.responder = nvs->getBool("responder", false);
   s.requireEnc = nvs->getBool("reqenc", false);
 
@@ -128,7 +130,8 @@ bool savePsk(const Settings& s) {
 
 bool saveRadio(const Settings& s) {
   Nvs nvs(false);
-  return nvs.ok() && nvs->putChar("power", s.outputDbm) && nvs->putFloat("freq", s.freqMHz);
+  return nvs.ok() && nvs->putChar("power", s.outputDbm) && nvs->putFloat("freq", s.freqMHz) &&
+         nvs->putUChar("region", static_cast<uint8_t>(s.region));
 }
 
 bool saveFlags(const Settings& s) {

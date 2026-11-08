@@ -152,6 +152,7 @@ struct StatusInfo {
   bool sosActive = false;
   uint32_t uptimeS = 0;
   uint32_t clients = 0, queued = 0;
+  OptU32 batteryPct;   // absent: the node cannot read its battery
   bool operator==(const StatusInfo& o) const;
 };
 

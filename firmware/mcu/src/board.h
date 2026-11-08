@@ -168,7 +168,4 @@ constexpr int kDefaultOutputDbm = 10;
 constexpr int kDefaultOutputDbm = 20;
 #endif
 
-// US 902–928 MHz only for now (DESIGN §12); the EU duty-cycle limiter is not
-// ported. Keeps a BW125 channel inside the band edges.
-constexpr float kMinFreqMHz = 902.0625f;
-constexpr float kMaxFreqMHz = 927.9375f;
+// Frequency limits and the duty-cycle cap are per region: region.h.

@@ -68,6 +68,8 @@ class Handler {
     // Group channels (protocol 1.1, DESIGN §9.3); null = channel requests get
     // UNKNOWN_REQUEST and NodeInfo.max_channel_text_bytes is 0.
     gw::ChannelBook* channels = nullptr;
+    // Battery percent for Status, or 0xFF if unknown. Unset: unknown.
+    std::function<uint8_t()> batteryPct;
     // Renames the node (SetName, 1.1): ErrorCode::None, or an error with `err`
     // set. Unset: NO_IDENTITY.
     std::function<ErrorCode(const std::string&, std::string&)> setName;

@@ -239,6 +239,7 @@ message Status {
   uint32 uptime_s = 13;
   uint32 clients = 14;
   uint32 queued = 15;            // events waiting for a client
+  optional uint32 battery_pct = 16;   // 0-100; absent: the node cannot read its battery
 }
 
 message OwnPosition {

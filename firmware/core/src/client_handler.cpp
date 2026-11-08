@@ -274,6 +274,10 @@ void Handler::handle(Conn& c, const ToRadio& m, uint64_t now) {
       st.status.uptimeS = static_cast<uint32_t>((now - startMs_) / 1000);
       st.status.clients = static_cast<uint32_t>(ready());
       st.status.queued = static_cast<uint32_t>(queue_.size());
+      if (hooks_.batteryPct) {
+        const uint8_t pct = hooks_.batteryPct();
+        if (pct != 0xFF) st.status.batteryPct.set(std::min<uint8_t>(pct, 100));
+      }
       send(c, st);
       return;
     }
