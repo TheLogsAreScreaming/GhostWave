@@ -748,6 +748,47 @@ static void testSpray() {
   CHECK(c.app.got.size() == 1);
 }
 
+static void testDtnBloomOffers() {
+  std::printf("router: DTN offers skip a neighbor whose Bloom filter holds the message\n");
+  {
+    // spray: B gets its copies from A, and must not hand half back to A
+    Medium m;
+    auto& a = m.add(320, 0);
+    auto& b = m.add(321, 1.5);
+    m.add(322, 40);
+    m.run(5000);
+    uint32_t before = m.count(PType::Data);
+    a.router->send(322, {'y', 'o'}, m.now);
+    m.run(45 * 60 * 1000);
+    CHECK(a.router->storeSize() == 1 && b.router->storeSize() == 1);
+    uint32_t data = m.count(PType::Data) - before;
+    std::printf("  data frames, 2 holders over 45 min: %u\n", data);
+    CHECK(data == 1);
+    CHECK(a.router->stats().dtnOffersSkipped + b.router->stats().dtnOffersSkipped >= 1);
+    // a neighbor that lacks it still gets a copy
+    auto& d = m.add(323, 0.5, 0.5);
+    m.run(45 * 60 * 1000);
+    CHECK(d.router->storeSize() == 1);
+  }
+  {
+    // a nearly full store: its filter says little, so it is ignored
+    Medium m;
+    auto& a = m.add(340, 0);
+    auto& b = m.add(341, 60);
+    m.add(342, 200);
+    m.run(5000);
+    for (int i = 0; i < 40; ++i) b.router->send(342, {'b', static_cast<uint8_t>(i)}, m.now);
+    for (int i = 0; i < 8; ++i) a.router->send(342, {'a', static_cast<uint8_t>(i)}, m.now);
+    m.run(1000);
+    CHECK(a.router->storeSize() == 8 && b.router->storeSize() == 40);
+    uint32_t skipped = a.router->stats().dtnOffersSkipped;
+    m.move(b, 1.5);
+    m.run(45 * 60 * 1000);
+    CHECK(b.router->storeSize() == 48);          // all 8, false positives or not
+    CHECK(a.router->stats().dtnOffersSkipped == skipped);
+  }
+}
+
 static void testDuplicateSuppression() {
   std::printf("router: dense cluster, one forward per hop\n");
   Medium m;
@@ -1972,6 +2013,7 @@ int main() {
   testLine();
   testDtnCarry();
   testSpray();
+  testDtnBloomOffers();
   testDuplicateSuppression();
   testEncryptedRouting();
   testSosPartitionedChain();
