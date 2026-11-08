@@ -37,6 +37,8 @@ struct Conn {
   bool hello = false;     // sent a good Hello
   bool closing = false;   // the transport closes it once its output drains
   std::string peer;       // for log lines ("127.0.0.1:5123", "ble")
+  bool pinNonceSet = false;            // a PinChallenge is outstanding
+  std::array<uint8_t, 16> pinNonce{};
 };
 
 // What the handler needs from a transport.
@@ -80,6 +82,11 @@ class Handler {
   Handler(const Handler&) = delete;
   Handler& operator=(const Handler&) = delete;
 
+  // Makes Hello prove knowledge of `pin` (docs/CLIENT_PROTOCOL.md §7). For
+  // transports with no link security of their own: TCP on a network, not BLE,
+  // whose pairing already protects it. `random` fills challenge nonces.
+  void requirePin(const std::string& pin, std::function<void(uint8_t*, size_t)> random);
+
   // Handles every whole frame buffered in `in` for `c`. Stops early once `c`
   // is closing (bad version).
   void receive(Conn& c, FrameReader& in, uint64_t nowMs);
@@ -108,6 +115,9 @@ class Handler {
   void event(const FromRadio& m, bool hold);
   // Protocol 1.1 requests (channels, SetName); false if `m` is not one.
   bool handleV11(Conn& c, const ToRadio& m, uint64_t now);
+  // Hello on a PIN-protected link: true once the proof is good. Otherwise it
+  // has answered with a challenge or an error.
+  bool checkPin(Conn& c, const ToRadio& m, uint64_t now);
 
   gw::Router& r_;
   NodeIdentity self_;
@@ -116,6 +126,10 @@ class Handler {
   uint64_t startMs_;
   Transport& t_;
   size_t queueMax_;
+  std::string pin_;
+  std::function<void(uint8_t*, size_t)> random_;
+  uint32_t pinFails_ = 0;        // wrong proofs in a row, all connections
+  uint64_t pinLockUntil_ = 0;
   std::deque<FromRadio> queue_;
   std::map<uint32_t, uint32_t> clientIds_;   // mesh msg id -> client_msg_id
   std::deque<uint32_t> clientIdOrder_;

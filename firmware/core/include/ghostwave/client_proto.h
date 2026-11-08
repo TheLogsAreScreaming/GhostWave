@@ -24,7 +24,8 @@ constexpr uint8_t kMagic1 = 0xC3;
 constexpr uint8_t kProtocolVersion = 1;
 // Minor version, reported in NodeInfo.protocol_minor. 1: group channels and
 // SetName. Additions only: a 1.0 client ignores what it does not know.
-constexpr uint32_t kProtocolMinor = 1;
+// 2: the PIN handshake on Hello (PinChallenge, BAD_PIN).
+constexpr uint32_t kProtocolMinor = 2;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -46,6 +47,7 @@ enum class ErrorCode : uint32_t {
   TooManyClients = 11,
   NoIdentity = 12,     // operation needs an Ed25519 identity (legacy node)
   ChannelLimit = 13,   // AddChannel: no room for another channel
+  BadPin = 14,         // Hello: wrong pin_proof
 };
 
 // A fix in 1e-7 degrees. `valid` false = no fix (field absent on the wire).
@@ -99,6 +101,7 @@ struct ToRadio {
   // Hello
   uint32_t protocolVersion = 0;
   std::string clientName;
+  Bytes clientNonce, pinProof;   // Hello (1.2), answering PinChallenge
   // SendText: dest, text, clientMsgId
   uint32_t dest = 0;
   Bytes text;            // also SosStart text
@@ -139,6 +142,7 @@ enum class FromKind : uint8_t {
   ChannelMessage = 25,   // 1.1
   Channel = 26,
   ChannelsEnd = 27,
+  PinChallenge = 28,   // 1.2
 };
 
 struct StatusInfo {
@@ -166,6 +170,7 @@ struct FromRadio {
   uint32_t maxTextBytes = 0;
   uint32_t protocolMinor = 0;           // NodeInfo (1.1)
   uint32_t maxChannelTextBytes = 0;     // NodeInfo (1.1)
+  Bytes nonce;                          // PinChallenge (1.2)
   // ChannelMessage: channel, src, msgId, text, pos.  Channel: channel, psk.
   // ChannelsEnd: count
   std::string channel;

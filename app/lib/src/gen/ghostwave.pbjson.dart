@@ -214,13 +214,16 @@ const Hello$json = {
   '2': [
     {'1': 'protocol_version', '3': 1, '4': 1, '5': 13, '10': 'protocolVersion'},
     {'1': 'client_name', '3': 2, '4': 1, '5': 9, '10': 'clientName'},
+    {'1': 'client_nonce', '3': 3, '4': 1, '5': 12, '10': 'clientNonce'},
+    {'1': 'pin_proof', '3': 4, '4': 1, '5': 12, '10': 'pinProof'},
   ],
 };
 
 /// Descriptor for `Hello`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List helloDescriptor = $convert.base64Decode(
     'CgVIZWxsbxIpChBwcm90b2NvbF92ZXJzaW9uGAEgASgNUg9wcm90b2NvbFZlcnNpb24SHwoLY2'
-    'xpZW50X25hbWUYAiABKAlSCmNsaWVudE5hbWU=');
+    'xpZW50X25hbWUYAiABKAlSCmNsaWVudE5hbWUSIQoMY2xpZW50X25vbmNlGAMgASgMUgtjbGll'
+    'bnROb25jZRIbCglwaW5fcHJvb2YYBCABKAxSCHBpblByb29m');
 
 @$core.Deprecated('Use sendTextDescriptor instead')
 const SendText$json = {
@@ -608,6 +611,15 @@ const FromRadio$json = {
       '9': 0,
       '10': 'channelsEnd'
     },
+    {
+      '1': 'pin_challenge',
+      '3': 28,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.PinChallenge',
+      '9': 0,
+      '10': 'pinChallenge'
+    },
   ],
   '8': [
     {'1': 'event'},
@@ -637,7 +649,8 @@ final $typed_data.Uint8List fromRadioDescriptor = $convert.base64Decode(
     'Y2xpZW50LnYxLkNoYW5uZWxNZXNzYWdlSABSDmNoYW5uZWxNZXNzYWdlEjgKB2NoYW5uZWwYGi'
     'ABKAsyHC5naG9zdHdhdmUuY2xpZW50LnYxLkNoYW5uZWxIAFIHY2hhbm5lbBJFCgxjaGFubmVs'
     'c19lbmQYGyABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYxLkNoYW5uZWxzRW5kSABSC2NoYW5uZW'
-    'xzRW5kQgcKBWV2ZW50');
+    'xzRW5kEkgKDXBpbl9jaGFsbGVuZ2UYHCABKAsyIS5naG9zdHdhdmUuY2xpZW50LnYxLlBpbkNo'
+    'YWxsZW5nZUgAUgxwaW5DaGFsbGVuZ2VCBwoFZXZlbnQ=');
 
 @$core.Deprecated('Use nodeInfoDescriptor instead')
 const NodeInfo$json = {
@@ -897,17 +910,19 @@ const Error_Code$json = {
     {'1': 'TOO_MANY_CLIENTS', '2': 11},
     {'1': 'NO_IDENTITY', '2': 12},
     {'1': 'CHANNEL_LIMIT', '2': 13},
+    {'1': 'BAD_PIN', '2': 14},
   ],
 };
 
 /// Descriptor for `Error`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List errorDescriptor = $convert.base64Decode(
     'CgVFcnJvchIzCgRjb2RlGAEgASgOMh8uZ2hvc3R3YXZlLmNsaWVudC52MS5FcnJvci5Db2RlUg'
-    'Rjb2RlEhYKBmRldGFpbBgCIAEoCVIGZGV0YWlsIvMBCgRDb2RlEggKBE5PTkUQABINCglCQURf'
+    'Rjb2RlEhYKBmRldGFpbBgCIAEoCVIGZGV0YWlsIoACCgRDb2RlEggKBE5PTkUQABINCglCQURf'
     'RlJBTUUQARIPCgtCQURfVkVSU0lPThACEhMKD1VOS05PV05fUkVRVUVTVBADEg4KCk5FRURfSE'
     'VMTE8QBBIQCgxCQURfQVJHVU1FTlQQBRIMCghUT09fTE9ORxAGEhAKDFJBVEVfTElNSVRFRBAH'
     'Eg0KCU5PVF9GT1VORBAIEhAKDEtFWV9SRUpFQ1RFRBAJEg8KC1NFTkRfRkFJTEVEEAoSFAoQVE'
-    '9PX01BTllfQ0xJRU5UUxALEg8KC05PX0lERU5USVRZEAwSEQoNQ0hBTk5FTF9MSU1JVBAN');
+    '9PX01BTllfQ0xJRU5UUxALEg8KC05PX0lERU5USVRZEAwSEQoNQ0hBTk5FTF9MSU1JVBANEgsK'
+    'B0JBRF9QSU4QDg==');
 
 @$core.Deprecated('Use contactDescriptor instead')
 const Contact$json = {
@@ -1026,3 +1041,15 @@ const ChannelsEnd$json = {
 /// Descriptor for `ChannelsEnd`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List channelsEndDescriptor =
     $convert.base64Decode('CgtDaGFubmVsc0VuZBIUCgVjb3VudBgBIAEoDVIFY291bnQ=');
+
+@$core.Deprecated('Use pinChallengeDescriptor instead')
+const PinChallenge$json = {
+  '1': 'PinChallenge',
+  '2': [
+    {'1': 'nonce', '3': 1, '4': 1, '5': 12, '10': 'nonce'},
+  ],
+};
+
+/// Descriptor for `PinChallenge`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pinChallengeDescriptor =
+    $convert.base64Decode('CgxQaW5DaGFsbGVuZ2USFAoFbm9uY2UYASABKAxSBW5vbmNl');

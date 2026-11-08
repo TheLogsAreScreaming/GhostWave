@@ -4,7 +4,9 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:ghostwave_app/src/link/frame_codec.dart';
+import 'package:ghostwave_app/src/link/session.dart';
 import 'package:ghostwave_app/src/link/transport.dart';
 
 class FakeConnection implements TransportConnection {
@@ -54,6 +56,9 @@ class FakeNode implements Transport {
   /// NodeInfo.protocol_minor (1 = channels, SetName).
   int protocolMinor;
 
+  /// When set, Hello must prove this PIN.
+  String? pin;
+
   /// NodeInfo.name.
   String name = 'N1';
   final List<FakeConnection> connections = <FakeConnection>[];
@@ -95,7 +100,30 @@ class FakeNode implements Transport {
 
   void _onRequest(FakeConnection c, pb.ToRadio r) {
     requests.add(r);
-    if (autoHello && r.hasHello()) {
+    final needed = pin;
+    if (autoHello && r.hasHello() && needed != null && r.hello.pinProof.isEmpty) {
+      final nonce = List<int>.filled(16, 0x42);
+      scheduleMicrotask(
+        () => c.send(
+          pb.FromRadio(
+            reqId: r.reqId,
+            pinChallenge: pb.PinChallenge(nonce: nonce),
+          ),
+        ),
+      );
+    } else if (autoHello &&
+        r.hasHello() &&
+        needed != null &&
+        !listEquals(r.hello.pinProof, pinProof(needed, List<int>.filled(16, 0x42), r.hello.clientNonce))) {
+      scheduleMicrotask(
+        () => c.send(
+          pb.FromRadio(
+            reqId: r.reqId,
+            error: pb.Error(code: pb.Error_Code.BAD_PIN),
+          ),
+        ),
+      );
+    } else if (autoHello && r.hasHello()) {
       scheduleMicrotask(() => c.send(pb.FromRadio(reqId: r.reqId, nodeInfo: info)));
     }
     _reqs.add((c, r));

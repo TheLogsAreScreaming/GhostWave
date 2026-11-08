@@ -125,6 +125,53 @@ void main() {
     });
   });
 
+  group('PIN', () {
+    test('proof matches the golden vector (C++ and Python agree)', () {
+      final p = pinProof('424242', List<int>.generate(16, (i) => i), List<int>.generate(16, (i) => 16 + i));
+      expect(
+        p.map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+        '5e5862bce3b4059e23916b5f749966ec2429362592017600dab003d8da215319',
+      );
+    });
+
+    test('a PIN node with no saved PIN waits for the user, without retrying', () {
+      fakeAsync((fa) {
+        final node = FakeNode()..pin = '424242';
+        final link = NodeLink();
+        link.connect(node);
+        fa.flushMicrotasks();
+        expect(link.state, isA<LinkNeedsPin>());
+        expect((link.state as LinkNeedsPin).wrong, isFalse);
+        fa.elapse(const Duration(minutes: 2));
+        expect(node.opens, 1, reason: 'no guessing loop');
+        link.dispose();
+      });
+    });
+
+    test('the saved PIN is used; a wrong one is dropped and reported', () {
+      fakeAsync((fa) {
+        final saved = <String, String>{};
+        final node = FakeNode()..pin = '424242';
+        final link = NodeLink()
+          ..pinFor = ((t) async => saved[t])
+          ..onBadPin = ((t) async => saved.remove(t));
+        saved[node.label] = '111111';
+        link.connect(node);
+        fa.flushMicrotasks();
+        expect((link.state as LinkNeedsPin).wrong, isTrue);
+        expect(saved, isEmpty);
+        fa.elapse(const Duration(minutes: 1));
+        expect(node.opens, 1);
+
+        saved[node.label] = '424242';
+        link.retryNow();
+        fa.flushMicrotasks();
+        expect(link.state, isA<LinkUp>());
+        link.dispose();
+      });
+    });
+  });
+
   group('NodeLink', () {
     test('a link that stops answering is detected and reconnected, no user action', () {
       fakeAsync((fa) {

@@ -35,6 +35,14 @@ uint32_t nodeIdOf(const uint8_t edPub[kKeySize]);
 // False for IDs a key may not own: 0, broadcast, or short ID 0 (= anycast).
 bool nodeIdUsable(uint32_t id);
 
+// Client-link PIN proof (docs/CLIENT_PROTOCOL.md §7): the first 32 bytes of
+// HMAC-SHA-512(pin, "ghostwave-pin-v1" || serverNonce || clientNonce).
+constexpr size_t kPinNonceSize = 16, kPinProofSize = 32;
+void pinProof(const std::string& pin, const uint8_t serverNonce[kPinNonceSize],
+              const uint8_t clientNonce[kPinNonceSize], uint8_t out[kPinProofSize]);
+// Constant-time comparison of two proofs.
+bool pinProofEqual(const uint8_t a[kPinProofSize], const uint8_t b[kPinProofSize]);
+
 // Group channel ID (DESIGN §9.3): the first 4 bytes of
 // SHA-512("ghostwave-chan-v1" || key), little-endian, never 0. Lets the host
 // tell channels apart without handling keys; it never goes on the air.

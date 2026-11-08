@@ -171,7 +171,7 @@ class SettingsScreen extends ConsumerWidget {
         },
       ),
     );
-    ctl.dispose();
+    // not disposed here: the dialog's closing animation still uses it
     if (name == null || name == current || !context.mounted) return;
     try {
       await ref.read(meshProvider.notifier).setNodeName(name);
@@ -207,6 +207,7 @@ class SettingsScreen extends ConsumerWidget {
     ref.read(nodeAddressProvider.notifier).disconnect();
     await ref.read(meshProvider.notifier).resetLocalData();
     await ref.read(offlineMapsProvider.notifier).reset();
+    await ref.read(pinStoreProvider).clear();
     await ref.read(sharedPrefsProvider).clear();
     ref
       ..invalidate(nodeAddressProvider)

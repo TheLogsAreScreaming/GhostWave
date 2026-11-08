@@ -235,6 +235,8 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
     case ToKind::Hello:
       s.u32(1, m.protocolVersion);
       s.str(2, m.clientName);
+      s.bytes(3, m.clientNonce);
+      s.bytes(4, m.pinProof);
       break;
     case ToKind::SendText:
       s.fx32(1, m.dest);
@@ -293,6 +295,8 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
         case ToKind::Hello:
           if (g == 1) return ok(x.u32(m.protocolVersion));
           if (g == 2) return ok(x.str(m.clientName));
+          if (g == 3) return ok(x.bytes(m.clientNonce));
+          if (g == 4) return ok(x.bytes(m.pinProof));
           return 0;
         case ToKind::SendText:
           if (g == 1) return ok(x.fx32(m.dest));
@@ -448,6 +452,7 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.bytes(2, m.psk);
       break;
     case FromKind::ChannelsEnd: s.u32(1, m.count); break;
+    case FromKind::PinChallenge: s.bytes(1, m.nonce); break;
     default: return false;
   }
   w.msg(static_cast<uint32_t>(m.kind), sub);
@@ -459,7 +464,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
     if (f == 2) return ok(v.boolean(m.replayed));
-    if (f < 10 || f > 27) return 0;
+    if (f < 10 || f > 28) return 0;
     if (v.wt != kLen) return -1;
     FromKind k = static_cast<FromKind>(f);
     m.kind = k;
@@ -583,6 +588,9 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
           return 0;
         case FromKind::ChannelsEnd:
           if (g == 1) return ok(x.u32(m.count));
+          return 0;
+        case FromKind::PinChallenge:
+          if (g == 1) return ok(x.bytes(m.nonce));
           return 0;
         default: return 0;
       }

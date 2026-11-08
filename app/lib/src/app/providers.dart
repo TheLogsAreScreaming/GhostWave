@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../gen/ghostwave.pb.dart' as pb;
@@ -19,6 +20,68 @@ final sharedPrefsProvider = Provider<SharedPreferences>(
   (ref) => throw UnimplementedError('sharedPrefsProvider is overridden in main()'),
 );
 
+/// Where client-link PINs are kept, one per node address.
+abstract interface class PinStore {
+  /// The PIN for [address], if saved.
+  Future<String?> read(String address);
+
+  /// Saves the PIN for [address].
+  Future<void> write(String address, String pin);
+
+  /// Forgets the PIN for [address].
+  Future<void> delete(String address);
+
+  /// Forgets every PIN.
+  Future<void> clear();
+}
+
+/// [PinStore] in memory (tests).
+class MemoryPinStore implements PinStore {
+  final Map<String, String> _pins = {};
+
+  @override
+  Future<String?> read(String address) async => _pins[address];
+
+  @override
+  Future<void> write(String address, String pin) async => _pins[address] = pin;
+
+  @override
+  Future<void> delete(String address) async => _pins.remove(address);
+
+  @override
+  Future<void> clear() async => _pins.clear();
+}
+
+/// [PinStore] in the platform's secure storage (Android Keystore, iOS Keychain).
+class SecurePinStore implements PinStore {
+  /// Creates the store.
+  const SecurePinStore();
+
+  static const _storage = FlutterSecureStorage();
+  static String _key(String address) => 'pin_$address';
+
+  @override
+  Future<String?> read(String address) async {
+    try {
+      return await _storage.read(key: _key(address));
+    } on Object {
+      return null; // treated as "not saved": the app asks again
+    }
+  }
+
+  @override
+  Future<void> write(String address, String pin) => _storage.write(key: _key(address), value: pin);
+
+  @override
+  Future<void> delete(String address) => _storage.delete(key: _key(address));
+
+  @override
+  Future<void> clear() => _storage.deleteAll();
+}
+
+/// The PIN store; `main` installs [SecurePinStore].
+final pinStoreProvider = Provider<PinStore>((ref) => MemoryPinStore());
+
 /// The one connection manager.
 final nodeLinkProvider = Provider<NodeLink>((ref) {
   final os = switch (Platform.operatingSystem) {
@@ -27,6 +90,10 @@ final nodeLinkProvider = Provider<NodeLink>((ref) {
     final other => other,
   };
   final link = NodeLink(clientName: 'GhostWave app ($os)');
+  final pins = ref.watch(pinStoreProvider);
+  link
+    ..pinFor = pins.read
+    ..onBadPin = pins.delete;
   ref.onDispose(link.dispose);
   return link;
 });
@@ -201,6 +268,12 @@ class NodeAddressNotifier extends Notifier<String?> {
     if (a == null) return;
     ref.read(recentNodesProvider.notifier).touch(state!);
     ref.read(nodeLinkProvider).connect(ref.read(transportFactoryProvider)(a));
+  }
+
+  /// Saves [pin] for [target] and tries again.
+  Future<void> submitPin(String target, String pin) async {
+    await ref.read(pinStoreProvider).write(target, pin);
+    ref.read(nodeLinkProvider).retryNow();
   }
 
   /// Disconnects and stops reconnecting. The address stays saved.

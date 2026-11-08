@@ -33,7 +33,8 @@ static bool sameTo(const ToRadio& a, const ToRadio& b) {
          a.clientName == b.clientName && a.dest == b.dest && a.text == b.text &&
          a.clientMsgId == b.clientMsgId && a.nodeId == b.nodeId && a.ed25519Pub == b.ed25519Pub &&
          a.x25519Pub == b.x25519Pub && a.name == b.name && a.pos == b.pos &&
-         a.batteryPct == b.batteryPct && a.accuracyM == b.accuracyM && a.channel == b.channel && a.psk == b.psk;
+         a.batteryPct == b.batteryPct && a.accuracyM == b.accuracyM && a.channel == b.channel && a.psk == b.psk &&
+         a.clientNonce == b.clientNonce && a.pinProof == b.pinProof;
 }
 
 static bool sameFrom(const FromRadio& a, const FromRadio& b) {
@@ -46,7 +47,7 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.batteryPct == b.batteryPct && a.isNew == b.isNew && a.pinned == b.pinned &&
          a.count == b.count && a.status == b.status && a.error == b.error && a.detail == b.detail &&
          a.protocolMinor == b.protocolMinor && a.maxChannelTextBytes == b.maxChannelTextBytes &&
-         a.channel == b.channel && a.psk == b.psk;
+         a.channel == b.channel && a.psk == b.psk && a.nonce == b.nonce;
 }
 
 static std::vector<ToRadio> sampleTo() {
@@ -92,6 +93,9 @@ static std::vector<ToRadio> sampleTo() {
   m = {}, m.reqId = 17, m.kind = ToKind::ListChannels;
   v.push_back(m);
   m = {}, m.reqId = 18, m.kind = ToKind::SetName, m.name = "Ridge1";
+  v.push_back(m);
+  m = {}, m.reqId = 19, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientName = "app", m.clientNonce = Bytes(16, 7),
+  m.pinProof = key(2);   // 1.2
   v.push_back(m);
   return v;
 }
@@ -149,6 +153,8 @@ static std::vector<FromRadio> sampleFrom() {
   m = {}, m.reqId = 84, m.kind = FromKind::Channel, m.channel = "ops", m.psk = key(11);
   v.push_back(m);
   m = {}, m.reqId = 84, m.kind = FromKind::ChannelsEnd, m.count = 1;
+  v.push_back(m);
+  m = {}, m.reqId = 86, m.kind = FromKind::PinChallenge, m.nonce = Bytes(16, 9);   // 1.2
   v.push_back(m);
   m = {}, m.reqId = 85, m.kind = FromKind::Error, m.error = ErrorCode::ChannelLimit, m.detail = "at most 8 channels";
   v.push_back(m);

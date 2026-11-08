@@ -2,6 +2,11 @@
 /// correlation by `req_id`, and an event stream for `req_id == 0`.
 library;
 
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
+
 import 'dart:async';
 
 import 'package:protobuf/protobuf.dart' show InvalidProtocolBufferException;
@@ -53,6 +58,22 @@ class LinkClosedException implements Exception {
   @override
   String toString() => 'LinkClosedException: $reason';
 }
+
+/// The node wants a PIN and none is known for it.
+class PinRequiredException implements Exception {
+  /// Creates the exception.
+  const PinRequiredException();
+
+  @override
+  String toString() => 'PinRequiredException';
+}
+
+/// The `Hello` proof for [pin] (`docs/CLIENT_PROTOCOL.md` §7): the first 32
+/// bytes of HMAC-SHA-512(pin, "ghostwave-pin-v1" || serverNonce || clientNonce).
+List<int> pinProof(String pin, List<int> serverNonce, List<int> clientNonce) => Hmac(
+  sha512,
+  utf8.encode(pin),
+).convert([...utf8.encode('ghostwave-pin-v1'), ...serverNonce, ...clientNonce]).bytes.sublist(0, 32);
 
 /// No reply within the timeout.
 class ReplyTimeoutException implements Exception {
@@ -106,12 +127,32 @@ class LinkSession {
   bool get isClosed => _done.isCompleted;
 
   /// Sends `Hello` and returns the node's `NodeInfo`.
-  Future<pb.NodeInfo> hello(String clientName) async {
-    final r = await request(
+  ///
+  /// A node that wants a PIN answers with a challenge; [pinFor] then supplies
+  /// the PIN. Throws [PinRequiredException] if there is none, and [NodeError]
+  /// `BAD_PIN` if it is wrong.
+  Future<pb.NodeInfo> hello(String clientName, {Future<String?> Function()? pinFor}) async {
+    var r = await request(
       pb.ToRadio(
         hello: pb.Hello(protocolVersion: kProtocolVersion, clientName: clientName),
       ),
     );
+    if (r.hasPinChallenge()) {
+      final pin = await pinFor?.call();
+      if (pin == null) throw const PinRequiredException();
+      final rng = Random.secure();
+      final nonce = List<int>.generate(16, (_) => rng.nextInt(256));
+      r = await request(
+        pb.ToRadio(
+          hello: pb.Hello(
+            protocolVersion: kProtocolVersion,
+            clientName: clientName,
+            clientNonce: nonce,
+            pinProof: pinProof(pin, r.pinChallenge.nonce, nonce),
+          ),
+        ),
+      );
+    }
     if (!r.hasNodeInfo()) throw const LinkClosedException('unexpected reply to Hello');
     return r.nodeInfo;
   }

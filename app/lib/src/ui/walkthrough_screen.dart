@@ -21,7 +21,8 @@ const List<_Page> _pages = [
     Icons.lan_outlined,
     'Connect to your node',
     'This app controls one GhostWave node. Enter its address on the next screen. No radio yet? Run the '
-        'virtual mesh on a computer on the same Wi-Fi. Use a Wi-Fi network you trust: the link has no password yet.',
+        'virtual mesh on a computer on the same Wi-Fi. A node on a network asks for a PIN. Use a Wi-Fi network '
+        'you trust: the link is not encrypted.',
   ),
   _Page(
     Icons.qr_code_2,

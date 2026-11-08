@@ -35,6 +35,7 @@ Future<void> main() async {
         meshStoreProvider.overrideWithValue(MeshStore(dir)),
         meshAlertsProvider.overrideWithValue(alerts),
         offlineStoreProvider.overrideWithValue(OfflineStore(dir)),
+        pinStoreProvider.overrideWithValue(const SecurePinStore()),
       ],
       child: const GhostWaveApp(),
     ),

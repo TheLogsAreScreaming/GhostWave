@@ -468,10 +468,14 @@ class Hello extends $pb.GeneratedMessage {
   factory Hello({
     $core.int? protocolVersion,
     $core.String? clientName,
+    $core.List<$core.int>? clientNonce,
+    $core.List<$core.int>? pinProof,
   }) {
     final result = Hello._();
     if (protocolVersion != null) result.protocolVersion = protocolVersion;
     if (clientName != null) result.clientName = clientName;
+    if (clientNonce != null) result.clientNonce = clientNonce;
+    if (pinProof != null) result.pinProof = pinProof;
     return result;
   }
 
@@ -492,6 +496,10 @@ class Hello extends $pb.GeneratedMessage {
     ..aI(1, _omitFieldNames ? '' : 'protocolVersion',
         fieldType: $pb.PbFieldType.OU3)
     ..aOS(2, _omitFieldNames ? '' : 'clientName')
+    ..a<$core.List<$core.int>>(
+        3, _omitFieldNames ? '' : 'clientNonce', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        4, _omitFieldNames ? '' : 'pinProof', $pb.PbFieldType.OY)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -531,6 +539,25 @@ class Hello extends $pb.GeneratedMessage {
   $core.bool hasClientName() => $_has(1);
   @$pb.TagNumber(2)
   void clearClientName() => $_clearField(2);
+
+  /// protocol 1.2, answering PinChallenge (docs/CLIENT_PROTOCOL.md §7)
+  @$pb.TagNumber(3)
+  $core.List<$core.int> get clientNonce => $_getN(2);
+  @$pb.TagNumber(3)
+  set clientNonce($core.List<$core.int> value) => $_setBytes(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasClientNonce() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearClientNonce() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.List<$core.int> get pinProof => $_getN(3);
+  @$pb.TagNumber(4)
+  set pinProof($core.List<$core.int> value) => $_setBytes(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPinProof() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPinProof() => $_clearField(4);
 }
 
 /// Reply: SendQueued (msg_id assigned), later Delivered when the destination's
@@ -1490,6 +1517,7 @@ enum FromRadio_Event {
   channelMessage,
   channel,
   channelsEnd,
+  pinChallenge,
   notSet
 }
 
@@ -1515,6 +1543,7 @@ class FromRadio extends $pb.GeneratedMessage {
     ChannelMessage? channelMessage,
     Channel? channel,
     ChannelsEnd? channelsEnd,
+    PinChallenge? pinChallenge,
   }) {
     final result = FromRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -1537,6 +1566,7 @@ class FromRadio extends $pb.GeneratedMessage {
     if (channelMessage != null) result.channelMessage = channelMessage;
     if (channel != null) result.channel = channel;
     if (channelsEnd != null) result.channelsEnd = channelsEnd;
+    if (pinChallenge != null) result.pinChallenge = pinChallenge;
     return result;
   }
 
@@ -1568,6 +1598,7 @@ class FromRadio extends $pb.GeneratedMessage {
     25: FromRadio_Event.channelMessage,
     26: FromRadio_Event.channel,
     27: FromRadio_Event.channelsEnd,
+    28: FromRadio_Event.pinChallenge,
     0: FromRadio_Event.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1593,7 +1624,8 @@ class FromRadio extends $pb.GeneratedMessage {
       24,
       25,
       26,
-      27
+      27,
+      28
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'replayed')
@@ -1632,6 +1664,8 @@ class FromRadio extends $pb.GeneratedMessage {
         subBuilder: Channel.$_createMessage)
     ..aOM<ChannelsEnd>(27, _omitFieldNames ? '' : 'channelsEnd',
         subBuilder: ChannelsEnd.$_createMessage)
+    ..aOM<PinChallenge>(28, _omitFieldNames ? '' : 'pinChallenge',
+        subBuilder: PinChallenge.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1672,6 +1706,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(25)
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
+  @$pb.TagNumber(28)
   FromRadio_Event whichEvent() => _FromRadio_EventByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -1691,6 +1726,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(25)
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
+  @$pb.TagNumber(28)
   void clearEvent() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -1909,6 +1945,18 @@ class FromRadio extends $pb.GeneratedMessage {
   void clearChannelsEnd() => $_clearField(27);
   @$pb.TagNumber(27)
   ChannelsEnd ensureChannelsEnd() => $_ensure(19);
+
+  /// protocol 1.2
+  @$pb.TagNumber(28)
+  PinChallenge get pinChallenge => $_getN(20);
+  @$pb.TagNumber(28)
+  set pinChallenge(PinChallenge value) => $_setField(28, value);
+  @$pb.TagNumber(28)
+  $core.bool hasPinChallenge() => $_has(20);
+  @$pb.TagNumber(28)
+  void clearPinChallenge() => $_clearField(28);
+  @$pb.TagNumber(28)
+  PinChallenge ensurePinChallenge() => $_ensure(20);
 }
 
 class NodeInfo extends $pb.GeneratedMessage {
@@ -3579,6 +3627,67 @@ class ChannelsEnd extends $pb.GeneratedMessage {
   $core.bool hasCount() => $_has(0);
   @$pb.TagNumber(1)
   void clearCount() => $_clearField(1);
+}
+
+/// Reply to a Hello without a proof on a link that needs a PIN (protocol 1.2).
+/// Send Hello again with client_nonce and pin_proof. Each nonce works once.
+class PinChallenge extends $pb.GeneratedMessage {
+  factory PinChallenge({
+    $core.List<$core.int>? nonce,
+  }) {
+    final result = PinChallenge._();
+    if (nonce != null) result.nonce = nonce;
+    return result;
+  }
+
+  PinChallenge._();
+
+  factory PinChallenge.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PinChallenge()..mergeFromBuffer(data, registry);
+  factory PinChallenge.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PinChallenge()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PinChallenge',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: PinChallenge.$_createMessage)
+    ..a<$core.List<$core.int>>(
+        1, _omitFieldNames ? '' : 'nonce', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PinChallenge clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PinChallenge copyWith(void Function(PinChallenge) updates) =>
+      super.copyWith((message) => updates(message as PinChallenge))
+          as PinChallenge;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PinChallenge() / PinChallenge.new instead')
+  static PinChallenge create() => PinChallenge._();
+  static $pb.GeneratedMessage $_createMessage() => PinChallenge._();
+  @$core.override
+  PinChallenge createEmptyInstance() => PinChallenge._();
+  @$core.pragma('dart2js:noInline')
+  static PinChallenge getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PinChallenge>(
+          PinChallenge.$_createMessage);
+  static PinChallenge? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.List<$core.int> get nonce => $_getN(0);
+  @$pb.TagNumber(1)
+  set nonce($core.List<$core.int> value) => $_setBytes(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNonce() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNonce() => $_clearField(1);
 }
 
 const $core.bool _omitFieldNames =

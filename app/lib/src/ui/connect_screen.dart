@@ -9,6 +9,7 @@ import '../link/node_link.dart';
 import '../link/transport.dart';
 import 'format.dart';
 import 'theme.dart';
+import 'widgets.dart';
 
 /// Enter the node's `host:port`, connect, see the link state.
 class ConnectScreen extends ConsumerStatefulWidget {
@@ -27,6 +28,10 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   void initState() {
     super.initState();
     _address = TextEditingController(text: ref.read(nodeAddressProvider) ?? '');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(nodeLinkProvider).state case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
+    });
   }
 
   @override
@@ -48,8 +53,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(linkStateProvider, (_, next) {
+      if (next.value case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
+    });
     final state = ref.watch(linkStateProvider).value ?? const LinkIdle();
-    final active = state is! LinkIdle && state is! LinkFailed;
+    final active = state is! LinkIdle && state is! LinkFailed && state is! LinkNeedsPin;
     return Scaffold(
       appBar: AppBar(title: const Text('Connect to a node')),
       body: ListView(
@@ -141,6 +149,12 @@ class LinkStateCard extends ConsumerWidget {
         'Reconnecting in ${retryIn.inSeconds} s',
         '$target: $reason',
       ),
+      LinkNeedsPin(:final target, :final wrong) => (
+        Icons.lock_outline,
+        scheme.error,
+        wrong ? 'Wrong PIN' : 'PIN needed',
+        '$target asks for the PIN it printed when it started.',
+      ),
       LinkFailed(:final target, :final reason) => (Icons.error, scheme.error, 'Stopped', '$target: $reason'),
     };
     return Card(
@@ -148,9 +162,17 @@ class LinkStateCard extends ConsumerWidget {
         leading: Icon(icon, color: color, size: 32),
         title: Text(title),
         subtitle: Text(detail),
-        trailing: state is LinkWaiting || state is LinkFailed
-            ? TextButton(onPressed: () => ref.read(nodeLinkProvider).retryNow(), child: const Text('Retry now'))
-            : null,
+        trailing: switch (state) {
+          LinkNeedsPin() => TextButton(
+            onPressed: () => unawaited(askForPin(context, ref, state as LinkNeedsPin)),
+            child: const Text('Enter PIN'),
+          ),
+          LinkWaiting() || LinkFailed() => TextButton(
+            onPressed: () => ref.read(nodeLinkProvider).retryNow(),
+            child: const Text('Retry now'),
+          ),
+          _ => null,
+        },
       ),
     );
   }
@@ -213,8 +235,8 @@ class _Help extends StatelessWidget {
           '  firmware/pi/tools/vmesh_lan.sh -n 4 --lan\n'
           'from the GhostWave repo. It prints one address per virtual node '
           '(ports 47800 and up). Enter one here.\n\n'
-          'The link has no password yet: anyone on the network can drive the node. '
-          'Use a Wi-Fi you trust.',
+          'On a network the node asks for a PIN, which it prints at start. The PIN keeps others '
+          'from driving your node, but the traffic is not encrypted. Use a Wi-Fi you trust.',
           style: style,
         ),
       ),

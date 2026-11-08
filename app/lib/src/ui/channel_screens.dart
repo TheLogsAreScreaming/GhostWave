@@ -128,7 +128,7 @@ Future<void> showNewChannelDialog(BuildContext context) async {
       },
     ),
   );
-  ctl.dispose();
+  // not disposed here: the dialog's closing animation still uses it
   if (name == null || !context.mounted) return;
   final container = ProviderScope.containerOf(context, listen: false);
   try {

@@ -441,7 +441,7 @@ void testProtocol11() {
   ToRadio m;
   m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
   auto v = send(m);
-  CHECK(v.size() == 1 && v[0].protocolMinor == 1 && v[0].maxChannelTextBytes == 86);
+  CHECK(v.size() == 1 && v[0].protocolMinor == kProtocolMinor && v[0].maxChannelTextBytes == 86);
 
   Bytes psk(32);
   for (int i = 0; i < 32; ++i) psk[i] = static_cast<uint8_t>(i * 3 + 1);
@@ -511,7 +511,7 @@ void testProtocol11() {
   auto& pc = plain.t.add("tcp");
   plain.hello(pc);
   v = FakeTransport::drain(pc);
-  CHECK(v.size() == 1 && v[0].protocolMinor == 1 && v[0].maxChannelTextBytes == 0);
+  CHECK(v.size() == 1 && v[0].protocolMinor == kProtocolMinor && v[0].maxChannelTextBytes == 0);
   ToRadio q;
   q.reqId = 10, q.kind = ToKind::ListChannels;
   plain.req(pc, q);
@@ -523,6 +523,123 @@ void testProtocol11() {
   CHECK(v.size() == 1 && v[0].error == ErrorCode::NoIdentity);
 }
 
+// The PIN handshake (protocol 1.2).
+void testPin() {
+  std::printf("client handler: PIN\n");
+  // golden vector: Python hmac, the Dart app and this must agree
+  uint8_t sn[16], cn[16], out[32];
+  for (int i = 0; i < 16; ++i) sn[i] = static_cast<uint8_t>(i), cn[i] = static_cast<uint8_t>(16 + i);
+  gw::pinProof("424242", sn, cn, out);
+  const uint8_t golden[32] = {0x5e, 0x58, 0x62, 0xbc, 0xe3, 0xb4, 0x05, 0x9e, 0x23, 0x91, 0x6b, 0x5f, 0x74, 0x99, 0x66, 0xec,
+                              0x24, 0x29, 0x36, 0x25, 0x92, 0x01, 0x76, 0x00, 0xda, 0xb0, 0x03, 0xd8, 0xda, 0x21, 0x53, 0x19};
+  CHECK(std::memcmp(out, golden, 32) == 0);
+  CHECK(gw::pinProofEqual(out, golden));
+  out[31] ^= 1;
+  CHECK(!gw::pinProofEqual(out, golden));
+
+  Rig r;
+  uint8_t counter = 0;
+  r.h.requirePin("424242", [&](uint8_t* p, size_t n) { std::memset(p, ++counter, n); });
+  auto& c = r.t.add("tcp");
+  auto hello = [&](uint64_t now, const Bytes& cnonce, const Bytes& proof) {
+    ToRadio m;
+    m.reqId = 5, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientNonce = cnonce, m.pinProof = proof;
+    r.req(c, m, now);
+    return FakeTransport::drain(c);
+  };
+  auto challenge = [&](uint64_t now) {
+    auto v = hello(now, {}, {});
+    CHECK(v.size() == 1 && v[0].kind == FromKind::PinChallenge && v[0].reqId == 5 && v[0].nonce.size() == 16);
+    return v.empty() ? Bytes(16) : v[0].nonce;
+  };
+  auto proof = [&](const Bytes& nonce, const std::string& pin) {
+    Bytes cnonce(16, 0x77), p(32);
+    gw::pinProof(pin, nonce.data(), cnonce.data(), p.data());
+    return p;
+  };
+  Bytes cnonce(16, 0x77);
+
+  r.h.onMessage(0xAAAA0001, 1, {'s', 'e', 'c', 'r', 'e', 't'});   // held for an authenticated client
+
+  Bytes n = challenge(1000);
+  CHECK(!c.conn.hello);
+  ToRadio st;
+  st.reqId = 6, st.kind = ToKind::GetStatus;
+  r.req(c, st, 1000);
+  auto v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NeedHello);   // a challenge opens nothing
+
+  v = hello(1000, cnonce, proof(n, "000000"));
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadPin && !c.conn.hello);
+  // the nonce is spent: even the right PIN needs a new challenge (replay)
+  v = hello(1000, cnonce, proof(n, "424242"));
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadPin);
+  CHECK(r.h.queued() == 1);   // nothing leaked
+
+  // malformed proofs are wrong PINs, not crashes (third failure: 1 s lockout)
+  n = challenge(1000);
+  v = hello(1000, Bytes(3, 1), Bytes(5, 1));
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadPin);
+  n = challenge(1000);
+  v = hello(1500, cnonce, proof(n, "424242"));
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::RateLimited);   // locked, even with the right PIN
+  // the lockout covers other connections too
+  auto& c2 = r.t.add("tcp2");
+  ToRadio h2;
+  h2.reqId = 1, h2.kind = ToKind::Hello, h2.protocolVersion = 1;
+  r.req(c2, h2, 1500);
+  auto w = FakeTransport::drain(c2);
+  CHECK(w.size() == 1 && w[0].kind == FromKind::PinChallenge);
+  h2.clientNonce = cnonce, h2.pinProof = proof(w[0].nonce, "424242");
+  r.req(c2, h2, 1500);
+  w = FakeTransport::drain(c2);
+  CHECK(w.size() == 1 && w[0].error == ErrorCode::RateLimited);
+
+  n = challenge(2100);   // lockout over
+  v = hello(2100, cnonce, proof(n, "424242"));
+  CHECK(v.size() >= 1 && v[0].kind == FromKind::NodeInfo && c.conn.hello);
+  CHECK(v.size() == 2 && v[1].kind == FromKind::Text);   // held events only now
+  r.req(c, st, 2100);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Status);
+  ToRadio again;   // a later Hello on an authenticated link (after a rename) needs no proof
+  again.reqId = 9, again.kind = ToKind::Hello, again.protocolVersion = 1;
+  r.req(c, again, 2200);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::NodeInfo);
+
+  // lockouts double, capped at 5 minutes, and success resets the count
+  uint64_t now = 10000;
+  for (int i = 0; i < 12; ++i) {
+    auto& d = r.t.add("x" + std::to_string(i));
+    ToRadio bad;
+    bad.kind = ToKind::Hello, bad.protocolVersion = 1;
+    r.req(d, bad, now);
+    auto got = FakeTransport::drain(d);
+    bad.clientNonce = cnonce, bad.pinProof = proof(got[0].nonce, "111111");
+    r.req(d, bad, now);
+    got = FakeTransport::drain(d);
+    CHECK(got.size() == 1 && got[0].error == ErrorCode::BadPin);
+    now += 300001;
+  }
+  auto& e = r.t.add("late");
+  ToRadio q;
+  q.kind = ToKind::Hello, q.protocolVersion = 1;
+  r.req(e, q, now - 1);
+  auto got = FakeTransport::drain(e);
+  q.clientNonce = cnonce, q.pinProof = proof(got[0].nonce, "424242");
+  r.req(e, q, now - 1);
+  got = FakeTransport::drain(e);
+  CHECK(got.size() >= 1 && got[0].kind == FromKind::NodeInfo);   // 5 min cap held
+
+  // without requirePin (BLE) Hello needs no proof
+  Rig open;
+  auto& oc = open.t.add("ble");
+  open.hello(oc);
+  auto ov = FakeTransport::drain(oc);
+  CHECK(ov.size() == 1 && ov[0].kind == FromKind::NodeInfo);
+}
+
 int main() {
   testHelloGate();
   testQueueAndReplay();
@@ -531,6 +648,7 @@ int main() {
   testRequests();
   testBadFrames();
   testProtocol11();
+  testPin();
   std::printf("client handler: %d passed, %d failed\n", g_pass, g_fail);
   return g_fail ? 1 : 0;
 }

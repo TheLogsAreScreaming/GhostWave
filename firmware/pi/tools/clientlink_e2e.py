@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """clientlink_e2e.py: the client-link scenario run by clientlink_e2e.sh.
 
-  clientlink_e2e.py WORKDIR A_ADDR B_ADDR C_ADDR
+  clientlink_e2e.py WORKDIR A_ADDR B_ADDR C_ADDR PIN_ADDR AUTO_ADDR
 
 Three ghostwaved nodes on the virtual radio (A 0 km, B 1.5 km, C 3 km), each
 with --client-tcp. Drives them only through the client link (gwclient.py):
@@ -20,7 +20,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gwclient as g  # noqa: E402
 
-work, addr_a, addr_b, addr_c = sys.argv[1:5]
+work, addr_a, addr_b, addr_c, addr_pin, addr_auto = sys.argv[1:7]
 t0 = time.time()
 failed = []
 
@@ -202,8 +202,8 @@ else:   # a slow step above used up the minute: the check would be meaningless
     say("skip  second SOS within a minute (over a minute since SosStart)")
 
 # -------------------------------------------- group channels (protocol 1.1) --
-check(ia.get("protocol_minor") == 1 and ia.get("max_channel_text_bytes") == 86,
-      "NodeInfo: protocol_minor 1, max_channel_text_bytes 86")
+check(ia.get("protocol_minor") == 2 and ia.get("max_channel_text_bytes") == 86,
+      "NodeInfo: protocol_minor 2, max_channel_text_bytes 86")
 PSK = bytes(range(1, 33))
 for cl, who in ((a, "A"), (b, "B")):
     must(cl.request("add_channel", name="e2e crew", psk=PSK)[0]["kind"] == "ok", "%s joins #e2e crew" % who)
@@ -252,6 +252,45 @@ check(open(os.path.join(work, "B.key.name")).read().strip() == "Bee2", "B keeps 
 e = a.wait_event(lambda e: e["kind"] == "peer_ident" and e["node_id"] == ib["node_id"] and e["name"] == b"Bee2", 25)
 check(e is not None and not e["is_new"], "A's client hears B's new name over the air (IDENT, renamed)")
 
+# ------------------------------------------------- client PIN (protocol 1.2) --
+PIN = "424242"
+try:
+    g.Client(addr_pin, "no pin")
+    check(False, "a PIN node refuses a client with no PIN")
+except g.ClientError:
+    check(True, "a PIN node refuses a client with no PIN")
+s = raw(addr_pin)
+s.sendall(g.frame(g.encode_to_radio("hello", 1, protocol_version=1)))
+m = raw_reply(s)
+check(m and m["kind"] == "pin_challenge" and len(m["nonce"]) == 16, "Hello -> PinChallenge with a 16-byte nonce")
+s.sendall(g.frame(g.encode_to_radio("get_status", 2)))
+m2 = raw_reply(s)
+check(m2 and m2["code_name"] == "NEED_HELLO", "a challenge alone opens nothing -> NEED_HELLO")
+cn = b"\x11" * 16
+s.sendall(g.frame(g.encode_to_radio("hello", 3, protocol_version=1, client_nonce=cn,
+                                    pin_proof=g.pin_proof("000000", m["nonce"], cn))))
+m3 = raw_reply(s)
+check(m3 and m3["code_name"] == "BAD_PIN", "wrong PIN -> BAD_PIN")
+s.close()
+p = g.Client(addr_pin, "right pin", pin=PIN)
+check(p.info["kind"] == "node_info" and p.request("get_status")[0]["kind"] == "status",
+      "right PIN -> NodeInfo, and requests work")
+p.close()
+check(log_has("P", "client PIN: " + PIN), "the daemon prints the PIN it was given")
+path = os.path.join(work, "Q.key.pin")
+auto = open(path).read().strip() if os.path.exists(path) else ""
+check(len(auto) == 6 and auto.isdigit() and (os.stat(path).st_mode & 0o077) == 0,
+      "bound to the network: a 6-digit PIN is made, in a mode 600 file")
+check(log_has("Q", "client PIN: " + auto) and log_has("Q", "PIN required"), "...printed at start")
+try:
+    g.Client(addr_auto, "no pin")
+    check(False, "...and required")
+except g.ClientError:
+    check(True, "...and required")
+q = g.Client(addr_auto, "auto pin", pin=auto)
+check(q.info["kind"] == "node_info", "...and accepted")
+q.close()
+
 # ---------------------------------------------------- other live events --
 nb = [e for e in a.events + b.events if e["kind"] == "neighbor"]
 say("neighbor events seen: %d (beacons are minutes apart; not required)" % len(nb))
@@ -265,4 +304,4 @@ if failed:
     say("FAIL: %d check(s) failed: %s" % (len(failed), "; ".join(failed)))
     sys.exit(1)
 say("PASS: client link end to end (handshake, contacts, DM + receipt, offline replay, SOS + ack, channels, "
-    "rename, errors)")
+    "rename, PIN, errors)")
