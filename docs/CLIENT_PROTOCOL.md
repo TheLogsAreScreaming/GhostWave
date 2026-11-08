@@ -27,7 +27,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | Transport | Status | Notes |
 |---|---|---|
 | TCP | done (`ghostwaved`) | Off by default. `--client-tcp 4403` listens on 127.0.0.1:4403. A host must be named explicitly to listen anywhere else (see §7). Up to 4 clients at once. |
-| BLE | done (RAK4631; T1000-E next) | A GhostWave GATT service: the app writes frames to ToRadio, the node notifies on FromRadio. The same frames, unchanged. Pairing required. See §9. Not on the ESP32 builds yet. |
+| BLE | done (RAK4631, T1000-E) | A GhostWave GATT service: the app writes frames to ToRadio, the node notifies on FromRadio. The same frames, unchanged. Pairing required. See §9. Not on the ESP32 builds yet. |
 | USB serial | planned | The same frames. Garbage before a magic is skipped, so boot logs on the same port are harmless. |
 
 All transports carry one byte stream in each direction, made of frames.
@@ -274,7 +274,7 @@ Test vectors are byte-exact frames checked by `firmware/tests/test_client_proto.
 
 ## 9. BLE transport
 
-Used by the nRF52 node firmware (`firmware/mcu`, env `rak4631`), with Bluefruit on the Adafruit nRF52
+Used by the nRF52 node firmware (`firmware/mcu`, envs `rak4631` and `t1000e`), with Bluefruit on the Adafruit nRF52
 core. The bytes are the §2 frames, unchanged; BLE only carries them.
 
 ### Service
@@ -324,7 +324,8 @@ core. The bytes are the §2 frames, unchanged; BLE only carries them.
   while no app had sent `Hello` are replayed after `NodeInfo` (§5). On the MCU the queue holds
   **32** events, not 64. It lives in RAM, so a reboot empties it, and it only fills while BLE is on
   (`ble on`).
-- `NodeInfo.firmware` reads `ghostwave-rak4631 0.1.0-dev.1` (board and version). The MCU firmware has
+- `NodeInfo.firmware` reads `ghostwave-rak4631 0.1.0-dev.1` or `ghostwave-t1000e 0.1.0-dev.1` (board and
+  version). The MCU firmware has
   an X25519 identity only, so `NodeInfo.legacy` is true and contacts are pinned like on a legacy
   daemon. `AddContact` takes an Ed25519 key (its node ID is derived from it) or an X25519 key plus
   node ID, and saves it in flash with the serial CLI's `peer` keys (32 at most).

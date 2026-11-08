@@ -90,8 +90,58 @@ constexpr int kPin3v3SEnable = 34;
 #define GW_HAS_BLE 1
 #define GW_NRF52 1
 
+#elif defined(GW_BOARD_T1000E)
+// Seeed SenseCAP T1000-E. Sources: Seeed's T1000-E SDK (smtc_hal_config.h),
+// Seeed's Arduino variant and meshtastic/firmware @ 11e3b28
+// variants/nrf52840/tracker-t1000-e (variants/t1000e/variant.h cites them).
+#define GW_BOARD_NAME "t1000e"
+#define GW_RADIO_LR1110 1
+constexpr int kPinLoraCs = 12;      // P0.12 NSS
+constexpr int kPinLoraDio1 = 33;    // P1.01 LR1110 IRQ (DIO9)
+constexpr int kPinLoraBusy = 7;     // P0.07 BUSY
+constexpr int kPinLoraRst = 42;     // P1.10 NRESET
+// SCK P0.11 / MOSI P1.09 / MISO P1.08 are the variant's default SPI pins.
+// TCXO on the LR1110's VTCXO pin. The sources disagree: Meshtastic 1.6 V
+// (LR11X0_DIO3_TCXO_VOLTAGE, used on every Meshtastic T1000-E), Seeed's
+// Arduino LoRaWAN library 1.8 V, Seeed's SDK shield file 3.0 V. Meshtastic's
+// value is the one proven on many boards, so it is used; see
+// BOARD_PIN_EVIDENCE.md. -DGW_TCXO_VOLTS=... overrides it.
+#ifndef GW_TCXO_VOLTS
+#define GW_TCXO_VOLTS 1.6f
+#endif
+constexpr float kTcxoVolts = GW_TCXO_VOLTS;
+#define GW_HAS_KCT8103L 0
+#define GW_HAS_BLE 1
+#define GW_NRF52 1
+
+#define GW_HAS_GPS 1                // AG3335 on Serial1 (variant: RX P0.14, TX P0.13)
+constexpr uint32_t kGpsBaud = 115200;   // Meshtastic GPS_BAUDRATE; AG3335 default
+constexpr int kPinGpsPower = 43;    // P1.11 AG3335_POWER_EN, HIGH = on
+constexpr int kPinGpsVrtc = 8;      // P0.08 AG3335_VRTC_EN, HIGH (backup RTC supply)
+constexpr int kPinGpsReset = 47;    // P1.15 AG3335_RESET, HIGH = held in reset (Meshtastic GPS_RESET_MODE HIGH)
+constexpr int kPinGpsSleepInt = 44; // P1.12 AG3335_SLEEP_INT, HIGH = awake
+constexpr int kPinGpsRtcInt = 15;   // P0.15 AG3335_RTC_INT, LOW normally
+constexpr int kPinGpsResetbOut = 46;// P1.14 AG3335_RESETB_OUT, input with pull-up
+
+#define GW_HAS_UI 1                 // button + buzzer + LED + battery
+constexpr int kPinButton = 6;       // P0.06, active HIGH, pull-down
+constexpr int kPinLed = 24;         // P0.24 green, active HIGH
+constexpr int kPinBuzzerEn = 37;    // P1.05 BUZZER_POWER_EN, HIGH = on
+constexpr int kPinBuzzer = 25;      // P0.25 PWM
+constexpr int kPinBattery = 2;      // P0.02 / AIN0, VBAT through a 1:2 divider (Meshtastic ADC_MULTIPLIER 2.0)
+constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_EN): on, as Meshtastic does
+// Not driven: P0.04, which Meshtastic drives HIGH as "sensor enable" but
+// Seeed's SDK lists as SENSE_ADC_VCC, an analog input.
+
 #else
-#error "Define GW_BOARD_TRACKER_V2, GW_BOARD_HELTEC_V3 or GW_BOARD_RAK4631 (see platformio.ini)"
+#error "Define GW_BOARD_TRACKER_V2, GW_BOARD_HELTEC_V3, GW_BOARD_RAK4631 or GW_BOARD_T1000E (see platformio.ini)"
+#endif
+
+#ifndef GW_RADIO_LR1110
+#define GW_RADIO_LR1110 0
+#endif
+#ifndef GW_HAS_UI
+#define GW_HAS_UI 0
 #endif
 
 #ifndef GW_HAS_ANT_POWER
