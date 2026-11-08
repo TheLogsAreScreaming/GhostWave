@@ -138,6 +138,7 @@ struct RouterStats {
   uint32_t rxAuthFail = 0, sosHeard = 0, sosTx = 0;
   uint32_t identTx = 0, identRx = 0, identBad = 0, keyChanges = 0;
   uint32_t beaconMacBad = 0;   // beacons with a wrong MAC, or none when one is required
+  uint32_t dtnOffersSkipped = 0;   // spray copies not handed over: the neighbor's filter has them
   uint64_t airMs = 0;
 };
 

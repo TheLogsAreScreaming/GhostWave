@@ -261,8 +261,11 @@ Each node has a **custody store** (firmware: 64 entries × ≤ 200 bytes = 12.8 
 - Min 30 s between attempts per entry.
 - **Purge** on overheard E2E `ACK`, on TTL expiry (default 6 h, SOS 24 h), or on eviction
   (lowest priority first, then oldest).
-- The `dtn_summary` Bloom filter in beacons lets neighbors skip offering messages the other
-  side already carries.
+- The `dtn_summary` Bloom filter in beacons lets a spray holder skip handing copies to a
+  neighbor that already carries the message. A filter with more than 32 of its 64 bits set is
+  ignored for this: about one message in four would look held when it is not. Delivery to `dst`
+  is never filtered. Store-carry GEO retries are not either: they go to whichever neighbor is
+  best, and the resend is how the sender learns a neighbor took the message.
 
 ### 5.5 End-to-end ACK
 
@@ -565,12 +568,11 @@ Identity mapping is explicit (the user pairs contacts). The bridge never forward
    The 10-neighbor gate is a first guess.
 5. Bridge identity model.
 6. Not yet implemented in firmware: client protocol, the
-   regulatory duty-cycle cap, Bloom-filter use on receive for DTN
-   *data* (it is used for SOS), and IDENT in the Pi daemon (it still loads an X25519 secret
+   regulatory duty-cycle cap, and IDENT in the Pi daemon (it still loads an X25519 secret
    and peer keys from files). Implemented since v0.1: ChaCha20-Poly1305 AEAD for DATA (DM +
    channel keys), the SOS lane (§8), IDENT (§4.5), Ed25519 → X25519 secret-key conversion and
-   velocity in beacons (sent and stored; no forwarding decision uses it yet) and the beacon
-   MAC (§9.1).
+   velocity in beacons (sent and stored; no forwarding decision uses it yet), the beacon
+   MAC (§9.1) and Bloom-filter use for spray hand-offs (§5.4).
 7. SOS cost: in backcountry with 6 concurrent SOS events the lane spends ~3× flood3's SOS
    airtime, because every node holds and re-offers every SOS. Its reach to fixed nodes beats flood3 in the
    tail but not flood7 (§14). Worth trying: coarser (per-15-min) Bloom keys for updates,

@@ -18,6 +18,7 @@ constexpr size_t kGossipEntries = 3;
 constexpr size_t kGossipSize = 11;
 constexpr size_t kBeaconFixed = 13;   // flags, velocity, util, store count, bloom
 constexpr size_t kBloomOff = 5;
+constexpr int kBloomMaxBits = 32;     // past this a DTN offer ignores the filter
 constexpr uint8_t kBeaconHasGps = 0x01;
 // Beacon velocity (DESIGN §4.4), measured from successive position fixes.
 constexpr uint64_t kVelWindowMs = 20 * 1000;
@@ -91,6 +92,15 @@ void bloomAdd(uint8_t* bloom, uint32_t src, uint32_t mid) {
 bool bloomHas(const uint8_t* bloom, uint32_t src, uint32_t mid) {
   uint32_t h = bloomHash(src, mid);
   return (bloom[(h & 63) / 8] & (1 << (h & 7))) && (bloom[((h >> 6) & 63) / 8] & (1 << ((h >> 6) & 7)));
+}
+// True if a filter is empty enough to act on. With half its bits set about one
+// message in four looks held when it is not (fill squared, k = 2), and a full
+// store would otherwise look like it holds everything and starve of offers.
+bool bloomUsable(const uint8_t* bloom) {
+  int bits = 0;
+  for (int i = 0; i < 8; ++i)
+    for (uint8_t b = bloom[i]; b; b &= b - 1) ++bits;
+  return bits <= kBloomMaxBits;
 }
 
 // seq numbers wrap: a is newer than b if it is ahead by less than half the space
@@ -770,6 +780,7 @@ void Router::onBeacon(const Packet& p, uint64_t now) {
     }
   }
   if (!havePos_) return;
+  const bool useBloom = bloom && bloomUsable(bloom);
   std::vector<Key> keys;
   for (auto& [k, e] : store_) keys.push_back(k);
   for (const Key& k : keys) {
@@ -793,6 +804,12 @@ void Router::onBeacon(const Packet& p, uint64_t now) {
           distanceM(p.fwdPos, e.pkt.dstPos) < myDist - cfg_.progressThresholdM)
         reattempt(k, now);
     } else if (e.copies > 1 && !e.given.count(shortId(p.src))) {
+      // It already carries this one (§5.4). A false positive only keeps the
+      // copies for the next neighbor or its next beacon, so `given` stays unset.
+      if (useBloom && bloomHas(bloom, k.src, k.mid)) {
+        ++stats_.dtnOffersSkipped;
+        continue;
+      }
       e.given.insert(shortId(p.src));
       unicast(e.pkt, shortId(p.src), e.copies / 2, now);
     }
