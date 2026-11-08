@@ -35,11 +35,24 @@ uint32_t nodeIdOf(const uint8_t edPub[kKeySize]);
 // False for IDs a key may not own: 0, broadcast, or short ID 0 (= anycast).
 bool nodeIdUsable(uint32_t id);
 
-// Client-link PIN proof (docs/CLIENT_PROTOCOL.md §7): the first 32 bytes of
-// HMAC-SHA-512(pin, "ghostwave-pin-v1" || serverNonce || clientNonce).
-constexpr size_t kPinNonceSize = 16, kPinProofSize = 32;
-void pinProof(const std::string& pin, const uint8_t serverNonce[kPinNonceSize],
-              const uint8_t clientNonce[kPinNonceSize], uint8_t out[kPinProofSize]);
+// Encrypted client link (docs/CLIENT_PROTOCOL.md §7): a balanced PAKE over
+// X25519. The generator comes from the PIN, so neither a listener nor a fake
+// node gets anything to test PIN guesses against offline.
+constexpr size_t kPinNonceSize = 16, kPinProofSize = 32, kLinkTagSize = 16;
+struct LinkKeys {
+  uint8_t clientToNode[kKeySize], nodeToClient[kKeySize], confirm[kPinProofSize];
+};
+// Our share: X25519(secret, generator(pin, nonce)).
+void linkShare(const std::string& pin, const uint8_t nonce[kPinNonceSize], const uint8_t secret[kKeySize],
+               uint8_t share[kKeySize]);
+// Keys from our secret and the peer's share. False for a low-order share.
+bool linkKeys(const uint8_t secret[kKeySize], const uint8_t theirShare[kKeySize], const uint8_t nonce[kPinNonceSize],
+              const uint8_t serverShare[kKeySize], const uint8_t clientShare[kKeySize], LinkKeys& out);
+// ChaCha20-Poly1305, nonce = 4 zero bytes || seq (little-endian). `seq` must
+// never repeat under one key. Writes n + kLinkTagSize bytes.
+void linkSeal(const uint8_t key[kKeySize], uint64_t seq, const uint8_t* plain, size_t n, uint8_t* out);
+// Opens `n` bytes from linkSeal (tag included) into `plain` (n - tag bytes).
+bool linkOpen(const uint8_t key[kKeySize], uint64_t seq, const uint8_t* sealed, size_t n, uint8_t* plain);
 // Constant-time comparison of two proofs.
 bool pinProofEqual(const uint8_t a[kPinProofSize], const uint8_t b[kPinProofSize]);
 

@@ -37,6 +37,8 @@ import time
 MAGIC = b"\x94\xc3"
 VERSION = 1
 MAX_BODY = 176  # version byte + protobuf
+SECURE_VERSION = 2
+MAX_SECURE_BODY = MAX_BODY + 16
 
 # ----------------------------------------------------------------- schema --
 # field number -> (name, type). Types: u32 u64 bool sint fx32 bytes str
@@ -46,7 +48,7 @@ MAX_BODY = 176  # version byte + protobuf
 POSITION = {1: ("lat_e7", "sint"), 2: ("lon_e7", "sint")}
 
 TO_REQUESTS = {
-    10: ("hello", {1: ("protocol_version", "u32"), 2: ("client_name", "str"), 3: ("client_nonce", "bytes"),
+    10: ("hello", {1: ("protocol_version", "u32"), 2: ("client_name", "str"), 3: ("client_share", "bytes"),
                    4: ("pin_proof", "bytes")}),
     11: ("send_text", {1: ("dest", "fx32"), 2: ("text", "bytes"), 3: ("client_msg_id", "u32")}),
     12: ("add_contact", {1: ("node_id", "fx32"), 2: ("ed25519_pub", "bytes"),
@@ -98,7 +100,7 @@ FROM_EVENTS = {
     26: ("channel", {1: ("name", "str"), 2: ("psk", "bytes")}),
     27: ("channels_end", {1: ("count", "u32")}),
     # protocol 1.2
-    28: ("pin_challenge", {1: ("nonce", "bytes")}),
+    28: ("pin_challenge", {1: ("nonce", "bytes"), 2: ("server_share", "bytes")}),
 }
 
 ERRORS = ["NONE", "BAD_FRAME", "BAD_VERSION", "UNKNOWN_REQUEST", "NEED_HELLO", "BAD_ARGUMENT",
@@ -252,7 +254,7 @@ def decode_from_radio(buf):
 
 
 def frame(pb, version=VERSION):
-    if len(pb) + 1 > MAX_BODY:
+    if len(pb) + 1 > (MAX_SECURE_BODY if version == SECURE_VERSION else MAX_BODY):
         raise ValueError("message too long for a frame")
     return MAGIC + struct.pack("<H", len(pb) + 1) + bytes([version]) + pb
 
@@ -276,7 +278,7 @@ class FrameReader:
             if len(self.buf) < 4:
                 return
             ln = self.buf[2] | self.buf[3] << 8
-            if ln == 0 or ln > MAX_BODY:
+            if ln == 0 or ln > MAX_SECURE_BODY:
                 del self.buf[:1]
                 continue
             if len(self.buf) < 4 + ln:
@@ -301,13 +303,22 @@ class Client:
         self.events = []  # unsolicited events (req_id 0), in arrival order
         self.replies = {}  # req_id -> list of messages
         self.next_req = 1
+        self.tx = self.rx = None  # LinkCipher, once the PIN handshake is done
+        self.encrypted = False
         self.info = self.request("hello", protocol_version=VERSION, client_name=name)[0]
         if self.info["kind"] == "pin_challenge":
             if pin is None:
                 raise ClientError("this node wants a PIN (--pin)")
-            cn = os.urandom(16)
-            self.info = self.request("hello", protocol_version=VERSION, client_name=name, client_nonce=cn,
-                                     pin_proof=pin_proof(pin, self.info["nonce"], cn))[0]
+            ch = self.info
+            if len(ch.get("server_share", b"")) != 32:
+                raise ClientError("this node has no encrypted link (update it)")
+            secret = os.urandom(32)
+            share = link_share(pin, ch["nonce"], secret)
+            keys = link_keys(secret, ch["server_share"], ch["nonce"], ch["server_share"], share)
+            req = self.send("hello", protocol_version=VERSION, client_name=name, client_share=share,
+                            pin_proof=keys["confirm"])
+            self.tx, self.rx = LinkCipher(keys["c2s"]), LinkCipher(keys["s2c"])
+            self.info = self.wait_reply(req, 5.0)
         if self.info["kind"] != "node_info":
             raise ClientError("hello failed: %r" % self.info)
 
@@ -317,8 +328,18 @@ class Client:
     def send(self, kind, **values):
         req = self.next_req
         self.next_req += 1
-        self.sock.sendall(frame(encode_to_radio(kind, req, **values)))
+        pb = encode_to_radio(kind, req, **values)
+        self.sock.sendall(frame(self.tx.seal(pb), SECURE_VERSION) if self.tx else frame(pb))
         return req
+
+    def wait_reply(self, req, timeout):
+        end = time.time() + timeout
+        while time.time() < end:
+            if req in self.replies:
+                return self.replies.pop(req)[0]
+            if not self.pump(end - time.time()):
+                raise ClientError("node closed the connection")
+        raise ClientError("no reply")
 
     def pump(self, timeout):
         """Reads whatever arrives within `timeout` s; returns False if the node closed."""
@@ -330,8 +351,15 @@ class Client:
             return False
         self.reader.push(data)
         for ver, body in self.reader.frames():
-            if ver != VERSION:
+            if self.rx and ver == SECURE_VERSION:
+                body = self.rx.open(body)
+                if body is None:
+                    raise ClientError("encrypted link failed its check")
+                self.encrypted = True
+            elif ver != VERSION:
                 raise ClientError("node sent frame version %d" % ver)
+            elif self.rx and self.encrypted:
+                raise ClientError("unencrypted frame on an encrypted link")
             m = decode_from_radio(body)
             if m["req_id"]:
                 self.replies.setdefault(m["req_id"], []).append(m)
@@ -366,10 +394,126 @@ class Client:
                 raise ClientError("node closed the connection")
 
 
-def pin_proof(pin, server_nonce, client_nonce):
-    """The Hello proof for a PIN (docs/CLIENT_PROTOCOL.md section 7)."""
-    msg = b"ghostwave-pin-v1" + server_nonce + client_nonce
-    return hmac.new(pin.encode(), msg, hashlib.sha512).digest()[:32]
+# ---------------------------------------- encrypted link (protocol section 7) --
+# Standalone on purpose: this script has no dependencies, and it doubles as a
+# second implementation to check the C++ and Dart ones against.
+P25519 = 2**255 - 19
+A25519 = 486662
+
+
+def x25519(k, u):
+    """RFC 7748."""
+    k = bytearray(k)
+    k[0] &= 248
+    k[31] = (k[31] & 127) | 64
+    k = int.from_bytes(k, "little")
+    u = int.from_bytes(u, "little") & (2**255 - 1)
+    x2, z2, x3, z3, swap = 1, 0, u, 1, 0
+    for t in range(254, -1, -1):
+        bit = (k >> t) & 1
+        if swap ^ bit:
+            x2, x3, z2, z3 = x3, x2, z3, z2
+        swap = bit
+        a, b = (x2 + z2) % P25519, (x2 - z2) % P25519
+        c, d = (x3 + z3) % P25519, (x3 - z3) % P25519
+        aa, bb = a * a % P25519, b * b % P25519
+        e = (aa - bb) % P25519
+        da, cb = d * a % P25519, c * b % P25519
+        x3 = (da + cb) ** 2 % P25519
+        z3 = u * (da - cb) ** 2 % P25519
+        x2 = aa * bb % P25519
+        z2 = e * (aa + 121665 * e) % P25519
+    if swap:
+        x2, z2 = x3, z3
+    return (x2 * pow(z2, P25519 - 2, P25519) % P25519).to_bytes(32, "little")
+
+
+def elligator_map(hidden):
+    r = int.from_bytes(hidden[:31] + bytes([hidden[31] & 0x3f]), "little") % P25519
+    w = -A25519 * pow(1 + 2 * r * r, P25519 - 2, P25519) % P25519
+    curve = (w * w * w + A25519 * w * w + w) % P25519
+    square = pow(curve, (P25519 - 1) // 2, P25519) != P25519 - 1
+    return (w if square else (-w - A25519) % P25519).to_bytes(32, "little")
+
+
+def link_share(pin, nonce, secret):
+    p = pin.encode()
+    h = hashlib.sha512(b"ghostwave-pake-v1" + bytes([len(p)]) + p + nonce).digest()
+    return x25519(secret, elligator_map(h))
+
+
+def link_keys(secret, their_share, nonce, server_share, client_share):
+    shared = x25519(secret, their_share)
+    if shared == bytes(32):
+        raise ClientError("low-order share")
+    okm = hmac.new(shared, b"ghostwave-link-v1" + nonce + server_share + client_share, hashlib.sha512).digest()
+    return {"c2s": okm[:32], "s2c": okm[32:],
+            "confirm": hmac.new(okm, b"ghostwave-link-confirm", hashlib.sha512).digest()[:32]}
+
+
+def _chacha_block(key, counter, nonce):
+    def rotl(v, c):
+        return ((v << c) | (v >> (32 - c))) & 0xffffffff
+
+    st = list(struct.unpack("<4I", b"expand 32-byte k")) + list(struct.unpack("<8I", key)) + [counter] + \
+        list(struct.unpack("<3I", nonce))
+    x = st[:]
+
+    def qr(a, b, c, d):
+        x[a] = (x[a] + x[b]) & 0xffffffff; x[d] = rotl(x[d] ^ x[a], 16)
+        x[c] = (x[c] + x[d]) & 0xffffffff; x[b] = rotl(x[b] ^ x[c], 12)
+        x[a] = (x[a] + x[b]) & 0xffffffff; x[d] = rotl(x[d] ^ x[a], 8)
+        x[c] = (x[c] + x[d]) & 0xffffffff; x[b] = rotl(x[b] ^ x[c], 7)
+
+    for _ in range(10):
+        qr(0, 4, 8, 12), qr(1, 5, 9, 13), qr(2, 6, 10, 14), qr(3, 7, 11, 15)
+        qr(0, 5, 10, 15), qr(1, 6, 11, 12), qr(2, 7, 8, 13), qr(3, 4, 9, 14)
+    return struct.pack("<16I", *[(a + b) & 0xffffffff for a, b in zip(x, st)])
+
+
+def _chacha_xor(key, counter, nonce, data):
+    out = bytearray()
+    for i in range(0, len(data), 64):
+        block = _chacha_block(key, counter + i // 64, nonce)
+        out += bytes(a ^ b for a, b in zip(data[i:i + 64], block))
+    return bytes(out)
+
+
+def _poly1305(key, msg):
+    r = int.from_bytes(key[:16], "little") & 0x0ffffffc0ffffffc0ffffffc0fffffff
+    s, a, p = int.from_bytes(key[16:], "little"), 0, 2**130 - 5
+    for i in range(0, len(msg), 16):
+        a = (a + int.from_bytes(msg[i:i + 16] + b"\x01", "little")) * r % p
+    return ((a + s) & (2**128 - 1)).to_bytes(16, "little")
+
+
+class LinkCipher:
+    """One direction: ChaCha20-Poly1305 with a counter nonce, no associated data."""
+
+    def __init__(self, key):
+        self.key, self.seq = key, 0
+
+    def _nonce(self):
+        return bytes(4) + struct.pack("<Q", self.seq)
+
+    def _tag(self, nonce, ct):
+        pad = bytes(-len(ct) % 16)
+        return _poly1305(_chacha_block(self.key, 0, nonce)[:32], ct + pad + struct.pack("<QQ", 0, len(ct)))
+
+    def seal(self, plain):
+        n = self._nonce()
+        self.seq += 1
+        ct = _chacha_xor(self.key, 1, n, plain)
+        return ct + self._tag(n, ct)
+
+    def open(self, sealed):
+        if len(sealed) < 16:
+            return None
+        n, ct = self._nonce(), sealed[:-16]
+        if not hmac.compare_digest(self._tag(n, ct), sealed[-16:]):
+            return None
+        self.seq += 1
+        return _chacha_xor(self.key, 1, n, ct)
 
 
 def share_text(name, psk):

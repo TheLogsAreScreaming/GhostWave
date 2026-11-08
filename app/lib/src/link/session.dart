@@ -2,17 +2,13 @@
 /// correlation by `req_id`, and an event stream for `req_id == 0`.
 library;
 
-import 'dart:convert';
-import 'dart:math';
-
-import 'package:crypto/crypto.dart';
-
 import 'dart:async';
 
 import 'package:protobuf/protobuf.dart' show InvalidProtocolBufferException;
 
 import '../gen/ghostwave.pb.dart' as pb;
 import 'frame_codec.dart';
+import 'link_crypto.dart';
 import 'transport.dart';
 
 /// A request the node answered with `Error`.
@@ -68,13 +64,6 @@ class PinRequiredException implements Exception {
   String toString() => 'PinRequiredException';
 }
 
-/// The `Hello` proof for [pin] (`docs/CLIENT_PROTOCOL.md` §7): the first 32
-/// bytes of HMAC-SHA-512(pin, "ghostwave-pin-v1" || serverNonce || clientNonce).
-List<int> pinProof(String pin, List<int> serverNonce, List<int> clientNonce) => Hmac(
-  sha512,
-  utf8.encode(pin),
-).convert([...utf8.encode('ghostwave-pin-v1'), ...serverNonce, ...clientNonce]).bytes.sublist(0, 32);
-
 /// No reply within the timeout.
 class ReplyTimeoutException implements Exception {
   /// Creates the exception.
@@ -110,6 +99,9 @@ class LinkSession {
   final Duration replyTimeout;
 
   final FrameReader _reader = FrameReader();
+  LinkCipher? _tx;
+  LinkCipher? _rx;
+  bool _rxConfirmed = false;
   final Map<int, _Pending> _pending = <int, _Pending>{};
   final StreamController<pb.FromRadio> _events = StreamController<pb.FromRadio>.broadcast(sync: true);
   final Completer<String> _done = Completer<String>();
@@ -123,15 +115,26 @@ class LinkSession {
   /// Completes with the reason when the session ends.
   Future<String> get done => _done.future;
 
+  /// Whether the node has proved it holds the session keys, so this link is
+  /// encrypted and authenticated.
+  bool get isEncrypted => _rxConfirmed;
+
   /// Whether the session has ended.
   bool get isClosed => _done.isCompleted;
 
   /// Sends `Hello` and returns the node's `NodeInfo`.
   ///
   /// A node that wants a PIN answers with a challenge; [pinFor] then supplies
-  /// the PIN. Throws [PinRequiredException] if there is none, and [NodeError]
-  /// `BAD_PIN` if it is wrong.
-  Future<pb.NodeInfo> hello(String clientName, {Future<String?> Function()? pinFor}) async {
+  /// the PIN and the link is encrypted from that point. Throws
+  /// [PinRequiredException] if there is none, and [NodeError] `BAD_PIN` if it
+  /// is wrong. With [requireEncrypted], a node that doesn't encrypt is refused
+  /// with [TransportFatalException]: someone on the network could be posing
+  /// as a node with no PIN.
+  Future<pb.NodeInfo> hello(
+    String clientName, {
+    Future<String?> Function()? pinFor,
+    bool requireEncrypted = false,
+  }) async {
     var r = await request(
       pb.ToRadio(
         hello: pb.Hello(protocolVersion: kProtocolVersion, clientName: clientName),
@@ -140,22 +143,44 @@ class LinkSession {
     if (r.hasPinChallenge()) {
       final pin = await pinFor?.call();
       if (pin == null) throw const PinRequiredException();
-      final rng = Random.secure();
-      final nonce = List<int>.generate(16, (_) => rng.nextInt(256));
-      r = await request(
+      final challenge = r.pinChallenge;
+      if (challenge.nonce.length != 16 || challenge.serverShare.length != 32) {
+        throw const TransportFatalException(_updateNode);
+      }
+      final secret = newLinkSecret();
+      final share = await linkShare(pin, challenge.nonce, secret);
+      final keys = await linkKeys(
+        secret: secret,
+        theirShare: challenge.serverShare,
+        nonce: challenge.nonce,
+        serverShare: challenge.serverShare,
+        clientShare: share,
+      );
+      if (keys == null) throw const TransportFatalException(_badHandshake);
+      final reply = request(
         pb.ToRadio(
           hello: pb.Hello(
             protocolVersion: kProtocolVersion,
             clientName: clientName,
-            clientNonce: nonce,
-            pinProof: pinProof(pin, r.pinChallenge.nonce, nonce),
+            clientShare: share,
+            pinProof: keys.confirm,
           ),
         ),
       );
+      // The proof above went out in clear, as it must. Everything after it is
+      // sealed, starting with the node's reply.
+      _tx = LinkCipher(keys.clientToNode);
+      _rx = LinkCipher(keys.nodeToClient);
+      r = await reply;
     }
     if (!r.hasNodeInfo()) throw const LinkClosedException('unexpected reply to Hello');
+    if (requireEncrypted && !isEncrypted) throw const TransportFatalException(_updateNode);
     return r.nodeInfo;
   }
+
+  static const _updateNode =
+      'This node did not offer an encrypted connection, so GhostWave did not connect. Update the node, and check you are on the right network.';
+  static const _badHandshake = 'The node sent an invalid handshake, so GhostWave did not connect.';
 
   /// Sends [msg] with a fresh `req_id` and returns the single reply. Throws
   /// [NodeError] if the reply is `Error`.
@@ -193,7 +218,9 @@ class LinkSession {
     final id = _nextReq;
     _nextReq = _nextReq >= 0x7FFFFFFF ? 1 : _nextReq + 1;
     final req = msg.deepCopy()..reqId = id;
-    final frame = encodeFrame(req.writeToBuffer());
+    final tx = _tx;
+    final bytes = req.writeToBuffer();
+    final frame = tx == null ? encodeFrame(bytes) : encodeFrame(tx.seal(bytes), version: kSecureVersion);
     final p = _Pending(multi: multi);
     _pending[id] = p;
     _conn.write(frame);
@@ -213,15 +240,37 @@ class LinkSession {
         case BadLength():
           break; // resynced; nothing to report to the app
         case Frame(:final version, :final body):
-          if (version != kProtocolVersion) {
-            _shutdown('the node speaks protocol version $version');
+          final List<int> plain;
+          final rx = _rx;
+          if (rx != null && version == kSecureVersion) {
+            final opened = rx.open(body);
+            if (opened == null) {
+              _shutdown('the encrypted link failed its check');
+              return;
+            }
+            _rxConfirmed = true;
+            plain = opened;
+          } else if (version != kProtocolVersion || rx != null && _rxConfirmed) {
+            _shutdown(
+              rx != null && _rxConfirmed
+                  ? 'an unencrypted frame arrived on the encrypted link'
+                  : 'the node speaks protocol version $version',
+            );
             return;
+          } else {
+            plain = body;
           }
           final pb.FromRadio m;
           try {
-            m = pb.FromRadio.fromBuffer(body);
+            m = pb.FromRadio.fromBuffer(plain);
           } on InvalidProtocolBufferException {
             continue;
+          }
+          // until the node proves it has the keys, the only thing it may say
+          // in clear is an error such as BAD_PIN
+          if (rx != null && !_rxConfirmed && !m.hasError()) {
+            _shutdown('the node did not encrypt the link');
+            return;
           }
           _route(m);
       }

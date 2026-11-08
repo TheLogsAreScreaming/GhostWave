@@ -254,7 +254,7 @@ void main() {
       expect(r.next(), isA<Frame>());
     });
 
-    for (final badLen in [kMaxBody + 1, 0xFFFF, 0]) {
+    for (final badLen in [kMaxSecureBody + 1, 0xFFFF, 0]) {
       test('length $badLen is reported, then the reader resyncs', () {
         final r = FrameReader()
           ..push([kMagic0, kMagic1, badLen & 0xFF, badLen >> 8, 1, 2, 3, ...encodeFrame(a.writeToBuffer())]);

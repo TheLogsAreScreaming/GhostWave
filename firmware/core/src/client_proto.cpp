@@ -235,7 +235,7 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
     case ToKind::Hello:
       s.u32(1, m.protocolVersion);
       s.str(2, m.clientName);
-      s.bytes(3, m.clientNonce);
+      s.bytes(3, m.clientShare);
       s.bytes(4, m.pinProof);
       break;
     case ToKind::SendText:
@@ -295,7 +295,7 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
         case ToKind::Hello:
           if (g == 1) return ok(x.u32(m.protocolVersion));
           if (g == 2) return ok(x.str(m.clientName));
-          if (g == 3) return ok(x.bytes(m.clientNonce));
+          if (g == 3) return ok(x.bytes(m.clientShare));
           if (g == 4) return ok(x.bytes(m.pinProof));
           return 0;
         case ToKind::SendText:
@@ -453,7 +453,7 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.bytes(2, m.psk);
       break;
     case FromKind::ChannelsEnd: s.u32(1, m.count); break;
-    case FromKind::PinChallenge: s.bytes(1, m.nonce); break;
+    case FromKind::PinChallenge: s.bytes(1, m.nonce); s.bytes(2, m.serverShare); break;
     default: return false;
   }
   w.msg(static_cast<uint32_t>(m.kind), sub);
@@ -592,6 +592,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
           if (g == 1) return ok(x.u32(m.count));
           return 0;
         case FromKind::PinChallenge:
+          if (g == 2) return ok(x.bytes(m.serverShare));
           if (g == 1) return ok(x.bytes(m.nonce));
           return 0;
         default: return 0;
@@ -638,7 +639,7 @@ FrameReader::Result FrameReader::next(uint8_t& version, Bytes& body) {
     }
     if (buf_.size() < kFrameHeader) return Result::None;
     size_t len = buf_[2] | static_cast<size_t>(buf_[3]) << 8;
-    if (len == 0 || len > kMaxBody) {
+    if (len == 0 || len > kMaxSecureBody) {
       // drop this magic and resynchronise on the next one
       buf_.erase(buf_.begin());
       ++skipped_;

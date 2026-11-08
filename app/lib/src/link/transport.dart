@@ -34,6 +34,10 @@ abstract interface class Transport {
   /// Human-readable target, e.g. `192.168.1.20:47800`.
   String get label;
 
+  /// Whether a session must be encrypted at the client-link layer: true for a
+  /// network, where nothing else protects it.
+  bool get needsEncryption;
+
   /// Opens a new connection, or throws.
   Future<TransportConnection> open();
 }
@@ -95,6 +99,12 @@ class TcpTransport implements Transport {
 
   @override
   String get label => address.toString();
+
+  @override
+  bool get needsEncryption {
+    if (address.host == 'localhost') return false;
+    return !(InternetAddress.tryParse(address.host)?.isLoopback ?? false);
+  }
 
   @override
   Future<TransportConnection> open() async {

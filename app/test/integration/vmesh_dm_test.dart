@@ -56,11 +56,20 @@ class Daemon {
   final StringBuffer log = StringBuffer();
   final Completer<void> ready = Completer<void>();
 
-  static Future<Daemon> start(String bin, Directory work, String name, double km, int mcast, int port) async {
+  static Future<Daemon> start(
+    String bin,
+    Directory work,
+    String name,
+    double km,
+    int mcast,
+    int port, {
+    String? pin,
+  }) async {
     final lat = (46.87 + km * 0.0089932).toStringAsFixed(7);
     final args = [
       '--radio', 'udp', '--mcast', '239.77.0.1:$mcast', '--key', '${work.path}/$name.key', //
       '--name', name, '--lat', lat, '--lon', '-113.99', '--client-tcp', '127.0.0.1:$port',
+      if (pin != null) ...['--client-pin', pin],
       if (Platform.environment['VMESH_IF'] case final vif?) ...['--vif', vif],
     ];
     final p = await Process.start(bin, args, workingDirectory: work.path);
@@ -88,6 +97,38 @@ Future<T> firstWhere<T>(
 
 void main() {
   final bin = findGhostwaved();
+
+  test(
+    'the app and a real node agree keys from the PIN and talk over the encrypted link',
+    () async {
+      final mcast = (int.tryParse(Platform.environment['GW_MCAST_PORT'] ?? '') ?? 47760) + 20;
+      final tcp = (int.tryParse(Platform.environment['GW_TCP_PORT'] ?? '') ?? 47830) + 20;
+      final work = await Directory.systemTemp.createTemp('gwapp-pin.');
+      final d = await Daemon.start(bin!, work, 'P', 0, mcast, tcp, pin: '424242');
+      addTearDown(() async {
+        d.stop();
+        await work.delete(recursive: true);
+      });
+      await d.ready.future.timeout(const Duration(seconds: 10));
+      final transport = TcpTransport(TcpAddress('127.0.0.1', tcp));
+
+      final wrong = LinkSession(await transport.open());
+      await expectLater(wrong.hello('wrong', pinFor: () async => '000000'), throwsA(isA<NodeError>()));
+      expect(wrong.isEncrypted, isFalse);
+      await wrong.close();
+
+      final s = LinkSession(await transport.open());
+      addTearDown(s.close);
+      final info = await s.hello('right', pinFor: () async => '424242', requireEncrypted: true);
+      expect(s.isEncrypted, isTrue);
+      expect(info.protocolMinor, 3);
+      final status = await s.request(pb.ToRadio(getStatus: pb.GetStatus()));
+      expect(status.hasStatus(), isTrue);
+      expect(s.isClosed, isFalse);
+    },
+    timeout: const Timeout(Duration(seconds: 30)),
+    skip: bin == null ? 'ghostwaved not found: set GHOSTWAVED to run this test' : false,
+  );
 
   test(
     'two app clients exchange a DM over the virtual mesh and get Delivered',

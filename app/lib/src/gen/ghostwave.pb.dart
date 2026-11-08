@@ -468,13 +468,13 @@ class Hello extends $pb.GeneratedMessage {
   factory Hello({
     $core.int? protocolVersion,
     $core.String? clientName,
-    $core.List<$core.int>? clientNonce,
+    $core.List<$core.int>? clientShare,
     $core.List<$core.int>? pinProof,
   }) {
     final result = Hello._();
     if (protocolVersion != null) result.protocolVersion = protocolVersion;
     if (clientName != null) result.clientName = clientName;
-    if (clientNonce != null) result.clientNonce = clientNonce;
+    if (clientShare != null) result.clientShare = clientShare;
     if (pinProof != null) result.pinProof = pinProof;
     return result;
   }
@@ -497,7 +497,7 @@ class Hello extends $pb.GeneratedMessage {
         fieldType: $pb.PbFieldType.OU3)
     ..aOS(2, _omitFieldNames ? '' : 'clientName')
     ..a<$core.List<$core.int>>(
-        3, _omitFieldNames ? '' : 'clientNonce', $pb.PbFieldType.OY)
+        3, _omitFieldNames ? '' : 'clientShare', $pb.PbFieldType.OY)
     ..a<$core.List<$core.int>>(
         4, _omitFieldNames ? '' : 'pinProof', $pb.PbFieldType.OY)
     ..hasRequiredFields = false;
@@ -540,15 +540,15 @@ class Hello extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearClientName() => $_clearField(2);
 
-  /// protocol 1.2, answering PinChallenge (docs/CLIENT_PROTOCOL.md §7)
+  /// protocol 1.3, answering PinChallenge (docs/CLIENT_PROTOCOL.md §7)
   @$pb.TagNumber(3)
-  $core.List<$core.int> get clientNonce => $_getN(2);
+  $core.List<$core.int> get clientShare => $_getN(2);
   @$pb.TagNumber(3)
-  set clientNonce($core.List<$core.int> value) => $_setBytes(2, value);
+  set clientShare($core.List<$core.int> value) => $_setBytes(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasClientNonce() => $_has(2);
+  $core.bool hasClientShare() => $_has(2);
   @$pb.TagNumber(3)
-  void clearClientNonce() => $_clearField(3);
+  void clearClientShare() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.List<$core.int> get pinProof => $_getN(3);
@@ -3642,14 +3642,17 @@ class ChannelsEnd extends $pb.GeneratedMessage {
   void clearCount() => $_clearField(1);
 }
 
-/// Reply to a Hello without a proof on a link that needs a PIN (protocol 1.2).
-/// Send Hello again with client_nonce and pin_proof. Each nonce works once.
+/// Reply to a Hello without a proof on a link that needs a PIN (protocol 1.3).
+/// Send Hello again with client_share and pin_proof; every frame after that is
+/// encrypted. Each nonce works once.
 class PinChallenge extends $pb.GeneratedMessage {
   factory PinChallenge({
     $core.List<$core.int>? nonce,
+    $core.List<$core.int>? serverShare,
   }) {
     final result = PinChallenge._();
     if (nonce != null) result.nonce = nonce;
+    if (serverShare != null) result.serverShare = serverShare;
     return result;
   }
 
@@ -3669,6 +3672,8 @@ class PinChallenge extends $pb.GeneratedMessage {
       createEmptyInstance: PinChallenge.$_createMessage)
     ..a<$core.List<$core.int>>(
         1, _omitFieldNames ? '' : 'nonce', $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'serverShare', $pb.PbFieldType.OY)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3701,6 +3706,15 @@ class PinChallenge extends $pb.GeneratedMessage {
   $core.bool hasNonce() => $_has(0);
   @$pb.TagNumber(1)
   void clearNonce() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get serverShare => $_getN(1);
+  @$pb.TagNumber(2)
+  set serverShare($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasServerShare() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearServerShare() => $_clearField(2);
 }
 
 const $core.bool _omitFieldNames =

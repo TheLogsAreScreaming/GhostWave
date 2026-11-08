@@ -203,7 +203,7 @@ else:   # a slow step above used up the minute: the check would be meaningless
 
 # -------------------------------------------- group channels (protocol 1.1) --
 check(ia.get("protocol_minor") == 2 and ia.get("max_channel_text_bytes") == 86,
-      "NodeInfo: protocol_minor 2, max_channel_text_bytes 86")
+      "NodeInfo: protocol_minor 3, max_channel_text_bytes 86")
 PSK = bytes(range(1, 33))
 for cl, who in ((a, "A"), (b, "B")):
     must(cl.request("add_channel", name="e2e crew", psk=PSK)[0]["kind"] == "ok", "%s joins #e2e crew" % who)
@@ -262,19 +262,29 @@ except g.ClientError:
 s = raw(addr_pin)
 s.sendall(g.frame(g.encode_to_radio("hello", 1, protocol_version=1)))
 m = raw_reply(s)
-check(m and m["kind"] == "pin_challenge" and len(m["nonce"]) == 16, "Hello -> PinChallenge with a 16-byte nonce")
+check(m and m["kind"] == "pin_challenge" and len(m["nonce"]) == 16 and len(m["server_share"]) == 32,
+      "Hello -> PinChallenge with a 16-byte nonce and a 32-byte share")
 s.sendall(g.frame(g.encode_to_radio("get_status", 2)))
 m2 = raw_reply(s)
 check(m2 and m2["code_name"] == "NEED_HELLO", "a challenge alone opens nothing -> NEED_HELLO")
-cn = b"\x11" * 16
-s.sendall(g.frame(g.encode_to_radio("hello", 3, protocol_version=1, client_nonce=cn,
-                                    pin_proof=g.pin_proof("000000", m["nonce"], cn))))
+secret = b"\x11" * 32
+share = g.link_share("000000", m["nonce"], secret)
+keys = g.link_keys(secret, m["server_share"], m["nonce"], m["server_share"], share)
+s.sendall(g.frame(g.encode_to_radio("hello", 3, protocol_version=1, client_share=share,
+                                    pin_proof=keys["confirm"])))
 m3 = raw_reply(s)
 check(m3 and m3["code_name"] == "BAD_PIN", "wrong PIN -> BAD_PIN")
 s.close()
 p = g.Client(addr_pin, "right pin", pin=PIN)
 check(p.info["kind"] == "node_info" and p.request("get_status")[0]["kind"] == "status",
       "right PIN -> NodeInfo, and requests work")
+check(p.encrypted, "...over an encrypted link")
+p.sock.sendall(g.frame(g.encode_to_radio("get_status", 999)))
+try:
+    gone = not p.pump(2.0)
+except g.ClientError:
+    gone = True
+check(gone, "a plain frame on the encrypted link closes it")
 p.close()
 check(log_has("P", "client PIN: " + PIN), "the daemon prints the PIN it was given")
 path = os.path.join(work, "Q.key.pin")

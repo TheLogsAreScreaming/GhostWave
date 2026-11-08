@@ -39,6 +39,12 @@ struct Conn {
   std::string peer;       // for log lines ("127.0.0.1:5123", "ble")
   bool pinNonceSet = false;            // a PinChallenge is outstanding
   std::array<uint8_t, 16> pinNonce{};
+  std::array<uint8_t, 32> pakeSecret{}, serverShare{};
+  // After a good PIN handshake every frame is sealed, each direction with its
+  // own key and counter (docs/CLIENT_PROTOCOL.md §7).
+  bool secure = false;
+  std::array<uint8_t, 32> rxKey{}, txKey{};
+  uint64_t rxSeq = 0, txSeq = 0;
 };
 
 // What the handler needs from a transport.

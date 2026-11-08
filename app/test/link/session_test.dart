@@ -1,8 +1,11 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
+import 'package:ghostwave_app/src/link/frame_codec.dart';
+import 'package:ghostwave_app/src/link/link_crypto.dart';
 import 'package:ghostwave_app/src/link/node_link.dart';
 import 'package:ghostwave_app/src/link/session.dart';
+import 'package:ghostwave_app/src/link/transport.dart';
 
 import 'fake_node.dart';
 
@@ -126,12 +129,133 @@ void main() {
   });
 
   group('PIN', () {
-    test('proof matches the golden vector (C++ and Python agree)', () {
-      final p = pinProof('424242', List<int>.generate(16, (i) => i), List<int>.generate(16, (i) => 16 + i));
-      expect(
-        p.map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
-        '5e5862bce3b4059e23916b5f749966ec2429362592017600dab003d8da215319',
+    String hex(List<int> b) => b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+
+    test('handshake and sealing match the C++ golden vector', () async {
+      final nonce = List<int>.generate(16, (i) => i);
+      final a = List<int>.generate(32, (i) => 0x20 + i);
+      final b = List<int>.generate(32, (i) => 0x40 + i);
+      final ya = await linkShare('424242', nonce, a);
+      final yb = await linkShare('424242', nonce, b);
+      expect(hex(ya), '38bf4429b49432f20f593d21ee96447c298460e41229b556954b9ed5fd9c607f');
+      expect(hex(yb), '2a9bc7b16628c651f031472d94e225e28c6588bcb734af4098518b4019159274');
+      final keys = (await linkKeys(secret: b, theirShare: ya, nonce: nonce, serverShare: ya, clientShare: yb))!;
+      expect(hex(keys.clientToNode), 'a0e4a8cb23d66cd1af1bd5994bed4459d222f81cca23aa512599386ef826fb72');
+      expect(hex(keys.nodeToClient), '3bca5414128da4100632f07dbbdfba67910e4f9c5c9f6dcea0f7ab830a8abc3e');
+      expect(hex(keys.confirm), '686c345c320e4de70c9fa8789b5735c6b5119ad7f68c23aa334074997e0b89b7');
+      final tx = LinkCipher(keys.clientToNode)..seal(const [1]); // counter 0 used
+      expect(hex(tx.seal('hello'.codeUnits)), 'cf671d1055de9274ad90eb49f9ef026827366b7a89');
+    });
+
+    test('a low-order share gives no keys', () async {
+      final nonce = List<int>.filled(16, 1);
+      final keys = await linkKeys(
+        secret: List<int>.filled(32, 9),
+        theirShare: List<int>.filled(32, 0),
+        nonce: nonce,
+        serverShare: List<int>.filled(32, 0),
+        clientShare: List<int>.filled(32, 2),
       );
+      expect(keys, isNull);
+    });
+
+    Future<(FakeNode, LinkSession)> pinSession() async {
+      final node = FakeNode()..pin = '424242';
+      final conn = await node.open() as FakeConnection;
+      final s = LinkSession(conn);
+      await s.hello('t', pinFor: () async => '424242');
+      return (node, s);
+    }
+
+    test('after the PIN every frame is sealed, both ways', () async {
+      final (node, s) = await pinSession();
+      addTearDown(s.close);
+      expect(s.isEncrypted, isTrue);
+      final reply = s.request(pb.ToRadio(getStatus: pb.GetStatus()));
+      await pumpEventQueue();
+      expect(node.last.plainAfterKeys, 0);
+      expect(node.last.badFrames, 0);
+      expect(node.requests.last.hasGetStatus(), isTrue);
+      node.last.send(pb.FromRadio(reqId: node.requests.last.reqId, status: pb.Status()));
+      await reply;
+    });
+
+    test('a wrong PIN is refused and the link stays unencrypted', () async {
+      final node = FakeNode()..pin = '424242';
+      final s = LinkSession(await node.open());
+      addTearDown(s.close);
+      await expectLater(s.hello('t', pinFor: () async => '000000'), throwsA(isA<NodeError>()));
+      expect(s.isEncrypted, isFalse);
+    });
+
+    test('an unencrypted frame on an encrypted link ends it', () async {
+      final (node, s) = await pinSession();
+      node.last.sendRaw(encodeFrame(pb.FromRadio(status: pb.Status()).writeToBuffer()));
+      expect(await s.done, contains('unencrypted'));
+    });
+
+    test('a changed frame on an encrypted link ends it', () async {
+      final (node, s) = await pinSession();
+      final sealed = node.last.tx!.seal(pb.FromRadio(status: pb.Status()).writeToBuffer())..[0] ^= 1;
+      node.last.sendRaw(encodeFrame(sealed, version: kSecureVersion));
+      expect(await s.done, contains('check'));
+    });
+
+    test('a replayed frame on an encrypted link ends it', () async {
+      final (node, s) = await pinSession();
+      final frame = encodeFrame(
+        node.last.tx!.seal(pb.FromRadio(status: pb.Status()).writeToBuffer()),
+        version: kSecureVersion,
+      );
+      node.last.sendRaw(frame);
+      node.last.sendRaw(frame);
+      expect(await s.done, contains('check'));
+    });
+
+    test('a node that answers the proof in clear is refused', () async {
+      final node = FakeNode(autoHello: false);
+      final sub = node.onRequest.listen((e) async {
+        final (c, r) = e;
+        if (r.hello.pinProof.isEmpty) {
+          final nonce = List<int>.filled(16, 1);
+          c.send(
+            pb.FromRadio(
+              reqId: r.reqId,
+              pinChallenge: pb.PinChallenge(nonce: nonce, serverShare: await linkShare('1', nonce, List.filled(32, 7))),
+            ),
+          );
+        } else {
+          c.send(pb.FromRadio(reqId: r.reqId, nodeInfo: node.info));
+        }
+      });
+      addTearDown(sub.cancel);
+      final s = LinkSession(await node.open());
+      await expectLater(s.hello('t', pinFor: () async => '1'), throwsA(isA<LinkClosedException>()));
+      expect(await s.done, contains('did not encrypt'));
+    });
+
+    test('a challenge with no share (older node) is refused, no proof is sent', () async {
+      final node = FakeNode()
+        ..pin = '424242'
+        ..oldChallenge = true;
+      final s = LinkSession(await node.open());
+      addTearDown(s.close);
+      await expectLater(s.hello('t', pinFor: () async => '424242'), throwsA(isA<TransportFatalException>()));
+      expect(node.requests.where((r) => r.hello.pinProof.isNotEmpty), isEmpty);
+    });
+
+    test('where encryption is required, a plain node is refused', () async {
+      final s = LinkSession(await FakeNode().open());
+      addTearDown(s.close);
+      await expectLater(s.hello('t', requireEncrypted: true), throwsA(isA<TransportFatalException>()));
+    });
+
+    test('TCP needs encryption except on loopback', () {
+      expect(TcpTransport(const TcpAddress('192.168.1.20', 47800)).needsEncryption, isTrue);
+      expect(TcpTransport(const TcpAddress('node.lan', 47800)).needsEncryption, isTrue);
+      expect(TcpTransport(const TcpAddress('127.0.0.1', 47800)).needsEncryption, isFalse);
+      expect(TcpTransport(const TcpAddress('::1', 47800)).needsEncryption, isFalse);
+      expect(TcpTransport(const TcpAddress('localhost', 47800)).needsEncryption, isFalse);
     });
 
     test('a PIN node with no saved PIN waits for the user, without retrying', () {

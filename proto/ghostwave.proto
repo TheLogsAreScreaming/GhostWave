@@ -52,9 +52,9 @@ message ToRadio {
 message Hello {
   uint32 protocol_version = 1;   // 1
   string client_name = 2;        // for logs only
-  // protocol 1.2, answering PinChallenge (docs/CLIENT_PROTOCOL.md §7)
-  bytes client_nonce = 3;        // 16 random bytes
-  bytes pin_proof = 4;           // first 32 bytes of HMAC-SHA-512(PIN, "ghostwave-pin-v1" || nonce || client_nonce)
+  // protocol 1.3, answering PinChallenge (docs/CLIENT_PROTOCOL.md §7)
+  bytes client_share = 3;        // 32 bytes: the client's X25519 share on the PIN's generator
+  bytes pin_proof = 4;           // 32 bytes: key confirmation, proves the client knows the PIN
 }
 
 // Reply: SendQueued (msg_id assigned), later Delivered when the destination's
@@ -179,7 +179,7 @@ message NodeInfo {
   bool legacy = 6;               // X25519-only node: no ed25519_pub, no IDENT
   string firmware = 7;
   uint32 max_text_bytes = 8;     // SendText.text limit with a DM key
-  uint32 protocol_minor = 9;     // 0 = original 1.0 node; 1 = channels, SetName
+  uint32 protocol_minor = 9;     // 0 = original 1.0 node; 1 = channels, SetName; 3 = encrypted PIN link
   uint32 max_channel_text_bytes = 10;   // SendChannelText.text limit (1.1)
 }
 
@@ -315,8 +315,10 @@ message ChannelsEnd {
   uint32 count = 1;
 }
 
-// Reply to a Hello without a proof on a link that needs a PIN (protocol 1.2).
-// Send Hello again with client_nonce and pin_proof. Each nonce works once.
+// Reply to a Hello without a proof on a link that needs a PIN (protocol 1.3).
+// Send Hello again with client_share and pin_proof; every frame after that is
+// encrypted. Each nonce works once.
 message PinChallenge {
   bytes nonce = 1;               // 16 random bytes
+  bytes server_share = 2;        // 32 bytes: the node's X25519 share on the PIN's generator
 }

@@ -208,10 +208,7 @@ clients must use that address too, because the port is not also on loopback.
 The phone and computer must be on the same network, and the computer's firewall must allow
 incoming TCP on those ports. macOS asks the first time.
 
-**Safety:** a client port on a network needs the PIN the node prints at start, but the link is not
-encrypted. Someone on the same network can read the traffic and could work out a 6-digit PIN from a
-captured handshake (docs/CLIENT_PROTOCOL.md §7). Use `--lan` / `--bind` only on a network you trust, and
-stop the mesh when you are done.
+**Safety:** a client port on a network needs the PIN the node prints at start, and the link is encrypted with keys agreed from it (`docs/CLIENT_PROTOCOL.md` §7). Anyone who has the PIN can connect, so keep it private.
 
 ## Run on the Pi HAT
 

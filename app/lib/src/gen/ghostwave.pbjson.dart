@@ -214,7 +214,7 @@ const Hello$json = {
   '2': [
     {'1': 'protocol_version', '3': 1, '4': 1, '5': 13, '10': 'protocolVersion'},
     {'1': 'client_name', '3': 2, '4': 1, '5': 9, '10': 'clientName'},
-    {'1': 'client_nonce', '3': 3, '4': 1, '5': 12, '10': 'clientNonce'},
+    {'1': 'client_share', '3': 3, '4': 1, '5': 12, '10': 'clientShare'},
     {'1': 'pin_proof', '3': 4, '4': 1, '5': 12, '10': 'pinProof'},
   ],
 };
@@ -222,8 +222,8 @@ const Hello$json = {
 /// Descriptor for `Hello`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List helloDescriptor = $convert.base64Decode(
     'CgVIZWxsbxIpChBwcm90b2NvbF92ZXJzaW9uGAEgASgNUg9wcm90b2NvbFZlcnNpb24SHwoLY2'
-    'xpZW50X25hbWUYAiABKAlSCmNsaWVudE5hbWUSIQoMY2xpZW50X25vbmNlGAMgASgMUgtjbGll'
-    'bnROb25jZRIbCglwaW5fcHJvb2YYBCABKAxSCHBpblByb29m');
+    'xpZW50X25hbWUYAiABKAlSCmNsaWVudE5hbWUSIQoMY2xpZW50X3NoYXJlGAMgASgMUgtjbGll'
+    'bnRTaGFyZRIbCglwaW5fcHJvb2YYBCABKAxSCHBpblByb29m');
 
 @$core.Deprecated('Use sendTextDescriptor instead')
 const SendText$json = {
@@ -1060,9 +1060,11 @@ const PinChallenge$json = {
   '1': 'PinChallenge',
   '2': [
     {'1': 'nonce', '3': 1, '4': 1, '5': 12, '10': 'nonce'},
+    {'1': 'server_share', '3': 2, '4': 1, '5': 12, '10': 'serverShare'},
   ],
 };
 
 /// Descriptor for `PinChallenge`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List pinChallengeDescriptor =
-    $convert.base64Decode('CgxQaW5DaGFsbGVuZ2USFAoFbm9uY2UYASABKAxSBW5vbmNl');
+final $typed_data.Uint8List pinChallengeDescriptor = $convert.base64Decode(
+    'CgxQaW5DaGFsbGVuZ2USFAoFbm9uY2UYASABKAxSBW5vbmNlEiEKDHNlcnZlcl9zaGFyZRgCIA'
+    'EoDFILc2VydmVyU2hhcmU=');
