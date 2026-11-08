@@ -17,14 +17,15 @@ Status: **v0.1 prototype**. The design is in [docs/DESIGN.md](docs/DESIGN.md). S
 
 ## Project status and visual previews
 
-GhostWave is an experimental, independent off-grid mesh protocol—not a Meshtastic or MeshCore firmware distribution. The project currently provides a portable C++ routing core, a Raspberry Pi daemon, ESP32-S3 Heltec firmware builds, and a four-node virtual-mesh demonstration.
+GhostWave is an experimental, independent off-grid mesh protocol—not a Meshtastic or MeshCore firmware distribution. The project currently provides a portable C++ routing core, a Raspberry Pi daemon, ESP32-S3 Heltec and nRF52840 RAK4631 firmware builds, and a four-node virtual-mesh demonstration.
 
 | Area | Current status |
 |---|---|
 | Portable protocol core and host tests | Automated builds and tests available |
 | Raspberry Pi daemon / UDP virtual radio | Builds and virtual-mesh demonstration available |
 | Heltec Wireless Tracker V2 / Heltec V3 | PlatformIO compile checks; physical radio operation not verified |
-| nRF52840 / RAK4631 / T1000-E | Not qualified as flash-ready GhostWave firmware |
+| RAK4631 (nRF52840) | PlatformIO UF2 build with a BLE client link; physical radio operation not verified ([flashing and bench test](docs/hardware/RAK4631_FLASHING.md)) |
+| T1000-E (nRF52840) | Not qualified as flash-ready GhostWave firmware |
 | Phone app (`app/`, Flutter) | Builds in CI (Android APK, iOS without signing); connects over TCP; not tested on a phone |
 | Store-and-forward encrypted DM and SOS | Simulated, but intermittent SOS delivery failures are under investigation |
 | Hardware release | **Not ready**; hardware verification and release-readiness checks remain required |
@@ -63,7 +64,7 @@ firmware/pi/           ghostwaved: Raspberry Pi daemon for the Backcountry Signa
                        plus a UDP virtual radio for testing without hardware
 firmware/pi/tools/     vmesh.sh: 4-daemon virtual mesh demo; gwclient.py: reference app client;
                        clientlink_e2e.sh: client-link end-to-end test; vmesh_lan.sh: mesh for app testing
-firmware/mcu/          PlatformIO firmware for ESP32-S3 Heltec boards (Wireless Tracker V2, V3)
+firmware/mcu/          PlatformIO firmware for ESP32-S3 Heltec boards (Wireless Tracker V2, V3) and the nRF52840 RAK4631
 app/                   phone app (Flutter, Android + iOS) over the client link; see app/README.md
 ```
 
@@ -321,7 +322,9 @@ as `ghostwaved`. Supported boards:
 | `heltec_v3` | Heltec WiFi LoRa 32 V3 (SX1262, no GPS) | stored position (`setpos`) |
 
 The pin maps are in `firmware/mcu/src/board.h`. They come from Meshtastic's variant files, and each
-value cites its source. The nRF52 boards (T096, RAK4631, T1000-E) will be a separate port.
+value cites its source. The RAK4631 (nRF52840) build is env `rak4631` in the same project, with a
+BLE link for the app: see [docs/hardware/RAK4631_FLASHING.md](docs/hardware/RAK4631_FLASHING.md). The
+T1000-E comes next.
 
 ### Flash
 

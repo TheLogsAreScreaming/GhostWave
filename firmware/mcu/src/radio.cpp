@@ -46,7 +46,16 @@ int16_t McuRadio::begin(const Phy& phy, float freqMHz, int outputDbm) {
   pinMode(kPinFemCtx, OUTPUT);
   femRx();
 #endif
+#if GW_HAS_ANT_POWER
+  pinMode(kPinAntPower, OUTPUT);
+  digitalWrite(kPinAntPower, HIGH);   // antenna switch powered; DIO2 picks TX/RX
+  delay(1);
+#endif
+#if GW_NRF52
+  SPI.begin();   // the variant's default SPI is the SX1262 bus
+#else
   SPI.begin(kPinLoraSck, kPinLoraMiso, kPinLoraMosi, kPinLoraCs);
+#endif
   outputDbm_ = outputDbm > kMaxOutputDbm ? kMaxOutputDbm : outputDbm;
   driveDbm_ = driveFor(outputDbm_);
   int16_t st = g_sx.begin(freqMHz, phy.bwHz / 1000.0f, phy.sf, 4 + phy.cr, kSyncWord, driveDbm_,

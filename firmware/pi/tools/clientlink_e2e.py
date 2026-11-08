@@ -181,6 +181,7 @@ check(st["kind"] == "status" and st["queued"] == 0 and st["clients"] == 1, "C st
 c.close()
 
 # -------------------------------------------- SOS from A's client, B acks --
+t_sos = time.time()
 r = a.request("sos_start", text=b"e2e: twisted ankle", battery_pct=55, accuracy_m=10)
 must(r[0]["kind"] == "ok", "SosStart -> Ok")
 e = b.wait_event(lambda e: e["kind"] == "sos" and e["src"] == ia["node_id"], 70)
@@ -194,8 +195,11 @@ check(e is not None, "A's client got SosAckReceived from B")
 st = a.request("get_status")[0]
 check(st["sos_active"] and st["tx"] > 0 and st["clients"] == 1, "A status: SOS active, frames sent")
 check(a.request("sos_stop")[0]["kind"] == "ok" and not a.request("get_status")[0]["sos_active"], "SosStop")
-r = a.request("sos_start", text=b"again")
-check(r[0]["code_name"] == "RATE_LIMITED", "second SOS within a minute -> RATE_LIMITED")
+if time.time() - t_sos < 55:
+    r = a.request("sos_start", text=b"again")
+    check(r[0].get("code_name") == "RATE_LIMITED", "second SOS within a minute -> RATE_LIMITED")
+else:   # a slow step above used up the minute: the check would be meaningless
+    say("skip  second SOS within a minute (over a minute since SosStart)")
 
 # -------------------------------------------- group channels (protocol 1.1) --
 check(ia.get("protocol_minor") == 1 and ia.get("max_channel_text_bytes") == 86,

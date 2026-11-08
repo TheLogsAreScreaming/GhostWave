@@ -6,7 +6,10 @@ node. This is DESIGN §10 made concrete.
 - **Schema:** [`proto/ghostwave.proto`](../proto/ghostwave.proto).
 - **Node codec:** `firmware/core` (`ghostwave/client_proto.h`). It is portable and reused by the MCU
   firmware for BLE.
+- **Request handling:** `firmware/core` (`ghostwave/client_handler.h`): requests, replies, the event
+  queue and its replay. Shared by every transport, so TCP and BLE behave the same.
 - **Daemon transport:** `ghostwaved --client-tcp [HOST:]PORT` (`firmware/pi/client_link.cpp`).
+- **MCU transport:** BLE on the nRF52 boards (`firmware/mcu/src/ble_link.cpp`, §9).
 - **Reference client:** `firmware/pi/tools/gwclient.py`, Python stdlib only.
 
 **Versions.** The frame version and `Hello.protocol_version` stay 1. Minor versions only add
@@ -24,7 +27,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | Transport | Status | Notes |
 |---|---|---|
 | TCP | done (`ghostwaved`) | Off by default. `--client-tcp 4403` listens on 127.0.0.1:4403. A host must be named explicitly to listen anywhere else (see §7). Up to 4 clients at once. |
-| BLE | planned (Heltec) | Nordic-UART-style service: app writes frames to an RX characteristic, the node notifies on TX. The same frames, unchanged. |
+| BLE | done (RAK4631; T1000-E next) | A GhostWave GATT service: the app writes frames to ToRadio, the node notifies on FromRadio. The same frames, unchanged. Pairing required. See §9. Not on the ESP32 builds yet. |
 | USB serial | planned | The same frames. Garbage before a magic is skipped, so boot logs on the same port are harmless. |
 
 All transports carry one byte stream in each direction, made of frames.
@@ -126,12 +129,14 @@ Notes on the requests:
   again while an SOS is active updates its text.
 
 - **Group channels (1.1, DESIGN §9.3)** are flooded a few hops to every node holding the key:
-  best effort, with no receipt. A channel is a name and a 32-byte key. The node keeps its channels
-  (up to 8) across restarts. Share one as text or a QR code:
+  best effort, with no receipt. A channel is a name and a 32-byte key. A node holds up to 8.
+  `ghostwaved` keeps them across restarts. The MCU firmware (BLE) holds them in RAM for now, so
+  the app joins them again after a reboot. Share one as text or a QR code:
   `ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>`. Anyone with it can read and write the
   channel. An `AddChannel` with a name already in use under another key, or a key already joined
   under another name, gets `BAD_ARGUMENT`.
-- **SetName** changes the IDENT name (also kept across restarts). Peers see it as
+- **SetName** changes the IDENT name (`ghostwaved` keeps it across restarts). Nodes without an
+  Ed25519 identity, such as the MCU firmware today, answer `NO_IDENTITY`. Peers see it as
   `PeerIdent{is_new = false}`. A new `Hello` returns it in `NodeInfo.name`.
 
 ### Node → app (`FromRadio`)
@@ -245,8 +250,9 @@ Test vectors are byte-exact frames checked by `firmware/tests/test_client_proto.
   to 127.0.0.1 unless a host is named.
 - **Binding elsewhere:** `--client-tcp 0.0.0.0:4403`, or a LAN address, is for testing on a trusted
   network. The daemon prints a warning when it does this.
-- **BLE:** the Heltec link will rely on BLE pairing (passkey shown on the node) for the same
-  property.
+- **BLE:** every attribute needs an encrypted, MITM-protected LE Secure Connections link, so a phone
+  must pair (with the passkey the node prints on its serial console) before it can read, write or
+  subscribe. See §9.
 - **Planned:** a `Hello` that proves knowledge of a pairing secret. TLS is not planned.
 - **Keys:** private keys never cross the link. `NodeInfo` and `Contact` carry public keys only.
 
@@ -265,3 +271,63 @@ Test vectors are byte-exact frames checked by `firmware/tests/test_client_proto.
   only needs ID + key (`AddContact`). The format of the QR string itself belongs to the app spec.
 - **Testing:** `firmware/pi/tools/vmesh_lan.sh --lan` runs 4–6 virtual nodes whose client ports a
   phone on the same Wi-Fi can reach (README, "Client link").
+
+## 9. BLE transport
+
+Used by the nRF52 node firmware (`firmware/mcu`, env `rak4631`), with Bluefruit on the Adafruit nRF52
+core. The bytes are the §2 frames, unchanged; BLE only carries them.
+
+### Service
+
+| Item | UUID | Properties |
+|---|---|---|
+| GhostWave service | `47570001-eea4-45e8-ac37-ff6530d92471` | primary |
+| ToRadio (app → node) | `47570002-eea4-45e8-ac37-ff6530d92471` | write (with response), max 244 bytes per write |
+| FromRadio (node → app) | `47570003-eea4-45e8-ac37-ff6530d92471` | notify, max 244 bytes per notification |
+
+- **Advertising:** the advertisement carries the flags and the 128-bit service UUID, and the scan
+  response carries the name, `GhostWave-<last 4 hex digits of the node ID>` (for example node
+  `6e57a11b` is `GhostWave-a11b`). Scan for the service UUID, not the name. Advertising runs every 100 ms
+  for 30 s after boot or a disconnect, then every 1 s.
+- **One phone at a time.** While one is connected the node does not advertise.
+- **Security:** both characteristics and FromRadio's CCCD need an LE Secure Connections link with MITM
+  protection (`SECMODE_ENC_WITH_LESC_MITM`). A request before pairing gets ATT "insufficient
+  authentication", which makes iOS and Android start pairing. The node has display-only IO
+  capability. It prints a fresh random 6-digit passkey on its USB serial console
+  (`BLE pairing: enter passkey 123456 on the phone`) and the phone types it in. Bonds are kept in the
+  node's internal flash, so a bonded phone reconnects without a passkey. `ble clear` on the CLI forgets
+  every bond. The phone must then forget the node too.
+
+### MTU and fragmentation
+
+- The node offers ATT MTU 247 and asks for it on connect. Phones usually negotiate it: iPhones give
+  185, most Android phones 247 or 517 (capped at the node's 247). At MTU 183 or more, a notification
+  holds exactly one whole frame (frames are at most 180 bytes, §2).
+- **Node → app.** Each notification carries up to MTU − 3 bytes of **one** frame and never spans two
+  frames. A frame bigger than MTU − 3 (only when the MTU stays below 183, e.g. 23 before an exchange)
+  is sent as several notifications in order. The app appends every notification to one byte stream
+  and cuts frames by the magic and length prefix (§2, the same `FrameReader` logic as TCP).
+- **App → node.** The app may split a frame over several writes of up to MTU − 3 bytes each (or 244,
+  whichever is smaller). The node reassembles by the length prefix too, so a write may also hold
+  several frames. Use write *with* response, so writes arrive in order and a lost one is reported.
+  Long (queued) writes are not supported.
+- **Flow control:** the node queues up to 6 KB of notifications. If the app stops reading, newer
+  frames are dropped (and counted in `ble` on the CLI) rather than blocking the radio. Up to 2 KB of
+  written bytes wait to be parsed. Beyond that, a write is accepted but dropped, so pace requests by
+  their replies.
+- On disconnect the node drops any partial frame, queued notifications and the session (`Hello` is
+  needed again).
+
+### Session
+
+- Same as §6: subscribe to FromRadio first (write the CCCD), then send `Hello`. Events that arrived
+  while no app had sent `Hello` are replayed after `NodeInfo` (§5). On the MCU the queue holds
+  **32** events, not 64. It lives in RAM, so a reboot empties it, and it only fills while BLE is on
+  (`ble on`).
+- `NodeInfo.firmware` reads `ghostwave-rak4631 0.1.0-dev.1` (board and version). The MCU firmware has
+  an X25519 identity only, so `NodeInfo.legacy` is true and contacts are pinned like on a legacy
+  daemon. `AddContact` takes an Ed25519 key (its node ID is derived from it) or an X25519 key plus
+  node ID, and saves it in flash with the serial CLI's `peer` keys (32 at most).
+- `SetOwnPosition` sets the node's position from the phone's GPS. It is not saved: after a reboot the
+  node falls back to the position stored with `setpos` on the CLI, if any.
+- The serial CLI keeps working while a phone is connected. Both drive the same router.

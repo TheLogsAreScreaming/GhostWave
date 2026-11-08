@@ -1,10 +1,13 @@
 // GhostWave node firmware for ESP32-S3 LoRa boards (Heltec Wireless Tracker
-// V2, Heltec V3). Same router as ghostwaved; the console is a line CLI on the
-// USB serial port (115200 baud) with ghostwaved's commands plus a few that
-// replace its command-line options, persisted in NVS. Type `help`.
+// V2, Heltec V3) and the nRF52840 RAK4631. Same router as ghostwaved; the
+// console is a line CLI on the USB serial port (115200 baud) with ghostwaved's
+// commands plus a few that replace its command-line options, persisted in NVS
+// (ESP32) or internal flash (nRF52). Type `help`. On the nRF52 boards an app
+// also drives the node over BLE (ble_link.h), through the same request
+// handler as ghostwaved's TCP client link.
 #include <Arduino.h>
-#include <esp_timer.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -16,8 +19,17 @@
 #include "ghostwave/crypto.h"
 #include "ghostwave/router.h"
 #include "ghostwave/util.h"
+#include "platform.h"
 #include "radio.h"
 #include "settings.h"
+#if GW_HAS_BLE
+#include <map>
+
+#include "ble_link.h"
+#include "ghostwave/client_handler.h"
+#endif
+
+#define GW_FW_VERSION "0.1.0-dev.1"
 
 namespace {
 
@@ -26,7 +38,11 @@ using gw::mcu::Key32;
 // Table sizes. storeCapacity / sosCapacity are the core defaults; the seen
 // table is unbounded on the Pi and capped here. loc_ / nb_ are capped at 512
 // inside the core.
+#if GW_NRF52
+constexpr size_t kSeenCapacity = 256;   // 256 KB of RAM, shared with the SoftDevice and BLE
+#else
 constexpr size_t kSeenCapacity = 512;
+#endif
 constexpr size_t kLocCapacity = 512;
 constexpr size_t kPeerCapacity = 64;
 
@@ -48,7 +64,7 @@ size_t worstCaseTableBytes(const gw::Config& c) {
   return store + seen + loc + nb + sos + peers + inflight;
 }
 
-uint64_t nowMs() { return static_cast<uint64_t>(esp_timer_get_time() / 1000); }
+using gw::mcu::nowMs;
 
 std::string toHex(const uint8_t* p, size_t n) {
   static const char* d = "0123456789abcdef";
@@ -104,14 +120,32 @@ std::string word(std::string& rest) {
   return w;
 }
 
+#if GW_HAS_BLE
+gw::client::Handler* g_link = nullptr;   // the app link, once BLE is up
+#define GW_LINK(call) \
+  do {                 \
+    if (g_link) g_link->call; \
+  } while (0)
+#else
+#define GW_LINK(call) \
+  do {                 \
+  } while (0)
+#endif
+
+// Prints router events on the console, and passes them to the app link.
 class SerialApp : public gw::AppPort {
  public:
   void onMessage(uint32_t src, uint32_t msgId, const std::vector<uint8_t>& p) override {
     Serial.printf("MSG from %08x id %08x: %.*s\n", src, msgId, static_cast<int>(p.size()),
                   reinterpret_cast<const char*>(p.data()));
+    GW_LINK(onMessage(src, msgId, p));
   }
   void onDelivered(uint32_t dst, uint32_t msgId) override {
     Serial.printf("DELIVERED to %08x id %08x\n", dst, msgId);
+    GW_LINK(onDelivered(dst, msgId));
+  }
+  void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) override {
+    GW_LINK(onNeighbor(id, pos, isNew));
   }
   void onSos(const gw::SosInfo& s) override {
     Serial.printf("SOS from %08x seq %u", s.src, s.seq);
@@ -121,15 +155,24 @@ class SerialApp : public gw::AppPort {
     if (s.battery != 0xFF) Serial.printf(" batt %u%%", s.battery);
     Serial.printf(": %s\n", s.text.c_str());
     Serial.printf("  (ack with: sosack %08x)\n", s.src);
+    GW_LINK(onSos(s));
   }
   void onSosAck(uint32_t responder, uint16_t seq) override {
     Serial.printf("SOSACK from %08x for seq %u\n", responder, seq);
+    GW_LINK(onSosAck(responder, seq));
   }
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen) override {
     Serial.printf("IDENT %s %08x \"%s\"\n", firstSeen ? "learned key for" : "name change from", id, name.c_str());
+    GW_LINK(onPeerIdent(id, name, firstSeen));
   }
-  void onKeyChange(uint32_t id, const uint8_t*, const std::string& name) override {
+  void onKeyChange(uint32_t id, const uint8_t* edPub, const std::string& name) override {
     Serial.printf("WARNING: %08x (\"%s\") sent a different signed key; keeping the old one\n", id, name.c_str());
+    GW_LINK(onKeyChange(id, edPub, name));
+  }
+  void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& p) override {
+    Serial.printf("CHAN %08x from %08x id %08x: %.*s\n", chanId, src, msgId, static_cast<int>(p.size()),
+                  reinterpret_cast<const char*>(p.data()));
+    GW_LINK(onChannelMessage(chanId, src, msgId, p));
   }
 };
 
@@ -148,13 +191,22 @@ uint32_t g_nmeaGood = 0;
 bool g_radioOk = false;
 size_t g_tableBudget = 0;
 std::string g_cmdLine, g_gpsLine;
+#if GW_HAS_BLE
+gw::mcu::BleLink g_ble;
+std::unique_ptr<gw::client::Handler> g_handler;
+std::map<uint32_t, std::array<uint8_t, 32>> g_edKeys;   // Ed25519 keys the app pinned (RAM only)
+// Group channels joined from the app (protocol 1.1). RAM only for now: they
+// are gone after a reboot, and the app joins them again.
+std::unique_ptr<gw::ChannelBook> g_channels;
+uint64_t g_bootMs = 0;
+#endif
 
 void printStats() {
   auto& s = g_router->stats();
-  Serial.printf("tx %u rx %u bad %u authfail %u delivered %u forwarded %u stored %u air %llums "
+  Serial.printf("tx %u rx %u bad %u authfail %u delivered %u forwarded %u stored %u air %lums "
                 "store %u nb %u sos held %u sent %u heard %u%s\n",
                 s.tx, s.rx, s.rxBad, s.rxAuthFail, s.delivered, s.forwarded, s.stored,
-                static_cast<unsigned long long>(s.airMs), static_cast<unsigned>(g_router->storeSize()),
+                static_cast<unsigned long>(s.airMs), static_cast<unsigned>(g_router->storeSize()),
                 static_cast<unsigned>(g_router->neighborCount(nowMs())), static_cast<unsigned>(g_router->sosCount()),
                 s.sosTx, s.sosHeard, g_router->sosActive() ? " SOS-ACTIVE" : "");
 }
@@ -162,11 +214,11 @@ void printStats() {
 void printPos() {
   Serial.printf("%s %.6f %.6f", g_pos.valid ? "fix" : "nofix", g_pos.lat, g_pos.lon);
 #if GW_HAS_GPS
-  if (g_gpsFix) Serial.printf(" (gps, %llus old)", static_cast<unsigned long long>((nowMs() - g_gpsFixMs) / 1000));
+  if (g_gpsFix) Serial.printf(" (gps, %lus old)", static_cast<unsigned long>((nowMs() - g_gpsFixMs) / 1000));
   else if (g_pos.valid) Serial.print(" (stored, no gps fix yet)");
   else Serial.printf(" (gps: %u good sentences)", g_nmeaGood);
 #else
-  if (g_pos.valid) Serial.print(" (stored)");
+  if (g_pos.valid) Serial.print(g_set.fixedPos && g_pos.lat == g_set.lat && g_pos.lon == g_set.lon ? " (stored)" : " (from app)");
 #endif
   Serial.println();
 }
@@ -182,14 +234,18 @@ void printStatus() {
                 static_cast<unsigned>(g_router->neighborTableSize()), static_cast<unsigned>(kLocCapacity),
                 static_cast<unsigned>(g_router->sosCount()), static_cast<unsigned>(g_cfg.sosCapacity),
                 static_cast<unsigned>(g_set.peerCount));
-  Serial.printf("heap: free %u, min free %u, largest block %u, tables worst case ~%u; uptime %llus\n",
-                ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap(),
-                static_cast<unsigned>(g_tableBudget), static_cast<unsigned long long>(nowMs() / 1000));
+  Serial.printf("heap: free %u, min free %u, largest block %u, tables worst case ~%u; uptime %lus\n",
+                static_cast<unsigned>(gw::mcu::freeHeap()), static_cast<unsigned>(gw::mcu::minFreeHeap()),
+                static_cast<unsigned>(gw::mcu::largestFreeBlock()), static_cast<unsigned>(g_tableBudget),
+                static_cast<unsigned long>(nowMs() / 1000));
   Serial.printf("channel key %s, %s%s\n", g_set.havePsk ? "on" : "off",
                 g_set.requireEnc ? "plaintext DATA refused" : "plaintext DATA accepted",
                 g_set.responder ? ", SOS responder" : "");
   Serial.print("pos ");
   printPos();
+#if GW_HAS_BLE
+  Serial.printf("%s; %u app events held\n", g_ble.describe().c_str(), static_cast<unsigned>(g_handler->queued()));
+#endif
 }
 
 void printHelp() {
@@ -197,7 +253,11 @@ void printHelp() {
       "commands: send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | status | pos\n"
       "          keys | peer <hex-id> <hex-pubkey> | sos <text> | sosstop | sosack <hex-id>\n"
       "settings (saved): setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
-      "          power <dBm> | freq <MHz> | responder on|off | requireenc on|off | reboot\n");
+      "          power <dBm> | freq <MHz> | responder on|off | requireenc on|off | reboot\n"
+#if GW_HAS_BLE
+      "app link: ble | ble on|off (saved) | ble clear (forget paired phones)\n"
+#endif
+  );
 }
 
 bool parseOnOff(const std::string& s, bool& v) {
@@ -334,10 +394,27 @@ void handleCommand(std::string line) {
     }
     (cmd == "responder" ? g_set.responder : g_set.requireEnc) = v;
     Serial.println(gw::mcu::saveFlags(g_set) ? "saved, takes effect on reboot" : "save failed");
+#if GW_HAS_BLE
+  } else if (cmd == "ble") {
+    std::string a = word(line);
+    if (a.empty()) {
+      Serial.println(g_ble.describe().c_str());
+    } else if (a == "on" || a == "off") {
+      g_set.bleOn = a == "on";
+      g_ble.setEnabled(g_set.bleOn);
+      Serial.printf("BLE %s%s\n", g_set.bleOn ? "on, advertising" : "off", gw::mcu::saveBle(g_set) ? "" : " (save failed)");
+    } else if (a == "clear") {
+      g_ble.clearBonds();
+      Serial.println("forgot every paired phone; remove \"GhostWave\" from the phone's Bluetooth list too");
+    } else {
+      Serial.println("usage: ble | ble on | ble off | ble clear");
+    }
+#endif
   } else if (cmd == "reboot") {
     Serial.println("rebooting");
     Serial.flush();
-    ESP.restart();
+    delay(50);
+    gw::mcu::reboot();
   } else {
     printHelp();
   }
@@ -378,19 +455,91 @@ void pollGps(uint64_t now) {
 }
 #endif
 
-}  // namespace
+#if GW_HAS_BLE
+// AddContact from the app: an Ed25519 key (its node ID is derived from it) or,
+// for a legacy node, an X25519 key plus the node ID. Saved like `peer`.
+uint32_t addPeerFromApp(uint32_t id, const gw::client::Bytes& ed, const gw::client::Bytes& x, std::string& err) {
+  Key32 xPub;
+  if (ed.size() == gw::kKeySize && x.empty()) {
+    uint32_t keyId = gw::nodeIdOf(ed.data());
+    if (!id) id = keyId;
+    if (id != keyId || !gw::nodeIdUsable(keyId)) {
+      char b[96];
+      std::snprintf(b, sizeof b, "Ed25519 key belongs to node %08x, not %08x", static_cast<unsigned>(keyId),
+                    static_cast<unsigned>(id));
+      err = b;
+      return 0;
+    }
+    gw::ed25519ToX25519(ed.data(), xPub.data());
+  } else if (x.size() == gw::kKeySize && ed.empty()) {
+    if (!id || id == gw::kBroadcast) {
+      err = "an x25519 key needs its node id";
+      return 0;
+    }
+    std::copy(x.begin(), x.end(), xPub.begin());
+  } else {
+    err = "want one 32-byte key: ed25519_pub, or x25519_pub for a legacy node";
+    return 0;
+  }
+  if (!g_router->addPeerKey(id, xPub.data())) {
+    err = "key rejected (low-order key, or peer table full)";
+    return 0;
+  }
+  if (ed.size() == gw::kKeySize) std::copy(ed.begin(), ed.end(), g_edKeys[id].begin());
+  else g_edKeys.erase(id);
+  if (!gw::mcu::savePeer(g_set, id, xPub))
+    Serial.printf("app added %08x, but not saved (%u peer keys already stored)\n", static_cast<unsigned>(id),
+                  static_cast<unsigned>(gw::mcu::kMaxStoredPeers));
+  return id;
+}
 
-void setup() {
-  Serial.begin(115200);
-  uint32_t t0 = millis();
-  while (!Serial && millis() - t0 < 2000) delay(10);   // native USB: give the host a moment
+void startBle() {
+  char name[16];
+  std::snprintf(name, sizeof name, "GhostWave-%04x", static_cast<unsigned>(g_cfg.nodeId & 0xFFFF));
+  gw::client::NodeIdentity self;
+  self.id = g_cfg.nodeId;
+  self.name = name;
+  self.legacy = true;   // X25519 identity, like ghostwaved without --identity (no IDENT yet)
+  self.xPub = g_pub;
+  self.firmware = "ghostwave-" GW_BOARD_NAME " " GW_FW_VERSION;
+  gw::client::Handler::Hooks hooks;
+  hooks.addPeer = addPeerFromApp;
+  hooks.setOwnPosition = [](const gw::Position& p) {
+    // The phone's GPS. Not saved: `setpos` is the stored position.
+    g_pos = p.valid ? p : (g_set.fixedPos ? gw::Position{g_set.lat, g_set.lon, true} : gw::Position{});
+    g_router->setPosition(g_pos, nowMs());
+  };
+  hooks.edKeys = &g_edKeys;
+  g_channels.reset(new gw::ChannelBook(*g_router));
+  hooks.channels = g_channels.get();
+  // no setName hook: this X25519 identity sends no IDENT, so it has no name to change (NO_IDENTITY)
+  // 32 held events, not ghostwaved's 64: each can hold a 128-byte text in RAM.
+  g_handler.reset(new gw::client::Handler(*g_router, self, g_pos, hooks, g_bootMs, g_ble, 32));
+  g_ble.attach(g_handler.get());
+  if (g_ble.begin(name, g_set.bleOn)) {
+    g_link = g_handler.get();
+    Serial.printf("BLE \"%s\" %s\n", name, g_set.bleOn ? "advertising; pair with the passkey printed here" : "off (ble on)");
+  } else {
+    Serial.println("BLE failed to start");
+  }
+}
+#endif
 
+void gwSetup() {
+#if GW_HAS_BLE
+  g_bootMs = nowMs();
+#endif
+#if GW_NRF52
+  pinMode(kPin3v3SEnable, OUTPUT);
+  digitalWrite(kPin3v3SEnable, HIGH);
+#else
   pinMode(kPinVext, OUTPUT);
   digitalWrite(kPinVext, kVextOn ? HIGH : LOW);
+#endif
 
   // Keys first (secureRandom borrows the ADC, before anything else uses it).
   bool nvsOk = gw::mcu::loadSettings(g_set);
-  if (!nvsOk) Serial.println("NVS unavailable: settings and keys will not persist");
+  if (!nvsOk) Serial.println("settings storage unavailable: settings and keys will not persist");
   gw::x25519Public(g_set.secret.data(), g_pub.data());
 
   g_cfg.nodeId = g_set.nodeId;
@@ -428,13 +577,16 @@ void setup() {
                 g_set.havePsk ? "on" : "off", static_cast<unsigned>(g_set.peerCount),
                 g_set.peerCount == 1 ? "" : "s", g_set.requireEnc ? ", plaintext DATA refused" : "",
                 g_set.responder ? ", SOS responder" : "");
-  Serial.printf("free heap %u, router tables need up to ~%u%s\n", ESP.getFreeHeap(),
+#if GW_HAS_BLE
+  startBle();
+#endif
+  Serial.printf("free heap %u, router tables need up to ~%u%s\n", static_cast<unsigned>(gw::mcu::freeHeap()),
                 static_cast<unsigned>(g_tableBudget),
-                g_tableBudget + 32 * 1024 > ESP.getFreeHeap() ? "  WARNING: may not fit" : "");
+                g_tableBudget + 32 * 1024 > gw::mcu::freeHeap() ? "  WARNING: may not fit" : "");
   printHelp();
 }
 
-void loop() {
+void gwLoop() {
   static uint64_t lastTick = 0;
   static uint8_t buf[256];
   uint64_t now = nowMs();
@@ -445,9 +597,43 @@ void loop() {
   pollGps(now);
 #endif
   pollSerial();
+#if GW_HAS_BLE
+  g_ble.poll(now);
+#endif
   if (now - lastTick >= 2) {
     lastTick = now;
     if (g_radioOk) g_router->tick(now);
   }
   delay(1);
 }
+
+}  // namespace
+
+#if GW_NRF52
+// The Adafruit core runs loop() on a 4 KB stack. X25519 / Ed25519 and the
+// router need more, so GhostWave gets its own 16 KB task and loop() idles.
+namespace {
+void gwTask(void*) {
+  gwSetup();
+  for (;;) gwLoop();
+}
+}  // namespace
+
+void setup() {
+  Serial.begin(115200);
+  uint32_t t0 = millis();
+  while (!Serial && millis() - t0 < 2000) delay(10);   // native USB: give the host a moment
+  xTaskCreate(gwTask, "gw", 4096, nullptr, TASK_PRIO_LOW, nullptr);   // depth in 32-bit words
+}
+
+void loop() { delay(1000); }
+#else
+void setup() {
+  Serial.begin(115200);
+  uint32_t t0 = millis();
+  while (!Serial && millis() - t0 < 2000) delay(10);   // native USB: give the host a moment
+  gwSetup();
+}
+
+void loop() { gwLoop(); }
+#endif

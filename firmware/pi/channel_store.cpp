@@ -37,34 +37,6 @@ bool unhex(const std::string& s, uint8_t* out, size_t n) {
 
 }  // namespace
 
-ChannelStore::ChannelStore(gw::Router& router, std::string path) : r_(router), path_(std::move(path)) {}
-
-ChannelStore::~ChannelStore() {
-  for (auto& c : chans_) gw::wipe(c.key.data(), c.key.size());
-}
-
-bool ChannelStore::validName(const std::string& name) {
-  if (name.empty() || name.size() > kNameMax) return false;
-  for (unsigned char c : name)
-    if (c < 0x20 || c == 0x7F) return false;   // control bytes, tab, newline: not in a name
-  return true;
-}
-
-const char* ChannelStore::describe(Result r) {
-  switch (r) {
-    case Result::Ok: return "ok";
-    case Result::Unchanged: return "already joined";
-    case Result::BadName: return "channel name must be 1-16 bytes, no control characters";
-    case Result::BadKey: return "channel key must be 32 bytes";
-    case Result::NameTaken: return "a channel with that name uses another key";
-    case Result::KeyTaken: return "that key is already joined under another name";
-    case Result::Full: return "the node holds the most channels it can";
-    case Result::NotFound: return "no such channel";
-    case Result::IoError: return "could not save the channel list";
-  }
-  return "?";
-}
-
 bool ChannelStore::load(std::string& err) {
   if (path_.empty()) return true;
   std::ifstream f(path_);
@@ -84,21 +56,7 @@ bool ChannelStore::load(std::string& err) {
       return false;
     }
     std::string name = line.substr(tab + 1);
-    Result r = Result::Ok;
-    if (!validName(name)) r = Result::BadName;
-    else if (byName(name)) r = Result::NameTaken;
-    else {
-      uint32_t id = r_.addGroupChannel(key);
-      if (!id) r = Result::Full;
-      else if (byId(id)) r = Result::KeyTaken;
-      else {
-        ChannelEntry e;
-        e.name = name;
-        std::memcpy(e.key.data(), key, 32);
-        e.id = id;
-        chans_.push_back(e);
-      }
-    }
+    Result r = restore(name, key);
     gw::wipe(key, sizeof key);
     if (r != Result::Ok) {
       err = path_ + ":" + std::to_string(n) + ": " + describe(r);
@@ -108,61 +66,16 @@ bool ChannelStore::load(std::string& err) {
   return true;
 }
 
-ChannelStore::Result ChannelStore::add(const std::string& name, const uint8_t* key, size_t keyLen) {
-  if (!validName(name)) return Result::BadName;
-  if (keyLen != 32) return Result::BadKey;
-  uint32_t id = gw::groupChannelId(key);
-  const ChannelEntry* byN = byName(name);
-  if (byN) return byN->id == id ? Result::Unchanged : Result::NameTaken;
-  if (byId(id)) return Result::KeyTaken;
-  if (chans_.size() >= gw::kMaxGroupChannels || !r_.addGroupChannel(key)) return Result::Full;
-  ChannelEntry e;
-  e.name = name;
-  std::memcpy(e.key.data(), key, 32);
-  e.id = id;
-  chans_.push_back(e);
-  if (!save()) {
-    r_.removeGroupChannel(id);
-    gw::wipe(chans_.back().key.data(), 32);
-    chans_.pop_back();
-    return Result::IoError;
-  }
-  return Result::Ok;
-}
-
-ChannelStore::Result ChannelStore::remove(const std::string& name) {
-  for (auto it = chans_.begin(); it != chans_.end(); ++it) {
-    if (it->name != name) continue;
-    r_.removeGroupChannel(it->id);
-    gw::wipe(it->key.data(), it->key.size());
-    chans_.erase(it);
-    return save() ? Result::Ok : Result::IoError;
-  }
-  return Result::NotFound;
-}
-
-const ChannelEntry* ChannelStore::byName(const std::string& name) const {
-  for (auto& c : chans_)
-    if (c.name == name) return &c;
-  return nullptr;
-}
-
-const ChannelEntry* ChannelStore::byId(uint32_t id) const {
-  for (auto& c : chans_)
-    if (c.id == id) return &c;
-  return nullptr;
-}
-
 // Written to a temporary file (mode 600) and renamed over the old one, so a
 // crash never leaves half a key file.
-bool ChannelStore::save() const {
+bool ChannelStore::persist() const {
   if (path_.empty()) return true;
   std::string tmp = path_ + ".tmp";
   int fd = open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
   if (fd < 0) return false;
   fchmod(fd, 0600);
   std::string body = "# ghostwaved group channels: <64 hex key><TAB><name>. Keep this file private.\n";
-  for (auto& c : chans_) body += hex(c.key.data(), c.key.size()) + "\t" + c.name + "\n";
+  for (auto& c : list()) body += hex(c.key.data(), c.key.size()) + "\t" + c.name + "\n";
   bool ok = write(fd, body.data(), body.size()) == static_cast<ssize_t>(body.size());
   ok = fsync(fd) == 0 && ok;
   close(fd);

@@ -22,7 +22,10 @@ add_library(ghostwave_core
   core/src/crypto.cpp
   core/src/util.cpp
   core/src/router.cpp
-  core/src/client_proto.cpp)
+  core/src/client_proto.cpp
+  core/src/client_handler.cpp
+  core/src/channel_book.cpp
+  core/src/frame_chunker.cpp)
 target_include_directories(ghostwave_core PUBLIC core/include)
 target_link_libraries(ghostwave_core PRIVATE monocypher)
 target_compile_options(ghostwave_core PRIVATE -Wall -Wextra)
@@ -43,6 +46,14 @@ if(GHOSTWAVE_BUILD_TESTS)
   target_link_libraries(ghostwave_client_proto_tests ghostwave_core)
   target_compile_options(ghostwave_client_proto_tests PRIVATE -Wall -Wextra)
   add_test(NAME ghostwave_client_proto_tests COMMAND ghostwave_client_proto_tests)
+  add_executable(ghostwave_client_handler_tests tests/test_client_handler.cpp)
+  target_link_libraries(ghostwave_client_handler_tests ghostwave_core)
+  target_compile_options(ghostwave_client_handler_tests PRIVATE -Wall -Wextra)
+  add_test(NAME ghostwave_client_handler_tests COMMAND ghostwave_client_handler_tests)
+  add_executable(ghostwave_ble_framing_tests tests/test_ble_framing.cpp)
+  target_link_libraries(ghostwave_ble_framing_tests ghostwave_core)
+  target_compile_options(ghostwave_ble_framing_tests PRIVATE -Wall -Wextra)
+  add_test(NAME ghostwave_ble_framing_tests COMMAND ghostwave_ble_framing_tests)
   add_executable(ghostwave_radio_port_contract_tests tests/test_radio_port_contract.cpp)
   target_link_libraries(ghostwave_radio_port_contract_tests ghostwave_core)
   target_compile_options(ghostwave_radio_port_contract_tests PRIVATE -Wall -Wextra)

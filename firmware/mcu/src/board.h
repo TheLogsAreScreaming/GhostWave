@@ -1,6 +1,8 @@
-// Per-board pin maps. Every value comes from Meshtastic's variant files at
-// meshtastic/firmware commit 7579bfe (2026-10-15); the file is cited per
-// board. Nothing is guessed: what the variant does not state is marked.
+// Per-board pin maps. The ESP32 values come from Meshtastic's variant files at
+// meshtastic/firmware commit 7579bfe (2026-10-15), the RAK4631 ones from RAK's
+// datasheet cross-checked against RAK's BSP and Meshtastic (variants/rak4631/
+// variant.h has the sources). Nothing is guessed: what the sources do not
+// state is marked.
 #pragma once
 
 #include <stdint.h>
@@ -61,8 +63,45 @@ constexpr float kTcxoVolts = 1.8f;
 constexpr int kPinVext = 36;
 constexpr bool kVextOn = false;     // LOW = on
 
+#elif defined(GW_BOARD_RAK4631)
+// Sources: RAK4631 datasheet "RAK4630 internal connections" table, cross-
+// checked with meshtastic/firmware @ 11e3b28 variants/nrf52840/rak4631/
+// variant.h (SX126X_*). Arduino pin = GPIO number, P1.xx = 32 + xx.
+#define GW_BOARD_NAME "rak4631"
+constexpr int kPinLoraCs = 42;      // P1.10 NSS
+constexpr int kPinLoraDio1 = 47;    // P1.15 DIO1 (IRQ)
+constexpr int kPinLoraBusy = 46;    // P1.14 BUSY
+constexpr int kPinLoraRst = 38;     // P1.06 NRESET
+// SCK P1.11 / MOSI P1.12 / MISO P1.13 are the variant's default SPI pins.
+constexpr float kTcxoVolts = 1.8f;  // TCXO powered from DIO3 (SX126X_DIO3_TCXO_VOLTAGE)
+// DIO2 drives the antenna switch (SX126X_DIO2_AS_RF_SWITCH). P1.05 powers
+// that switch (RAK datasheet ANT_SW "SX1262 RF switch power", Meshtastic
+// SX126X_POWER_EN): HIGH = on. P1.07 also reaches the switch on the
+// schematic but must stay undriven: the datasheet says it "should not be
+// initialized", as DIO2 controls the switch.
+#define GW_HAS_ANT_POWER 1
+constexpr int kPinAntPower = 37;    // P1.05
+// WisBlock IO2 (P1.02) switches the 3V3_S rail for slot modules; Meshtastic
+// turns it on at boot. Nothing GhostWave needs is on it, but a GPS or sensor
+// module in a slot would be, so it is switched on the same way.
+constexpr int kPin3v3SEnable = 34;
+#define GW_HAS_KCT8103L 0
+#define GW_HAS_GPS 0                // no GPS on a bare RAK19007: app or CLI position
+#define GW_HAS_BLE 1
+#define GW_NRF52 1
+
 #else
-#error "Define GW_BOARD_TRACKER_V2 or GW_BOARD_HELTEC_V3 (see platformio.ini)"
+#error "Define GW_BOARD_TRACKER_V2, GW_BOARD_HELTEC_V3 or GW_BOARD_RAK4631 (see platformio.ini)"
+#endif
+
+#ifndef GW_HAS_ANT_POWER
+#define GW_HAS_ANT_POWER 0
+#endif
+#ifndef GW_HAS_BLE
+#define GW_HAS_BLE 0
+#endif
+#ifndef GW_NRF52
+#define GW_NRF52 0
 #endif
 
 // Conducted output ceiling at the antenna port. DESIGN §12 leaves the US rule
@@ -71,7 +110,13 @@ constexpr bool kVextOn = false;     // LOW = on
 // decision. On the Tracker V2 the FEM gain is subtracted before driving the
 // SX1262, so the antenna port still sees at most this.
 constexpr int kMaxOutputDbm = 22;
+#if GW_NRF52
+// First real radios for GhostWave: start low for bench tests (two boards a
+// few metres apart). `power <dBm>` raises it.
+constexpr int kDefaultOutputDbm = 10;
+#else
 constexpr int kDefaultOutputDbm = 20;
+#endif
 
 // US 902–928 MHz only for now (DESIGN §12); the EU duty-cycle limiter is not
 // ported. Keeps a BW125 channel inside the band edges.
