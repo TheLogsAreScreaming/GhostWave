@@ -89,6 +89,7 @@ class TcpTransport implements Transport {
   Future<TransportConnection> open() async {
     final socket = await Socket.connect(address.host, address.port, timeout: connectTimeout);
     socket.setOption(SocketOption.tcpNoDelay, true);
+    _enableKeepalive(socket);
     return _TcpConnection(socket);
   }
 }
@@ -118,5 +119,22 @@ class _TcpConnection implements TransportConnection {
       // already gone
     }
     _socket.destroy();
+  }
+}
+
+/// Turns on TCP keepalive so the OS eventually notices a dead peer too. Dart
+/// has no portable option for it, so this sets SO_KEEPALIVE by number; the
+/// app-level heartbeat in `NodeLink` is what detects a dead link quickly.
+void _enableKeepalive(Socket socket) {
+  final soKeepalive = switch (Platform.operatingSystem) {
+    'android' || 'linux' => 9,
+    'ios' || 'macos' => 8,
+    _ => null,
+  };
+  if (soKeepalive == null) return;
+  try {
+    socket.setRawOption(RawSocketOption.fromBool(RawSocketOption.levelSocket, soKeepalive, true));
+  } on Object {
+    // best effort
   }
 }

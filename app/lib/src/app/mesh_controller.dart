@@ -15,6 +15,7 @@ import '../link/contact_card.dart';
 import '../link/geo.dart';
 import '../link/node_link.dart';
 import '../link/session.dart';
+import 'mesh_alerts.dart';
 import 'providers.dart';
 
 /// Largest SOS text the node keeps, in UTF-8 bytes.
@@ -267,6 +268,14 @@ class MeshController extends Notifier<MeshState> {
       unread: {...state.unread, t.src: (state.unread[t.src] ?? 0) + 1},
     );
     _save();
+    if (!ref.read(appForegroundProvider)) {
+      unawaited(
+        ref
+            .read(meshAlertsProvider)
+            .textReceived(peer: t.src, from: state.nameOf(t.src), text: msg.text)
+            .catchError((Object _) {}),
+      );
+    }
   }
 
   void _onDelivered(pb.Delivered d) {
@@ -293,6 +302,15 @@ class MeshController extends Notifier<MeshState> {
   void _onSos(pb.SosAlert a, {required bool replayed}) {
     final existing = state.alerts.where((x) => x.src == a.src).firstOrNull;
     if (existing != null && existing.seq >= a.seq) return;
+    // a new SOS from this node (re-sends with a higher seq update it quietly)
+    if (existing == null && !ref.read(appForegroundProvider)) {
+      unawaited(
+        ref
+            .read(meshAlertsProvider)
+            .sosReceived(src: a.src, from: state.nameOf(a.src), text: decodeLenient(a.text))
+            .catchError((Object _) {}),
+      );
+    }
     final entry = SosAlertEntry(
       src: a.src,
       seq: a.seq,
@@ -468,6 +486,9 @@ class MeshController extends Notifier<MeshState> {
   }
 
   void _replace(ChatMessage old, ChatMessage now) => _update(old, (_) => now);
+
+  /// Records our own position after the app sent it (`SetOwnPosition`).
+  void noteOwnPosition(LatLon p) => state = state.copyWith(ownPos: p);
 
   /// Clears [peer]'s unread count.
   void markRead(int peer) {

@@ -9,6 +9,10 @@
 //                          [--require-enc] [--responder]
 //        ./ghostwaved --radio udp [--mcast 239.77.0.1:47700] [--vif ADDR] [--vtx-dbm 24]
 //                     [--vgain 2] [--vfade 5] [--vlog] ...   (virtual radio, no hardware)
+//        [--beacon-min-s N] [--beacon-max-s N]   testing only: never beacon more
+//                     often than every N s (default 60) / a stationary node
+//                     beacons at least every N s (default 900). vmesh_lan.sh
+//                     uses a short max.
 //        [--client-tcp [HOST:]PORT]   app link (docs/CLIENT_PROTOCOL.md); off by
 //                     default, HOST defaults to 127.0.0.1. Any other host lets
 //                     every machine that can reach it drive this node: there is
@@ -53,6 +57,7 @@
 #include <sstream>
 #include <string>
 
+#include "beacon_timing.h"
 #include "client_link.h"
 #include "host_radio.h"
 #include "ghostwave/crypto.h"
@@ -85,6 +90,7 @@ struct Options {
   std::string pskFile, peersFile;
   bool requireEnc = false, responder = false, legacyX25519 = false;
   std::string clientTcp;   // empty = no client link
+  uint32_t beaconMinS = 0, beaconMaxS = 0;   // 0 = Config defaults
 };
 
 using Key32 = std::array<uint8_t, gw::kKeySize>;
@@ -515,11 +521,25 @@ int main(int argc, char** argv) {
     else if (a == "--require-enc") o.requireEnc = true;
     else if (a == "--responder") o.responder = true;
     else if (a == "--legacy-x25519") o.legacyX25519 = true;
+    else if (a == "--beacon-min-s" || a == "--beacon-max-s") {
+      const char* v = next();
+      if (!gw::parseBeaconSeconds(v, a == "--beacon-min-s" ? o.beaconMinS : o.beaconMaxS)) {
+        std::fprintf(stderr, "%s needs whole seconds, 1 to %u (got '%s')\n", a.c_str(), gw::kBeaconOverrideMaxS, v);
+        return 2;
+      }
+    }
     else if (a == "--client-tcp") {
       o.clientTcp = next();
       if (o.clientTcp.empty()) { std::fprintf(stderr, "--client-tcp needs [HOST:]PORT\n"); return 2; }
     }
     else { std::fprintf(stderr, "unknown option %s\n", a.c_str()); return 2; }
+  }
+  {
+    gw::Config probe;   // check the beacon overrides before touching keys or radio
+    if (std::string err = gw::applyBeaconTiming(o.beaconMinS, o.beaconMaxS, probe); !err.empty()) {
+      std::fprintf(stderr, "%s\n", err.c_str());
+      return 2;
+    }
   }
   if (o.name.size() > gw::kIdentNameMax) {
     std::fprintf(stderr, "--name is %zu bytes; at most %zu fit in an IDENT\n", o.name.size(), gw::kIdentNameMax);
@@ -578,6 +598,10 @@ int main(int argc, char** argv) {
 
   gw::Config cfg;
   cfg.nodeId = o.id;
+  gw::applyBeaconTiming(o.beaconMinS, o.beaconMaxS, cfg);   // validated above
+  if (o.beaconMinS || o.beaconMaxS) {
+    std::printf("beacon timing (testing): min %u s, max %u s\n", cfg.beaconMinMs / 1000, cfg.beaconMaxMs / 1000);
+  }
   cfg.requireEncryption = o.requireEnc;
   cfg.responder = o.responder;
   std::unique_ptr<HostRadio> radio;

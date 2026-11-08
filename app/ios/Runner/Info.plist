@@ -6,6 +6,8 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>If you turn on "Share phone location with node", GhostWave sends this phone's position to your GhostWave node while the app is open, so the mesh knows where you are.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>GhostWave scans contact-card QR codes with the camera.</string>
 	<key>NSLocalNetworkUsageDescription</key>

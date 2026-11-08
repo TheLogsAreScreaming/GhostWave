@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +7,7 @@ import '../app/providers.dart';
 import '../link/contact_card.dart';
 import '../link/node_link.dart';
 import '../link/transport.dart';
+import 'format.dart';
 import 'theme.dart';
 
 /// Enter the node's `host:port`, connect, see the link state.
@@ -89,6 +92,16 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
           ),
           const SizedBox(height: 24),
           LinkStateCard(state: state),
+          _RecentNodes(
+            current: ref.watch(nodeAddressProvider),
+            onConnect: (address) {
+              final a = TcpAddress.tryParse(address);
+              if (a == null) return;
+              _address.text = address;
+              setState(() => _error = null);
+              unawaited(ref.read(nodeAddressProvider.notifier).connectTo(a));
+            },
+          ),
           const SizedBox(height: 24),
           const _Help(),
         ],
@@ -138,6 +151,49 @@ class LinkStateCard extends ConsumerWidget {
         trailing: state is LinkWaiting || state is LinkFailed
             ? TextButton(onPressed: () => ref.read(nodeLinkProvider).retryNow(), child: const Text('Retry now'))
             : null,
+      ),
+    );
+  }
+}
+
+/// One-tap reconnect to nodes used before.
+class _RecentNodes extends ConsumerWidget {
+  const _RecentNodes({required this.current, required this.onConnect});
+
+  /// The saved address (the one the link is using or will use).
+  final String? current;
+
+  /// Connects to an address.
+  final void Function(String address) onConnect;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recent = ref.watch(recentNodesProvider);
+    if (recent.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Recent nodes', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          for (final r in recent)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(r.address == current ? Icons.radio_button_checked : Icons.history),
+              title: Text(r.label),
+              subtitle: Text(
+                [if (r.nodeId != null) r.address, 'used ${timeAgo(r.lastUsed)}'].join(' · '),
+                style: GwText.mono.copyWith(fontSize: 12),
+              ),
+              onTap: () => onConnect(r.address),
+              trailing: IconButton(
+                tooltip: 'Forget ${r.label}',
+                icon: const Icon(Icons.close),
+                onPressed: () => ref.read(recentNodesProvider.notifier).remove(r.address),
+              ),
+            ),
+        ],
       ),
     );
   }

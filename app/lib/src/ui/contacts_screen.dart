@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -56,7 +58,9 @@ class ContactsScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(32),
                 child: Text(
                   online
-                      ? 'No contacts yet. Tap "Add contact" and scan another GhostWave user\'s QR code (Me tab).'
+                      ? 'No contacts yet. Nodes in radio range show up here on their own once your node '
+                            'has heard their identity (usually within a minute). Or tap "Add contact" '
+                            'and scan another GhostWave user\'s QR code (Me tab).'
                       : 'Connect to a node to load its contacts.',
                   textAlign: TextAlign.center,
                 ),
@@ -69,13 +73,15 @@ class ContactsScreen extends ConsumerWidget {
                 if (nearby.isNotEmpty) ...[
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-                    child: Text('Heard nearby (not contacts)'),
+                    child: Text('Heard nearby, waiting for their key'),
                   ),
                   for (final n in nearby)
                     ListTile(
                       leading: const CircleAvatar(child: Icon(Icons.cell_tower)),
                       title: Text(nodeIdHex(n.nodeId), style: GwText.mono),
                       subtitle: Text([timeAgo(n.lastSeen), if (n.pos != null) n.pos.toString()].join(' · ')),
+                      trailing: const Icon(Icons.info_outline),
+                      onTap: () => _showHeardNode(context, ref, n),
                     ),
                 ],
               ],
@@ -112,6 +118,12 @@ class _ContactTile extends ConsumerWidget {
           if (c.pinned) ...[
             const SizedBox(width: 4),
             const Tooltip(message: 'Key pinned from a contact card', child: Icon(Icons.verified, size: 16)),
+          ] else ...[
+            const SizedBox(width: 4),
+            const Tooltip(
+              message: 'Key learned over the air (not checked against a QR code)',
+              child: Icon(Icons.wifi_tethering, size: 16),
+            ),
           ],
           if (c.keyChanged) ...[
             const SizedBox(width: 4),
@@ -128,4 +140,60 @@ class _ContactTile extends ConsumerWidget {
       onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: c.nodeId))),
     );
   }
+}
+
+/// Explains a heard node the app cannot message yet, and what to do.
+void _showHeardNode(BuildContext context, WidgetRef ref, Neighbor n) {
+  final id = nodeIdHex(n.nodeId);
+  unawaited(
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(id, style: Theme.of(sheet).textTheme.titleLarge?.merge(GwText.mono)),
+              const SizedBox(height: 8),
+              Text(
+                'This node is in radio range, but your node does not have its key yet, so it cannot '
+                'be messaged. Your node asks for the key on its own (an IDENT request). When it '
+                'arrives, the node moves to your contacts, usually within a minute.\n\n'
+                'To add it right away, scan its QR code or paste its contact card text '
+                '(ghostwave:$id:…). The virtual mesh script prints the card key for each node.',
+                style: Theme.of(sheet).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(sheet).pop();
+                      unawaited(ref.read(meshProvider.notifier).refreshContacts());
+                    },
+                    child: const Text('Check again'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheet).pop();
+                      unawaited(
+                        Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AddContactScreen())),
+                      );
+                    },
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: const Text('Add by card'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }

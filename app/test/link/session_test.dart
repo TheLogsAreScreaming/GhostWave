@@ -126,6 +126,74 @@ void main() {
   });
 
   group('NodeLink', () {
+    test('a link that stops answering is detected and reconnected, no user action', () {
+      fakeAsync((fa) {
+        var silent = true; // the first connection goes quiet (half-open TCP)
+        final node = FakeNode();
+        node.onRequest.listen((e) {
+          final (c, r) = e;
+          if (r.hasGetStatus() && !(silent && node.connections.length == 1)) {
+            c.send(pb.FromRadio(reqId: r.reqId, status: pb.Status()));
+          }
+        });
+        final link = NodeLink();
+        final states = <LinkState>[];
+        link.states.listen(states.add);
+        link.connect(node);
+        fa.flushMicrotasks();
+        expect(link.state, isA<LinkUp>());
+
+        // first ping at 15 s, no reply by 25 s: link timed out
+        fa.elapse(const Duration(seconds: 26));
+        final waiting = states.whereType<LinkWaiting>().single;
+        expect(waiting.reason, contains('link timed out'));
+        expect(node.connections.first.closed, isTrue, reason: 'the dead socket is closed');
+
+        fa.elapse(const Duration(seconds: 1));
+        expect(link.state, isA<LinkUp>());
+        expect(node.opens, 2);
+
+        // the new connection answers pings: it stays up
+        silent = false;
+        fa.elapse(const Duration(minutes: 2));
+        expect(link.state, isA<LinkUp>());
+        expect(node.opens, 2);
+        link.dispose();
+      });
+    });
+
+    test('checkNow reconnects at once while waiting, with the backoff reset', () {
+      fakeAsync((fa) {
+        final node = FakeNode()..failOpens = 4;
+        final link = NodeLink();
+        link.connect(node);
+        fa.flushMicrotasks();
+        fa.elapse(const Duration(seconds: 2 + 5));
+        expect((link.state as LinkWaiting).retryIn, const Duration(seconds: 10));
+        node.failOpens = 0;
+        link.checkNow(); // app resumed: no 10 s wait
+        fa.flushMicrotasks();
+        expect(link.state, isA<LinkUp>());
+        link.dispose();
+      });
+    });
+
+    test('checkNow pings a live link, and a dead one is dropped', () {
+      fakeAsync((fa) {
+        final node = FakeNode(); // never answers GetStatus
+        final link = NodeLink();
+        final states = <LinkState>[];
+        link.states.listen(states.add);
+        link.connect(node);
+        fa.flushMicrotasks();
+        link.checkNow(); // well before the first periodic ping at 15 s
+        fa.elapse(const Duration(seconds: 11));
+        expect(states.whereType<LinkWaiting>().single.reason, contains('link timed out'));
+        expect(node.opens, 2, reason: 'reconnected after the 1 s backoff');
+        link.dispose();
+      });
+    });
+
     test('connects, then reconnects and says Hello again after a drop', () {
       fakeAsync((fa) {
         final node = FakeNode();

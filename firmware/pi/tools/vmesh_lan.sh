@@ -5,13 +5,18 @@
 #   N1 --1.5 km-- N2 --1.5 km-- N3 ...      UDP virtual radio, fixed positions
 #
 # Usage: firmware/pi/tools/vmesh_lan.sh [-n NODES] [--bind ADDR | --lan]
-#                                      [--base-port PORT] [--spacing KM] [path/to/ghostwaved]
+#                                      [--base-port PORT] [--spacing KM] [--real-timing]
+#                                      [path/to/ghostwaved]
 #   -n NODES        2..6, default 4
 #   --bind ADDR     address the client ports listen on, default 127.0.0.1
 #   --lan           bind to this machine's LAN address so a phone on the same
 #                   Wi-Fi can connect (see the warning this prints)
 #   --base-port P   node i listens on P+i-1, default 47800
 #   --spacing KM    distance between neighbors, default 1.5
+#   --real-timing   keep the on-air beacon timing (a stationary node beacons
+#                   every 15 min). By default nodes beacon at least every 60 s
+#                   (ghostwaved --beacon-max-s 60), so a lost beacon costs a
+#                   minute, not 15, while you test from a phone.
 # Env: VMESH_PORT (multicast port, default 47790), VMESH_IF.
 # Ctrl-C stops every node. Logs, keys and a node table are in the work dir,
 # which is kept so the node IDs stay the same if you pass it back as
@@ -24,7 +29,7 @@ set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
 fw=$(cd "$here/../.." && pwd)
-n=4 bind=127.0.0.1 base=47800 spacing=1.5 bin=""
+n=4 bind=127.0.0.1 base=47800 spacing=1.5 bin="" beacon_max=60
 while [ $# -gt 0 ]; do
   case $1 in
     -n) n=$2; shift ;;
@@ -32,7 +37,8 @@ while [ $# -gt 0 ]; do
     --lan) bind=lan ;;
     --base-port) base=$2; shift ;;
     --spacing) spacing=$2; shift ;;
-    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
+    --real-timing) beacon_max="" ;;
+    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
     *) bin=$1 ;;
   esac
   shift
@@ -68,12 +74,14 @@ for i in $(seq 1 "$n"); do
   args=(--radio udp --mcast "239.77.0.1:$port" --key "$work/$name.key" --name "$name"
         --lat "$lat" --lon -113.99 --client-tcp "$bind:$((base + i - 1))")
   [ -n "${VMESH_IF:-}" ] && args+=(--vif "$VMESH_IF")
+  [ -n "$beacon_max" ] && args+=(--beacon-max-s "$beacon_max")
   # stdin is a FIFO held open by this script: `echo stats > $work/N1.in` works
   rm -f "$work/$name.in"; mkfifo "$work/$name.in"
   "$bin" "${args[@]}" <"$work/$name.in" >"$work/$name.log" 2>&1 &
   pids="$pids $!"
   eval "exec $((i + 2))>\"\$work/\$name.in\""
-  sleep 0.5
+  # ~1 s apart, so the nodes' first beacons do not all collide
+  sleep 1
 done
 
 table="$work/nodes.txt"
@@ -91,6 +99,11 @@ for i in $(seq 1 "$n"); do
 done
 
 echo "virtual mesh: $n nodes, ${spacing} km apart, radio group 239.77.0.1:$port"
+if [ -n "$beacon_max" ]; then
+  echo "beacons: at least every ${beacon_max} s when stationary (testing; --real-timing for 15 min)"
+else
+  echo "beacons: real timing (a stationary node beacons every 15 min)"
+fi
 echo
 echo "    node id       client link           ed25519 public key (contact / QR card)"
 sed 's/^/    /' "$table"
