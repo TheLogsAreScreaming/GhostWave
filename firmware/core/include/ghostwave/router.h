@@ -28,6 +28,12 @@ class RadioPort {
   virtual bool transmit(const uint8_t* buf, size_t len) = 0;
 };
 
+// From a neighbor's beacon (DESIGN §4.4). Speed 0 = stopped or not measured.
+struct Velocity {
+  double speedMps = 0;
+  double headingDeg = 0;   // true, clockwise from north
+};
+
 // SOS body (DESIGN §8). Position travels in the frame's src_pos.
 struct SosInfo {
   uint32_t src = 0;
@@ -207,6 +213,9 @@ class Router {
   size_t storeSize() const { return store_.size(); }
   size_t neighborCount(uint64_t nowMs) const;
   size_t neighborTableSize() const { return nb_.size(); }
+  // The velocity in a neighbor's latest beacon. False for an unknown neighbor.
+  // Informational: no forwarding decision uses it yet.
+  bool neighborVelocity(uint32_t id, Velocity& out) const;
   size_t seenSize() const { return seen_.size(); }
   uint32_t id() const { return cfg_.nodeId; }
 
@@ -225,6 +234,7 @@ class Router {
     Position pos;
     uint64_t heardMs;
     uint64_t bloomAnswered;   // its Bloom filter we last answered with an early beacon
+    Velocity velocity;
   };
   struct Seen {
     uint64_t t = 0;
@@ -284,6 +294,7 @@ class Router {
   void storeMsg(const Packet& f, bool spray, int copies, uint64_t now);
   void unicast(const Packet& f, uint16_t nh, int copies, uint64_t now);
   void onBeacon(const Packet& p, uint64_t now);
+  void updateVelocity(const Position& p, uint64_t now);
   void onLinkAck(const Packet& p, uint64_t now);
   void onAck(const Packet& p, uint64_t now);
   void onData(const Packet& p, float rssi, uint64_t now);
@@ -339,6 +350,10 @@ class Router {
   uint64_t lastBeaconT_ = 0;
   bool beaconed_ = false;
   Position lastBeaconPos_;
+  bool velAnchorSet_ = false;
+  Position velAnchor_;
+  uint64_t velAnchorT_ = 0, velT_ = 0;
+  Velocity velSpeed_;
   uint64_t heardAirMs_ = 0, heardMark_ = 0, utilT_ = 0;
   double util_ = 0;
   uint64_t beaconSoonAt_ = 0;   // early beacon so an SOS carrier sees our Bloom filter
