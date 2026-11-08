@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "app_state.h"
 #include "board.h"
 #include "ghostwave/crypto.h"
 #include "ghostwave/router.h"
@@ -24,9 +25,6 @@
 #include "settings.h"
 #include "ui.h"
 #if GW_HAS_BLE
-#include <map>
-
-#include "app_state.h"
 #include "ble_link.h"
 #include "ghostwave/client_handler.h"
 #endif
@@ -202,7 +200,9 @@ gw::mcu::McuRadio g_radio;
 SerialApp g_app;
 gw::Config g_cfg;
 std::unique_ptr<gw::Router> g_router;
-Key32 g_pub{};
+Key32 g_pub{};      // X25519, which is what `keys` prints and peers encrypt to
+Key32 g_edPub{};    // Ed25519, when g_signing
+bool g_signing = false;   // has an Ed25519 identity and sends IDENT
 gw::Position g_pos;          // what the router was last given
 bool g_gpsFix = false;
 #if GW_HAS_GPS
@@ -307,7 +307,7 @@ void printHelp() {
   Serial.print(
       "commands: send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | status | pos\n"
       "          keys | peer <hex-id> <hex-pubkey> | sos <text> | sosstop | sosack <hex-id>\n"
-      "settings (saved): setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
+      "settings (saved): name [text] | name clear | setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
       "          power <dBm> | freq <MHz> | region us915|eu868 | responder on|off | requireenc on|off | reboot\n"
 #if GW_HAS_BLE
       "app link: ble | ble on|off (saved) | ble clear (forget paired phones)\n"
@@ -320,6 +320,24 @@ bool parseOnOff(const std::string& s, bool& v) {
   else if (s == "off") v = false;
   else return false;
   return true;
+}
+
+enum class Rename { Ok, NoIdentity, BadName, Failed };
+
+// Re-signs IDENT with the new name, saves it and announces it. The seed is
+// read again rather than kept in memory.
+Rename renameNode(const std::string& name) {
+  if (!g_signing) return Rename::NoIdentity;
+  if (!gw::mcu::validNodeName(name)) return Rename::BadName;
+  Key32 seed{};
+  const bool ok = gw::mcu::loadIdentitySeed(seed) && g_router->setSigningKey(seed.data(), name);
+  gw::wipe(seed.data(), seed.size());
+  if (!ok) return Rename::Failed;
+  g_set.name = name;
+  if (!gw::mcu::saveName(g_set)) Serial.println("warning: name not saved, it lasts until reboot");
+  g_router->announceIdent(nowMs());
+  Serial.printf("renamed to \"%s\"\n", name.c_str());
+  return Rename::Ok;
 }
 
 void handleCommand(std::string line) {
@@ -482,6 +500,19 @@ void handleCommand(std::string line) {
       Serial.println("usage: ble | ble on | ble off | ble clear");
     }
 #endif
+  } else if (cmd == "name") {
+    while (!line.empty() && line[0] == ' ') line.erase(0, 1);
+    if (line.empty()) {
+      if (g_signing) Serial.printf("name \"%s\"\n", g_set.name.c_str());
+      else Serial.println("no name: this node has an older X25519 identity and sends no IDENT");
+      return;
+    }
+    switch (renameNode(line == "clear" ? std::string() : line)) {
+      case Rename::Ok: break;
+      case Rename::NoIdentity: Serial.println("cannot rename: this node has an older X25519 identity and sends no IDENT"); break;
+      case Rename::BadName: Serial.printf("name must be at most %u bytes, no control characters\n", static_cast<unsigned>(gw::kIdentNameMax)); break;
+      case Rename::Failed: Serial.println("could not re-sign the identity"); break;
+    }
   } else if (cmd == "reboot") {
     Serial.println("rebooting");
     Serial.flush();
@@ -595,8 +626,9 @@ void startBle() {
   std::snprintf(name, sizeof name, "GhostWave-%04x", static_cast<unsigned>(g_cfg.nodeId & 0xFFFF));
   gw::client::NodeIdentity self;
   self.id = g_cfg.nodeId;
-  self.name = name;
-  self.legacy = true;   // X25519 identity, like ghostwaved without --identity (no IDENT yet)
+  self.name = g_set.name;
+  self.legacy = !g_signing;
+  self.edPub = g_edPub;
   self.xPub = g_pub;
   self.firmware = "ghostwave-" GW_BOARD_NAME " " GW_FW_VERSION;
   gw::client::Handler::Hooks hooks;
@@ -612,7 +644,20 @@ void startBle() {
   g_channels.reset(new SavedChannelBook(*g_router));
   g_channels->load();
   hooks.channels = g_channels.get();
-  // no setName hook: this X25519 identity sends no IDENT, so it has no name to change (NO_IDENTITY)
+  hooks.setName = [](const std::string& newName, std::string& err) -> gw::client::ErrorCode {
+    switch (renameNode(newName)) {
+      case Rename::Ok: return gw::client::ErrorCode::None;
+      case Rename::NoIdentity:
+        err = "this node has an older X25519 identity, so no IDENT and no name";
+        return gw::client::ErrorCode::NoIdentity;
+      case Rename::BadName:
+        err = "name must be at most " + std::to_string(gw::kIdentNameMax) + " bytes, no control characters";
+        return gw::client::ErrorCode::BadArgument;
+      case Rename::Failed: break;
+    }
+    err = "could not re-sign the identity";
+    return gw::client::ErrorCode::SendFailed;
+  };
   // 32 held events, not ghostwaved's 64: each can hold a 128-byte text in RAM.
   g_handler.reset(new gw::client::Handler(*g_router, self, g_pos, hooks, g_bootMs, g_ble, 32));
   g_ble.attach(g_handler.get());
@@ -644,7 +689,12 @@ void gwSetup() {
   // Keys first (secureRandom borrows the ADC, before anything else uses it).
   bool nvsOk = gw::mcu::loadSettings(g_set);
   if (!nvsOk) Serial.println("settings storage unavailable: settings and keys will not persist");
-  gw::x25519Public(g_set.secret.data(), g_pub.data());
+  if (g_set.edIdentity) {
+    gw::ed25519Public(g_set.secret.data(), g_edPub.data());
+    gw::ed25519ToX25519(g_edPub.data(), g_pub.data());
+  } else {
+    gw::x25519Public(g_set.secret.data(), g_pub.data());
+  }
 
   g_cfg.nodeId = g_set.nodeId;
   g_cfg.requireEncryption = g_set.requireEnc;
@@ -654,7 +704,17 @@ void gwSetup() {
   gw::mcu::secureRandom(reinterpret_cast<uint8_t*>(seed), sizeof seed);
   g_cfg.rngSeed = static_cast<uint64_t>(seed[0]) << 32 | seed[1];
   g_router.reset(new gw::Router(g_cfg, g_radio, g_app));
-  g_router->setIdentityKey(g_set.secret.data());
+  g_signing = g_set.edIdentity && g_router->setSigningKey(g_set.secret.data(), g_set.name);
+  if (g_set.edIdentity && !g_signing) {
+    // Should not happen. Keep the key so messages still decrypt, without IDENT.
+    Serial.println("identity does not match the node ID: IDENT off");
+    Key32 x{};
+    gw::ed25519SecretToX25519(g_set.secret.data(), x.data());
+    g_router->setIdentityKey(x.data());
+    gw::wipe(x.data(), x.size());
+  } else if (!g_set.edIdentity) {
+    g_router->setIdentityKey(g_set.secret.data());
+  }
   gw::wipe(g_set.secret.data(), g_set.secret.size());   // the router keeps its own copy
   if (g_set.havePsk) g_router->setChannelKey(g_set.psk.data());
   for (size_t i = 0; i < g_set.peerCount; ++i) g_router->addPeerKey(g_set.peers[i].id, g_set.peers[i].pub.data());

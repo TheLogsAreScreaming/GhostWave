@@ -352,9 +352,10 @@ core. The bytes are the §2 frames, unchanged; BLE only carries them.
   **32** events, not 64. It lives in RAM, so a reboot empties it, and it only fills while BLE is on
   (`ble on`).
 - `NodeInfo.firmware` reads `ghostwave-rak4631 0.1.0-dev.1` or `ghostwave-t1000e 0.1.0-dev.1` (board and
-  version). The MCU firmware has
-  an X25519 identity only, so `NodeInfo.legacy` is true and contacts are pinned like on a legacy
-  daemon. `AddContact` takes an Ed25519 key (its node ID is derived from it) or an X25519 key plus
+  version). A board first
+  set up by this firmware has an Ed25519 identity, so `NodeInfo.legacy` is false and `SetName` works.
+  One first set up by an older build keeps its X25519 identity: `NodeInfo.legacy` is true and
+  `SetName` answers `NO_IDENTITY`. `AddContact` takes an Ed25519 key (its node ID is derived from it) or an X25519 key plus
   node ID, and saves it in flash with the serial CLI's `peer` keys (32 at most). The Ed25519 key that
   `ListContacts` reports is saved too (`/gw/edkeys`), for peers whose key was stored.
 - `Status.battery_pct` (0–100) is present only when the node can read its battery: the T1000-E today.

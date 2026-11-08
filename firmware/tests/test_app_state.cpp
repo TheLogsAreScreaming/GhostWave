@@ -125,6 +125,13 @@ void testDamage() {
 }  // namespace
 
 int main() {
+  CHECK(validNodeName(""));
+  CHECK(validNodeName("ridge-9"));
+  CHECK(validNodeName("123456789"));
+  CHECK(!validNodeName("1234567890"));
+  CHECK(!validNodeName(std::string("a\nb")));
+  CHECK(!validNodeName(std::string(1, '\x7f')));
+
   testChannels();
   testEdKeys();
   testDamage();

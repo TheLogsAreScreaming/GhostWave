@@ -340,9 +340,10 @@ T1000-E (LR1110 radio, GPS, SOS button) is env `t1000e`: see
    release **BOOT**, and run the command again. On the Tracker, press **RST** after the upload.
 4. Open the console: `pio device monitor` (115200 baud). It echoes what you type and sends on Enter.
 
-On first boot the node creates a node ID (from the chip's MAC) and an X25519 identity key (from the
-hardware RNG), and stores them in NVS. Like `ghostwaved`, the board does not have an Ed25519 identity
-yet. It learns peer keys from IDENT (it prints `IDENT learned key for ...`) but does not send IDENT. They survive reflashing the app. `pio run -t erase` wipes them.
+On first boot the node creates an Ed25519 identity (from the hardware RNG), derives its node ID from
+it and stores them in NVS. It sends IDENT and learns peer keys from other nodes' IDENT (it prints
+`IDENT learned key for ...`). A board first set up by an older build keeps its X25519 key and
+MAC-derived node ID, and does not send IDENT. Keys survive reflashing the app. `pio run -t erase` wipes them.
 
 ### CLI
 
@@ -365,6 +366,7 @@ These replace `ghostwaved`'s command-line options. They are saved in NVS:
 | `region us915\|eu868` | Band and duty-cycle cap. Default `us915` (902.0625–927.9375 MHz, no cap). `eu868` is 869.4625–869.5875 MHz, default 869.525, at most 10 % of any hour on air, SOS included. Applies after `reboot`. |
 | `requireenc on\|off` | Same as `--require-enc`. Applies after `reboot`. |
 | `responder on\|off` | Same as `--responder`. Applies after `reboot`. |
+| `name [text]` / `name clear` | Shows or sets the name peers see, up to 9 bytes, and announces it. Boards first set up by a build before Ed25519 identities have no name. |
 | `reboot` | Restarts the node. |
 
 **Radio:** the "Trail" preset, the same as `ghostwaved`: SF9, BW125, CR4/5, 16-symbol preamble, sync

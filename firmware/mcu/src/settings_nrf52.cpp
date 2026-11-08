@@ -40,6 +40,8 @@ constexpr uint8_t kVersion = 1;
 // Optional fields after the peers: tag, length, value. Unknown tags are
 // skipped. A field at its default is left out.
 constexpr uint8_t kTagRegion = 1;
+constexpr uint8_t kTagEdIdentity = 2;   // no value: the secret is an Ed25519 seed
+constexpr uint8_t kTagName = 3;
 
 bool g_fsOk = false;
 // The identity secret as loaded. main.cpp wipes Settings::secret once the
@@ -128,6 +130,15 @@ std::vector<uint8_t> encode(const Settings& s) {
     w.u8(1);
     w.u8(static_cast<uint8_t>(s.region));
   }
+  if (s.edIdentity) {
+    w.u8(kTagEdIdentity);
+    w.u8(0);
+  }
+  if (!s.name.empty()) {
+    w.u8(kTagName);
+    w.u8(static_cast<uint8_t>(s.name.size()));
+    w.raw(s.name.data(), s.name.size());
+  }
   w.u32(crc32c(w.bytes().data(), w.bytes().size()));
   return std::move(w.bytes());
 }
@@ -170,6 +181,11 @@ bool decode(const std::vector<uint8_t>& b, Settings& s) {
     uint8_t value[255];
     r.raw(value, len);
     if (tag == kTagRegion && len == 1 && value[0] < kRegionCount) t.region = static_cast<Region>(value[0]);
+    if (tag == kTagEdIdentity) t.edIdentity = true;
+    if (tag == kTagName) {
+      std::string name(reinterpret_cast<const char*>(value), len);
+      if (validNodeName(name)) t.name = name;
+    }
   }
   if (!r.ok()) return false;
   s = t;
@@ -286,8 +302,7 @@ bool loadSettings(Settings& s) {
   }
   if (InternalFS.exists(kPath)) Serial.println("settings file unreadable: starting fresh (new identity key)");
   s = Settings();
-  s.nodeId = deviceId();
-  secureRandom(s.secret.data(), s.secret.size());
+  newEdIdentity(s);
   s.outputDbm = kDefaultOutputDbm;
   s.freqMHz = 914.875f;   // clear of Meshtastic/MeshCore US defaults
   g_secret = s.secret;
@@ -300,6 +315,12 @@ bool savePsk(const Settings& s) { return saveAll(s); }
 bool saveRadio(const Settings& s) { return saveAll(s); }
 bool saveFlags(const Settings& s) { return saveAll(s); }
 bool saveBle(const Settings& s) { return saveAll(s); }
+bool saveName(const Settings& s) { return saveAll(s); }
+
+bool loadIdentitySeed(Key32& out) {
+  out = g_secret;
+  return true;
+}
 
 bool savePeer(Settings& s, uint32_t id, const Key32& pub) {
   if (id == 0 || id == kBroadcast) return false;
