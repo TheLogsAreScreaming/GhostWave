@@ -6,6 +6,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "ghostwave/crypto.h"
 #include "region.h"
@@ -24,7 +25,9 @@ struct PeerKey {
 
 struct Settings {
   uint32_t nodeId = 0;
-  Key32 secret{};               // X25519 identity secret
+  Key32 secret{};               // Ed25519 seed if edIdentity, else X25519 secret
+  bool edIdentity = false;      // fresh boards: Ed25519, node ID from the key, sends IDENT
+  std::string name;             // IDENT name, up to kIdentNameMax bytes; Ed25519 only
   bool havePsk = false;
   Key32 psk{};                  // channel key
   bool fixedPos = false;        // stored position (boards without GPS, or no fix yet)
@@ -39,8 +42,9 @@ struct Settings {
   std::array<PeerKey, kMaxStoredPeers> peers{};
 };
 
-// Loads everything; on first boot creates and saves a node ID (from the
-// factory MAC / FICR device ID) and an identity key (from the hardware RNG).
+// Loads everything; on first boot creates and saves an Ed25519 identity and the
+// node ID derived from it. A board set up before Ed25519 keeps its X25519 key
+// and its factory-derived node ID: replacing them would change its address.
 // False if storage fails.
 bool loadSettings(Settings& s);
 
@@ -49,12 +53,27 @@ bool savePsk(const Settings& s);
 bool saveRadio(const Settings& s);   // power, frequency and region
 bool saveFlags(const Settings& s);
 bool saveBle(const Settings& s);
+bool saveName(const Settings& s);
+// Copies the stored identity secret: Settings::secret is wiped after boot.
+bool loadIdentitySeed(Key32& out);
 // Adds or replaces `id`'s key. False when kMaxStoredPeers are already held.
 bool savePeer(Settings& s, uint32_t id, const Key32& pub);
 
 // Hardware RNG (ESP32: with the RF-independent entropy source switched on;
 // nRF52: the RNG peripheral, through the SoftDevice once it is running).
 void secureRandom(uint8_t* out, size_t n);
+
+// Fills s.secret with a new Ed25519 seed and s.nodeId with its node ID, retrying
+// the rare key whose ID is reserved (DESIGN §3).
+inline void newEdIdentity(Settings& s) {
+  uint8_t pub[kKeySize];
+  do {
+    secureRandom(s.secret.data(), s.secret.size());
+    ed25519Public(s.secret.data(), pub);
+    s.nodeId = nodeIdOf(pub);
+  } while (!nodeIdUsable(s.nodeId));
+  s.edIdentity = true;
+}
 
 }  // namespace mcu
 }  // namespace gw

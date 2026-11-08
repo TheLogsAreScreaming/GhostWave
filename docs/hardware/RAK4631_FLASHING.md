@@ -67,16 +67,16 @@ screen /dev/cu.usbmodem* 115200
 The boot banner prints in the first two seconds, before most terminals attach. Type `status` to
 see it again. Type `help` for the command list.
 
-On first boot the node makes a node ID (from the chip's factory device ID) and an X25519 identity key
-(from the hardware RNG). It stores them in the nRF52's internal flash (`/gw/settings`, LittleFS).
-They survive reflashing. Like the Heltec builds, the RAK4631 has no Ed25519 identity and does not
-send IDENT yet.
+On first boot the node makes an Ed25519 identity from the hardware RNG and derives its node ID from
+it. It stores them in the nRF52's internal flash (`/gw/settings`, LittleFS), so they survive
+reflashing. The node then sends IDENT, so peers learn its key and its name. A board first set up by
+an older build keeps its X25519 key and node ID. It sends no IDENT and cannot be named.
 
 ### Commands
 
 These are the same as on the Heltec boards (README, "Run on a Heltec board"): `send`, `known`, `pos`,
 `keys`, `peer`, `sos`, `sosstop`, `sosack`, `stats`, `status`, `setpos`, `psk`, `power`, `freq`,
-`requireenc`, `responder` and `reboot`. The RAK4631 adds three:
+`requireenc`, `responder`, `name` and `reboot`. The RAK4631 adds three:
 
 | Command | Effect |
 |---|---|

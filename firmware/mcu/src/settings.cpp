@@ -1,6 +1,8 @@
 // ESP32 settings store (NVS). The nRF52 one is settings_nrf52.cpp.
 #include "settings.h"
 
+#include "app_state.h"
+
 #if defined(ARDUINO_ARCH_ESP32)
 
 #include <Arduino.h>
@@ -70,19 +72,26 @@ bool loadSettings(Settings& s) {
   Nvs nvs(false);
   if (!nvs.ok()) return false;
 
-  s.nodeId = nvs->getUInt("id", 0);
-  if (s.nodeId == 0 || s.nodeId == kBroadcast) {
-    uint8_t mac[6];
-    esp_efuse_mac_get_default(mac);
-    s.nodeId = crc32c(mac, sizeof mac);
-    if (s.nodeId == 0 || s.nodeId == kBroadcast) s.nodeId = 0x6E57A11u;
-    if (!nvs->putUInt("id", s.nodeId)) return false;
-  }
-
-  if (!getKey(nvs, "idkey", s.secret)) {
-    secureRandom(s.secret.data(), s.secret.size());
+  if (getKey(nvs, "idkey", s.secret)) {
+    s.edIdentity = nvs->getBool("edid", false);
+    s.nodeId = nvs->getUInt("id", 0);
+    if (s.nodeId == 0 || s.nodeId == kBroadcast) {   // a board from before Ed25519
+      uint8_t mac[6];
+      esp_efuse_mac_get_default(mac);
+      s.nodeId = crc32c(mac, sizeof mac);
+      if (s.nodeId == 0 || s.nodeId == kBroadcast) s.nodeId = 0x6E57A11u;
+      if (!nvs->putUInt("id", s.nodeId)) return false;
+    }
+  } else {
+    newEdIdentity(s);
+    // The key goes last: a power cut before it just makes a new identity next boot.
+    if (!nvs->putBool("edid", true) || !nvs->putUInt("id", s.nodeId)) return false;
     if (nvs->putBytes("idkey", s.secret.data(), s.secret.size()) != s.secret.size()) return false;
     Serial.println("generated new identity key");
+  }
+  {
+    const std::string name = nvs->getString("name", "").c_str();
+    if (s.edIdentity && validNodeName(name)) s.name = name;
   }
   s.havePsk = getKey(nvs, "psk", s.psk);
 
@@ -140,6 +149,18 @@ bool saveFlags(const Settings& s) {
 }
 
 bool saveBle(const Settings&) { return true; }   // no BLE link on the ESP32 builds yet
+
+bool saveName(const Settings& s) {
+  Nvs nvs(false);
+  if (!nvs.ok()) return false;
+  if (s.name.empty()) return nvs->remove("name") || !nvs->isKey("name");
+  return nvs->putString("name", s.name.c_str()) == s.name.size();
+}
+
+bool loadIdentitySeed(Key32& out) {
+  Nvs nvs(true);
+  return nvs.ok() && getKey(nvs, "idkey", out);
+}
 
 bool savePeer(Settings& s, uint32_t id, const Key32& pub) {
   if (id == 0 || id == kBroadcast) return false;

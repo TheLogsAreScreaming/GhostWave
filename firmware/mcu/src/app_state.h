@@ -12,12 +12,21 @@
 #include <string>
 #include <vector>
 
+#include "ghostwave/crypto.h"
 #include "ghostwave/packet.h"
 
 namespace gw {
 namespace mcu {
 
 using AppKey = std::array<uint8_t, 32>;
+
+// A name a node can put in its IDENT: short enough, no control characters.
+inline bool validNodeName(const std::string& name) {
+  if (name.size() > gw::kIdentNameMax) return false;
+  for (unsigned char c : name)
+    if (c < 0x20 || c == 0x7F) return false;
+  return true;
+}
 
 struct SavedChannel {
   std::string name;
