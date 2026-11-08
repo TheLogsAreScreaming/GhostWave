@@ -27,6 +27,7 @@ any other mesh app.
 | **Recent nodes:** one-tap reconnect on the Connect screen; "Connected to N1 (9d66916b)" bar above the tabs | done |
 | **Share phone location:** opt-in switch on the Me tab sends the phone's GPS to the node (`SetOwnPosition`) on 50 m of movement, at most every 30 s, only while the app is open | done |
 | **Notifications:** new DMs and SOS alerts while the app is in the background and still connected | done |
+| **Background connection (Android, optional):** foreground service keeps the link up with the screen off | built, not tried on a phone |
 | **PIN:** a node on a network asks for its PIN once; the app keeps it in the phone's secure storage and proves it without sending it | done |
 | **Bluetooth** (RAK4631, T1000-E): scan, signal strength, system passkey pairing, remembered under recent nodes, drops recover by themselves | done, untested on real radios |
 | **Offline maps:** save the area on screen from a tile source you configure (Map tab or Settings), with a size estimate and limits (zoom 16, 15,000 tiles per region, 1 GB in total) | done |
@@ -127,6 +128,20 @@ If pairing fails, retype the passkey and tap **Retry now**. If you ran `ble clea
 the node in Android's Bluetooth settings first, because the phone's old bond no longer matches. A node serves one
 phone at a time and doesn't advertise while connected, so disconnect other phones if it isn't listed.
 
+## Background connection checks (needs a real phone)
+
+CI can't run a foreground service, so these are still to do, on Android 14 or newer if possible:
+
+1. Connect, accept the explanation screen, allow notifications and the battery exemption. The "GhostWave connected"
+   notification appears.
+2. Screen off for 30 minutes, on TCP and on Bluetooth. Send a DM and then an SOS from another node: both notify, the SOS
+   on the "SOS alerts" channel.
+3. Swipe the app away from recents, repeat the DM, then tap the notification. The chat shows it, with no duplicate.
+4. Send a DM with the screen off, have the peer ack it, and check the tick when you reopen.
+5. Take the node out of range for a few minutes and back: the notification says "reconnecting", then "connected".
+6. Tap **Disconnect** on the notification, and separately disconnect in the app: the notification goes away both times.
+7. Check battery use over a few hours, and test a vendor with aggressive app killing (Samsung, Xiaomi) if you can.
+
 ## Known limits
 
 - **Bluetooth has not been tried on real radios.** CI has none: the tests use a fake radio layer. Radio
@@ -140,10 +155,12 @@ phone at a time and doesn't advertise while connected, so disconnect other phone
   downloading areas in advance, so the app refuses to do that with them. Places you have viewed stay
   cached for a while. To save regions, set a tile URL from a provider whose terms allow offline use, or
   from your own tile server (Settings → Offline maps), and give its attribution, which the map always shows.
-- **Notifications only while the app is still running.** There is no push service: once the phone
-  stops the backgrounded app (minutes on many Android phones, almost at once on iPhone), the link
-  closes and nothing more arrives until the app is opened again. The node holds DMs and SOS alerts for
-  the app meanwhile and replays them on reconnect.
+- **Background connection is Android only, and optional.** Turn it on when asked after the first connection, or
+  in Settings. A persistent notification and a foreground service keep the TCP or Bluetooth link up with the screen
+  off or the app swiped away, and it costs battery because the phone can't fully sleep. Without it, or on iPhone,
+  or if the phone's vendor kills the app anyway, the link closes once the app is stopped. Nothing more arrives until
+  it's opened again. There is no push service. The node holds DMs and SOS alerts and replays them on reconnect.
+  **It hasn't been tried on a real phone.** See "Background connection checks" below.
 - **Location sharing is foreground only.** It pauses when the app goes to the background.
 - **Contacts come from the node.** A node in radio range becomes a contact on its own once your node
   hears its identity (IDENT; trust on first use, marked with a radio icon). Until then it shows under

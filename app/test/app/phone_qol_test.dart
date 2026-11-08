@@ -57,6 +57,9 @@ class RecordingAlerts implements MeshAlerts {
   @override
   Future<void> sosReceived({required int src, required String from, required String text}) async =>
       shown.add('sos $from: $text');
+
+  @override
+  Future<void> backgroundLinkStopped(String reason) async => shown.add('stopped: $reason');
 }
 
 /// [answeringNode] that also accepts `SetOwnPosition`.
