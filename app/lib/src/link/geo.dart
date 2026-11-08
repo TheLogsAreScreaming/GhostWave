@@ -29,6 +29,16 @@ class LatLon {
   /// JSON form.
   Map<String, Object?> toJson() => {'lat': lat, 'lon': lon};
 
+  /// Initial bearing to [other], degrees clockwise from north (0..360).
+  double bearingTo(LatLon other) {
+    double rad(double d) => d * math.pi / 180;
+    final dLon = rad(other.lon - lon);
+    final y = math.sin(dLon) * math.cos(rad(other.lat));
+    final x =
+        math.cos(rad(lat)) * math.sin(rad(other.lat)) - math.sin(rad(lat)) * math.cos(rad(other.lat)) * math.cos(dLon);
+    return (math.atan2(y, x) * 180 / math.pi + 360) % 360;
+  }
+
   /// Great-circle distance to [other] in metres (haversine, mean Earth radius).
   double distanceTo(LatLon other) {
     const r = 6371008.8;

@@ -142,7 +142,7 @@ class _LocationShareCard extends ConsumerWidget {
       LocationShareState(access: LocationAccess.denied) => ('Location permission was not given.', true),
       LocationShareState(:final error?) => (error, true),
       LocationShareState(:final lastSent?, :final lastSentAt?) => (
-        'Sent ${timeAgo(lastSentAt)}: $lastSent. Updates on 50 m of movement, at most every 30 s.',
+        'Sent ${timeAgo(lastSentAt)}: $lastSent. Updates when you move, at most every 30 s.',
         false,
       ),
       LocationShareState(active: true) => ('Waiting for a GPS fix…', false),

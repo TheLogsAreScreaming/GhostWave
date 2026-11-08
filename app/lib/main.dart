@@ -6,12 +6,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'src/app/location_share.dart';
 import 'src/app/mesh_alerts.dart';
 import 'src/app/mesh_controller.dart';
+import 'src/app/preferences.dart';
 import 'src/app/providers.dart';
 import 'src/data/mesh_store.dart';
+import 'src/map/offline_maps.dart';
 import 'src/ui/connect_screen.dart';
 import 'src/ui/home_shell.dart';
 import 'src/ui/settings_screen.dart';
 import 'src/ui/theme.dart';
+import 'src/ui/walkthrough_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +34,7 @@ Future<void> main() async {
         sharedPrefsProvider.overrideWithValue(prefs),
         meshStoreProvider.overrideWithValue(MeshStore(dir)),
         meshAlertsProvider.overrideWithValue(alerts),
+        offlineStoreProvider.overrideWithValue(OfflineStore(dir)),
       ],
       child: const GhostWaveApp(),
     ),
@@ -87,7 +91,11 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
       debugShowCheckedModeBanner: false,
       theme: buildGhostWaveTheme(),
       themeMode: ThemeMode.dark,
-      home: hasAddress ? const HomeShell() : const _FirstRun(),
+      home: hasAddress
+          ? const HomeShell()
+          : ref.watch(walkthroughDoneProvider)
+          ? const _FirstRun()
+          : WalkthroughScreen(onDone: ref.read(walkthroughDoneProvider.notifier).finish),
     );
   }
 }

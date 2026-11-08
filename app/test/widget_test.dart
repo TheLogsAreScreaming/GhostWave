@@ -9,7 +9,7 @@ import 'link/fake_node.dart';
 
 void main() {
   testWidgets('first launch opens Connect', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'walkthrough_done': true});
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(overrides: [sharedPrefsProvider.overrideWithValue(prefs)], child: const GhostWaveApp()),
@@ -20,7 +20,7 @@ void main() {
   });
 
   testWidgets('a bad address is refused', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'walkthrough_done': true});
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(overrides: [sharedPrefsProvider.overrideWithValue(prefs)], child: const GhostWaveApp()),

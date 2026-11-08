@@ -1,6 +1,8 @@
 /// Small display helpers.
 library;
 
+import '../app/preferences.dart';
+
 /// "just now", "5 min ago", "3 h ago", "2 d ago".
 String timeAgo(DateTime t, {DateTime? now}) {
   final d = (now ?? DateTime.now()).difference(t);
@@ -17,4 +19,33 @@ String clockTime(DateTime t, {DateTime? now}) {
   final hm = '${two(t.hour)}:${two(t.minute)}';
   if (t.year == n.year && t.month == n.month && t.day == n.day) return hm;
   return '${t.year}-${two(t.month)}-${two(t.day)} $hm';
+}
+
+/// A distance: "850 m" / "1.4 km", or "900 ft" / "2.3 mi".
+String formatDistance(double metres, Units units) {
+  if (units == Units.imperial) {
+    final feet = metres * 3.28084;
+    if (feet < 1000) return '${(feet / 10).round() * 10} ft';
+    final miles = metres / 1609.344;
+    return miles < 10 ? '${miles.toStringAsFixed(1)} mi' : '${miles.round()} mi';
+  }
+  if (metres < 1000) return '${(metres / 10).round() * 10} m';
+  final km = metres / 1000;
+  return km < 10 ? '${km.toStringAsFixed(1)} km' : '${km.round()} km';
+}
+
+/// A GPS accuracy: "12 m" or "39 ft", without rounding to tens.
+String formatAccuracy(int metres, Units units) =>
+    units == Units.imperial ? '${(metres * 3.28084).round()} ft' : '$metres m';
+
+/// The 8-point compass name of a bearing in degrees.
+String compassPoint(double bearing) =>
+    const ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][((bearing % 360) / 45).round() % 8];
+
+/// `m:ss`, or `h:mm:ss` from an hour up.
+String clockDuration(Duration d) {
+  String two(int v) => v.toString().padLeft(2, '0');
+  final s = d.isNegative ? 0 : d.inSeconds;
+  final h = s ~/ 3600, m = (s % 3600) ~/ 60, r = s % 60;
+  return h > 0 ? '$h:${two(m)}:${two(r)}' : '$m:${two(r)}';
 }

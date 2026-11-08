@@ -28,7 +28,10 @@ any other mesh app.
 | **Share phone location:** opt-in switch on the Me tab sends the phone's GPS to the node (`SetOwnPosition`) on 50 m of movement, at most every 30 s, only while the app is open | done |
 | **Notifications:** new DMs and SOS alerts while the app is in the background and still connected | done |
 | BLE transport | later (needs the Heltec BLE service) |
-| Offline map tiles | follow-up |
+| **Offline maps:** save the area on screen from a tile source you configure (Map tab or Settings), with a size estimate and limits (zoom 16, 15,000 tiles per region, 1 GB in total) | done |
+| **First run:** a four-page introduction (what GhostWave is, connecting, your QR card, how SOS works) | done |
+| **SOS:** elapsed time and next repeat while active; an incoming SOS opens the map at the sender, with distance and bearing from you | done |
+| **Units:** km or mi (Settings) | done |
 | iPhone install | blocked, see below |
 
 History (contacts, chats, SOS) is stored per node ID in the app's private storage, so connecting to a
@@ -115,7 +118,11 @@ paid Apple Developer account (TestFlight). That decision is still open. Android 
 - **No authentication on the TCP link.** Anyone who can reach the node's client port can read its DMs,
   send as it, add contacts and raise or ack SOS. `ghostwaved` only listens on 127.0.0.1 unless told
   otherwise; `--lan` / `--bind` are for a **trusted Wi-Fi only**. Stop the mesh when you are done.
-- Map tiles need internet (OpenStreetMap). Offline tiles are a follow-up.
+- **Offline maps need your own tile source.** The default map uses OpenStreetMap's tile servers, whose
+  [usage policy](https://operations.osmfoundation.org/policies/tiles/) does not permit offline use or
+  downloading areas in advance, so the app refuses to do that with them. Places you have viewed stay
+  cached for a while. To save regions, set a tile URL from a provider whose terms allow offline use, or
+  from your own tile server (Settings → Offline maps), and give its attribution, which the map always shows.
 - **Notifications only while the app is still running.** There is no push service: once the phone
   stops the backgrounded app (minutes on many Android phones, almost at once on iPhone), the link
   closes and nothing more arrives until the app is opened again. The node holds DMs and SOS alerts for
@@ -165,6 +172,7 @@ lib/src/link/             plain Dart, no Flutter: frame codec, transports, sessi
 lib/src/app/providers.dart  Riverpod providers (composition root)
 lib/src/app/mesh_controller.dart  mesh state: events in, actions out, saved per node
 lib/src/data/             models and the JSON history store
+lib/src/map/              offline regions: tile maths, limits, download, storage
 lib/src/ui/               screens
 test/link/                codec (GhostWave golden frames), session, link, card tests
 test/app/                 mesh controller against a fake node (DM states, outbox, dedup, SOS, history)

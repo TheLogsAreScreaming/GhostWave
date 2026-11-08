@@ -80,7 +80,7 @@ class ConnectionBar extends ConsumerWidget {
                   child: Text(
                     text,
                     style: Theme.of(context).textTheme.labelLarge,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

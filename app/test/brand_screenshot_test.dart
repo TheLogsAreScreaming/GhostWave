@@ -100,7 +100,7 @@ void main() {
   });
 
   testWidgets('connect screen', skip: skip != false, (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'walkthrough_done': true});
     final prefs = await SharedPreferences.getInstance();
     final key = GlobalKey();
     await _pumpApp(tester, key, [sharedPrefsProvider.overrideWithValue(prefs)]);
