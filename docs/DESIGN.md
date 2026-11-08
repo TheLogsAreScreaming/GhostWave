@@ -571,9 +571,10 @@ Identity mapping is explicit (the user pairs contacts). The bridge never forward
 4. The forwarding area helps dense meshes a lot but costs sparse ones some latency (§14).
    The 10-neighbor gate is a first guess.
 5. Bridge identity model.
-6. Not yet implemented in firmware: client protocol and IDENT in the Pi daemon (it still loads an X25519 secret
-   and peer keys from files). Implemented since v0.1: ChaCha20-Poly1305 AEAD for DATA (DM +
-   channel keys), the SOS lane (§8), IDENT (§4.5), Ed25519 → X25519 secret-key conversion and
+6. Not yet implemented in firmware: client protocol. Implemented since v0.1: ChaCha20-Poly1305
+   AEAD for DATA (DM + channel keys), the SOS lane (§8), IDENT (§4.5, including the Pi daemon,
+   which generates an Ed25519 identity; peer key files are optional and `--legacy-x25519` keeps
+   an old X25519 key, with no IDENT sent), Ed25519 → X25519 secret-key conversion and
    velocity in beacons (sent and stored; no forwarding decision uses it yet), the beacon
    MAC (§9.1) and Bloom-filter use for spray hand-offs (§5.4).
 7. SOS cost: in backcountry with 6 concurrent SOS events the lane still spends ~3× flood3's SOS
