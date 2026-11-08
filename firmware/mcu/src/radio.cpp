@@ -5,6 +5,7 @@
 #include <SPI.h>
 
 #include "board.h"
+#include "platform.h"
 
 namespace gw {
 namespace mcu {
@@ -62,7 +63,10 @@ int driveFor(int out) {
 
 }  // namespace
 
-int16_t McuRadio::begin(const Phy& phy, float freqMHz, int outputDbm) {
+int16_t McuRadio::begin(const Phy& phy, float freqMHz, int outputDbm, uint16_t dutyPermille) {
+  phy_ = phy;
+  maxFrameMs_ = airtimeMs(phy, kMaxFrame);
+  duty_.setPermille(dutyPermille);
 #if GW_HAS_KCT8103L
   // Power-up order from Meshtastic's LoRaFEMInterface::init: LDO, then chip
   // enable, LNA on for receive.
@@ -124,6 +128,17 @@ void McuRadio::femTx() {
 }
 
 bool McuRadio::channelBusy() {
+  if (!duty_.allows(nowMs(), maxFrameMs_)) {
+    const uint64_t now = nowMs();
+    if (!dutyHolding_) {
+      dutyHolding_ = true;
+      dutyHeldSince_ = now;
+      Serial.println("duty-cycle cap reached: holding transmissions");
+    }
+    if (now - dutyHeldSince_ < kDutyHoldMs) return true;
+  } else {
+    dutyHolding_ = false;
+  }
   if (digitalRead(kPinLoraDio1)) return true;   // a frame is waiting to be read
   int16_t r = g_sx.scanChannel();                // CAD
   g_sx.startReceive();
@@ -135,6 +150,12 @@ bool McuRadio::transmit(const uint8_t* buf, size_t len) {
     ++txErrors_;
     return false;
   }
+  const uint32_t air = airtimeMs(phy_, len);
+  if (!duty_.allows(nowMs(), air)) {
+    ++dutyDropped_;
+    return false;
+  }
+  duty_.record(nowMs(), air);   // before the attempt: a failed transmit may still have radiated
   femTx();
   int16_t st = g_sx.transmit(buf, len);
   femRx();
