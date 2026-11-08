@@ -127,7 +127,7 @@ UNICAST and add `dst_pos` en route. Everything else is authenticated end to end 
 
 ```
  0   1    beacon_flags   bit0 has_gps, bit1 stationary, bit2 mains_power, bit3 gateway,
-                         bit4 carrying_sos
+                         bit4 carrying_sos, bit5 seek (heard nobody: please answer, §6.2)
  1   2    velocity       u16 LE: heading (top 7 bits, 2.8° steps) + speed (low 9 bits, 0.1 m/s);
                          measured over ≥ 20 s of position fixes, 0 = stopped or not measured
  3   1    util           channel utilization this node measures, 0..255 = 0..100 %
@@ -137,8 +137,9 @@ UNICAST and add `dst_pos` en route. Everything else is authenticated end to end 
  13  11×n gossip         up to 3 entries: node ID (4) + pos (6) + age (1)
 ```
 
-A beacon is anycast (`next_hop = 0`), except when an SOS holder checks an offer it made: then
-`next_hop` is that neighbor, which answers with its own beacon (§8).
+A beacon is anycast (`next_hop = 0`), except when an SOS holder checks an offer it made (§8) or
+a node asks a peer it knows only from IDENT (§6.2): then `next_hop` is that neighbor, which
+answers with its own beacon.
 
 The beacon's own position is in `fwd_pos`. Size with 3 gossip entries: 19 + 6 + 13 + 33 + 4 =
 **75 bytes**. (The simulator models 64 B; the 11 extra bytes don't change any conclusion.)
@@ -313,6 +314,25 @@ benefit**.
 - Beacon when moved ≥ 250 m, or every 15 min. Never more often than every 60 s.
 - Both intervals stretch by `measured_util / 25 %` when the channel is busier than 25 %.
 - Position traffic is **1-hop** only. Positions spread by gossip, not by flooding.
+- **Recovery from a lost exchange.** A node's beacon and any early answers are one exchange, and
+  a collision can lose all of them. Waiting for the 15-min beacon then stalls whatever the node
+  carries, so a node retries a beacon nobody answered:
+  - **When.** After its first beacon at boot if it knows no neighbor; after a beacon sent for a
+    ≥ 250 m move while it holds a stored message or SOS; and while it holds one with no fresh
+    neighbor at all. Stationary nodes with neighbors never retry.
+  - **How.** Up to 3 retries per episode, about 20, 60 and 140 s after the trigger (25 % jitter on
+    each gap), carrying `seek` (bit 5). Hearing any neighbor's beacon ends the episode. A node
+    still moving (> 20 m between checks) waits without spending a retry, since its next move
+    beacon does the job. Retries pause while channel utilization is over 25 %.
+  - **Answers.** Every node hearing `seek` beacons early, at a random point in a window of
+    2 beacon airtimes × (fresh neighbors + 2), capped at 8 s, and ≥ 10 s since its last beacon.
+    A fixed 0.2–2 s window is too tight at SF9, where a beacon is 464 ms on air.
+  - **Bound.** A token bucket shared by all of these: 3 tokens, one back per 15 min. So at most 3
+    extra beacons in a burst and 4 per hour after that. A retry also resets the 15-min timer, so
+    an isolated holder sent 11 beacons in 2 h against 9 without recovery in the host test.
+  - **IDENT.** IDENT is 1-hop, so hearing one proves its sender is in range even if its beacons
+    are lost. A node holding a message that hears IDENT from a peer with no fresh neighbor entry
+    sends a beacon with `next_hop` = that peer (0.5–3 s later, one token).
 
 ---
 
@@ -361,6 +381,11 @@ benefit**.
   neighbor answers with an early beacon (0.2–2 s, ≥ 10 s since its last). Probes stop after four
   re-offers. They are dropped once the neighbor's filter has the seq, it carries an SOS, or it is
   heard relaying ours. At most 8 are pending.
+- **The first holder rechecks.** A node that gets an SOS for the first time from an offer
+  addressed to it is the only holder in its partition, and its relay is a single frame. It
+  schedules a probe for each fresh neighbor except the sender (60 s plus up to 25 % jitter); a
+  neighbor heard relaying the SOS drops out. Before this, one lost relay left that neighbor
+  without the SOS until its next 15-min beacon.
 - A node holding no SOS also beacons early for a *known* neighbor carrying SOS, once per distinct
   Bloom filter it shows. This covers a carrier that left, picked up an SOS elsewhere and came
   back within 20 min, which isn't "new" to anyone.

@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/background_link.dart';
 import '../app/mesh_alerts.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../link/node_link.dart';
+import 'background_setup_screen.dart';
 import 'contacts_screen.dart';
 import 'map_screen.dart';
 import 'me_screen.dart';
@@ -30,6 +32,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   StreamSubscription<int>? _sosTaps;
   static const _statusTab = 4;
   int _tab = 0;
+  bool _offeredBackground = false;
 
   static const _askedNotificationsKey = 'asked_notifications';
 
@@ -76,10 +79,19 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     }
   }
 
+  /// After the first working link, explain the background connection and let the user decide.
+  void _offerBackgroundOnce() {
+    if (_offeredBackground || !ref.read(backgroundLinkProvider).supported) return;
+    if (ref.read(backgroundEnabledProvider) != null) return;
+    _offeredBackground = true;
+    unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackgroundSetupScreen())));
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(linkStateProvider, (_, next) {
       if (next.value case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
+      if (next.value is LinkUp) _offerBackgroundOnce();
     });
     ref.listen(mapFocusProvider, (_, f) {
       if (f != null) setState(() => _tab = _mapTab);

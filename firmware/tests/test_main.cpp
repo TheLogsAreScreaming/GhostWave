@@ -389,16 +389,17 @@ static void testBeaconTimingFlags() {
   Config f;
   CHECK(!applyBeaconTiming(0, 30, f).empty());                        // default min (60 s) above 30 s
 
-  // two stationary nodes whose startup beacons are lost: with the defaults they
-  // stay strangers for 15 minutes; with --beacon-max-s 60 they meet within ~1 min
+  // two stationary nodes whose startup beacons and every recovery retry are
+  // lost: with the defaults they stay strangers for 15 minutes; with
+  // --beacon-max-s 60 they meet within ~1 min of the channel clearing
   for (uint32_t maxS : {0u, 60u}) {
     Medium m;
     m.beaconMaxS = maxS;
     m.identIntervalMs = 0;
     SimNode& a = m.add(0xA1, 0);
     SimNode& b = m.add(0xB1, 1);
-    m.drop = [&](int, const uint8_t*, size_t) { return m.now < 5000; };   // collisions at startup
-    m.run(5000);
+    m.drop = [&](int, const uint8_t*, size_t) { return m.now < 200000; };   // past the last retry
+    m.run(200000);
     m.drop = nullptr;
     m.run(3 * 60 * 1000);
     bool met = !a.app.neighbors.empty() && !b.app.neighbors.empty();
@@ -453,6 +454,42 @@ static void testBeaconVelocity() {
   f.run(40000, 50);
   CHECK(d.router->neighborVelocity(0xC1, v));
   CHECK(std::fabs(v.speedMps - 51.1) < 0.01);
+}
+
+// The vmesh.sh scenario in one process: A and D are partitioned, B carries A's
+// SOS and DM across. The carrier's one beacon exchange at its destination is
+// lost; it must recover in well under a beacon period (DESIGN §6.2).
+static void testBeaconRecoveryAfterMove() {
+  std::printf("beacon recovery: lost exchange after a move\n");
+  Medium m;
+  auto& a = m.add(0xA0000001, 0);
+  auto& b = m.add(0xB0000002, 1.5);
+  auto& c = m.add(0xC0000003, 9);
+  auto& d = m.add(0xD0000004, 10.5);
+  m.run(2000);
+  a.router->addKnownPosition(d.router->id(), d.pos, m.now);
+  a.router->startSos("carry me", 80, 1, m.now);
+  m.run(20000);
+  CHECK(b.router->hasSos(a.router->id()));
+  CHECK(!c.router->hasSos(a.router->id()));
+  m.run(70000);   // past beaconMinMs, so the next move beacons at once
+
+  // every beacon C or D sends right after the carrier arrives is lost
+  bool dropping = true;
+  uint32_t lost = 0;
+  m.drop = [&](int from, const uint8_t* buf, size_t) {
+    if (!dropping || (from != 2 && from != 3) || (buf[0] & 0x1F) != static_cast<uint8_t>(PType::Beacon)) return false;
+    ++lost;
+    return true;
+  };
+  m.move(b, 8);
+  uint64_t arrived = m.now;
+  m.run(32000);   // one beaconTick: the carrier's beacon and the lost answers
+  CHECK(lost >= 1);
+  dropping = false;
+  while (m.now < arrived + 200000 && !c.router->hasSos(a.router->id())) m.run(1000);
+  CHECK(c.router->hasSos(a.router->id()));
+  CHECK(m.now < arrived + 200000);   // well under beaconMaxMs (15 min)
 }
 
 static void testGroupChannels() {
@@ -881,7 +918,9 @@ static void testSosLostOffer() {
   beaconsBefore = m.count(PType::Beacon);
   m.run(20 * 60 * 1000);
   CHECK(sosFrames() == sosBefore);
-  CHECK(m.count(PType::Beacon) - beaconsBefore <= 4);   // c, d, b: one 15-min beacon each
+  // c, d, b: one 15-min beacon each; a may add its recovery retries, since it
+  // still holds its SOS and its only neighbor (b) goes stale in this window
+  CHECK(m.count(PType::Beacon) - beaconsBefore <= 7);
 }
 
 static void testSosKnownNeighbor() {
@@ -1561,6 +1600,137 @@ static void testIdentRekey() {
 
 static Position kmNorth(double km) { return {45.0 + km * 0.0089932, -110.0, true}; }
 
+// Beacon recovery costs (DESIGN §6.2): the bound on extra transmissions, and
+// the cases that must spend nothing.
+static uint32_t seekBeacons(const Medium& m) {
+  uint32_t n = 0;
+  for (auto& f : m.frames) {
+    Packet p;
+    n += decode(f.data(), f.size(), p) && p.type == PType::Beacon && !p.payload.empty() && (p.payload[0] & 0x20);
+  }
+  return n;
+}
+
+static void testBeaconRecoveryBounds() {
+  std::printf("beacon recovery: bounded extra transmissions\n");
+  std::printf("  one beacon: %u ms on air at SF9/125 kHz\n", airtimeMs(Phy{}, 75));
+  {   // stationary nodes that can hear each other: the 15-minute behavior, untouched
+    Medium m;
+    m.add(0xA1, 0);
+    m.add(0xA2, 1);
+    m.add(0xA3, 2);
+    m.run(60 * 60 * 1000, 50);
+    CHECK(seekBeacons(m) == 0);
+    CHECK(m.count(PType::Beacon) <= 15);   // 1 + 4 each
+  }
+  {   // a boot with nobody around: three retries, then nothing extra
+    Medium m;
+    m.add(0xA1, 0);
+    m.run(60 * 60 * 1000, 50);
+    CHECK(seekBeacons(m) == 3);
+    CHECK(m.count(PType::Beacon) <= 8);
+  }
+  {   // isolated with a stored message: bounded by the token bucket
+    Medium m;
+    auto& a = m.add(0xA1, 0);
+    m.run(1000);
+    a.router->addKnownPosition(0xD1, Position{45.2, -110.0, true}, m.now);
+    a.router->send(0xD1, {'h', 'i'}, m.now);
+    m.run(2 * 60 * 60 * 1000, 50);
+    CHECK(a.router->storeSize() == 1);
+    uint32_t seeks = seekBeacons(m), total = m.count(PType::Beacon);
+    std::printf("  isolated holder, 2 h: %u recovery of %u beacons (9 without recovery)\n", seeks, total);
+    CHECK(seeks <= 3 + 8);                 // burst + one per 15 min
+    CHECK(total <= 14);
+  }
+  {   // walking while holding: spends no retries until it stops
+    Medium m;
+    auto& a = m.add(0xA1, 0);
+    m.run(1000);
+    a.router->addKnownPosition(0xD1, Position{45.2, -110.0, true}, m.now);
+    a.router->send(0xD1, {'h', 'i'}, m.now);
+    m.run(5 * 60 * 1000, 50);              // spend the boot retries
+    uint32_t before = seekBeacons(m);
+    for (int i = 1; i <= 30; ++i) {        // 1.5 km at 5 m/s
+      m.move(a, 0.05 * i);
+      m.run(10000, 50);
+    }
+    CHECK(seekBeacons(m) == before);
+  }
+}
+
+// A peer heard only through its IDENT: asked for its beacon directly.
+static void testBeaconRecoveryIdent() {
+  std::printf("beacon recovery: a peer known only from IDENT is probed\n");
+  Medium m;
+  uint8_t sa[32], sb[32];
+  uint32_t ida = identity(sa, 7), idb = identity(sb, 107);
+  auto& a = m.add(ida, 0);
+  auto& b = m.add(idb, 20);                // out of range: a's boot retries run dry
+  CHECK(a.router->setSigningKey(sa, "a") && b.router->setSigningKey(sb, "b"));
+  m.run(46 * 60 * 1000, 50);               // retries used, tokens refilled, nothing held
+  a.router->addKnownPosition(0xD1, Position{45.2, -110.0, true}, m.now);
+  a.router->send(0xD1, {'h', 'i'}, m.now);
+  for (int i = 0; i < 120 && a.router->storeSize() == 0; ++i) m.run(500, 50);   // no neighbor: custody
+  CHECK(a.router->storeSize() == 1);
+  int bi = b.radio.idx;
+  bool dropBeacons = true;
+  m.drop = [&](int from, const uint8_t* buf, size_t) {
+    return dropBeacons && from == bi && (buf[0] & 0x1F) == static_cast<uint8_t>(PType::Beacon);
+  };
+  m.move(b, 1);
+  m.run(1000, 50);
+  size_t framesBefore = m.frames.size();
+  b.router->announceIdent(m.now);
+  m.run(8000, 50);
+  bool probed = false;
+  for (size_t i = framesBefore; i < m.frames.size(); ++i) {
+    Packet p;
+    if (decode(m.frames[i].data(), m.frames[i].size(), p) && p.type == PType::Beacon && p.src == ida &&
+        p.nextHop == shortId(idb))
+      probed = true;
+  }
+  CHECK(probed);
+  // the next answer gets through and a has its neighbor
+  dropBeacons = false;
+  b.router->requestIdent(ida, m.now);
+  uint64_t t0 = m.now;
+  while (a.router->neighborCount(m.now) == 0 && m.now - t0 < 120000) m.run(500, 50);
+  CHECK(a.router->neighborCount(m.now) == 1);
+}
+
+// The partition's first holder rechecks its neighbors when its one flood frame
+// is lost (vmesh.sh: C got the offer, D lost C's relay).
+static void testSosLostRelayFlood() {
+  std::printf("router: first holder in a partition rechecks after a lost relay flood\n");
+  Medium m;
+  auto& a = m.add(600, 0);
+  auto& b = m.add(601, 2);
+  auto& c = m.add(602, 9);
+  auto& d = m.add(603, 11);                // hears c, out of range of b at 7.5 km
+  m.run(5000);
+  CHECK(c.router->neighborCount(m.now) == 1);
+  CHECK(a.router->startSos("carry me", 40, 3, m.now));
+  m.run(10000);
+  CHECK(b.router->hasSos(600));
+  int ci = c.radio.idx, lost = 0;
+  m.drop = [&](int from, const uint8_t* buf, size_t len) {
+    Packet p;
+    if (from != ci || lost || !decode(buf, len, p) || p.type != PType::Sos) return false;
+    ++lost;
+    return true;
+  };
+  m.move(b, 7.5);
+  uint64_t t0 = m.now;
+  while (!c.router->hasSos(600) && m.now - t0 < 5 * 60 * 1000) m.run(1000);
+  CHECK(c.router->hasSos(600));
+  uint64_t got = m.now;
+  while (!d.router->hasSos(600) && m.now - got < 5 * 60 * 1000) m.run(1000);
+  CHECK(lost == 1);
+  CHECK(d.router->hasSos(600));
+  CHECK(m.now - got <= 3 * 60 * 1000);     // was the next 15-min beacon
+}
+
 static void testVirtualChannel() {
   std::printf("virtual radio: path loss, range, capture, busy\n");
   ChannelModel m;
@@ -1718,6 +1888,10 @@ int main() {
   testUtil();
   testBeaconTimingFlags();
   testBeaconVelocity();
+  testBeaconRecoveryAfterMove();
+  testBeaconRecoveryBounds();
+  testBeaconRecoveryIdent();
+  testSosLostRelayFlood();
   testGroupChannels();
   testChannelStore();
   testLine();
