@@ -6,6 +6,7 @@ import '../app/providers.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import 'format.dart';
+import 'theme.dart';
 
 /// Default DM limit if the node has not said (`NodeInfo.max_text_bytes`).
 const int kDefaultMaxTextBytes = 73;
@@ -198,7 +199,7 @@ class _Bubble extends ConsumerWidget {
                       color: m.state == MsgState.failed
                           ? scheme.error
                           : m.state == MsgState.delivered
-                          ? Colors.green.shade700
+                          ? GwColors.success
                           : null,
                       semanticLabel: label,
                     ),

@@ -1,5 +1,7 @@
 # GhostWave
 
+![GhostWave: off-grid mesh communications](docs/brand/banner.png)
+
 A LoRa mesh for people who move through places with no coverage. It is built on four ideas:
 
 1. **Delay-tolerant delivery.** If no path exists, the message is carried until one does.

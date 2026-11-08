@@ -9,6 +9,7 @@ import 'add_contact_screen.dart';
 import 'chat_screen.dart';
 import 'format.dart';
 import 'widgets.dart';
+import 'theme.dart';
 
 /// Contacts (with unread counts and last-seen) and nodes heard nearby.
 class ContactsScreen extends ConsumerWidget {
@@ -73,7 +74,7 @@ class ContactsScreen extends ConsumerWidget {
                   for (final n in nearby)
                     ListTile(
                       leading: const CircleAvatar(child: Icon(Icons.cell_tower)),
-                      title: Text(nodeIdHex(n.nodeId)),
+                      title: Text(nodeIdHex(n.nodeId), style: GwText.mono),
                       subtitle: Text([timeAgo(n.lastSeen), if (n.pos != null) n.pos.toString()].join(' · ')),
                     ),
                 ],

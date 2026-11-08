@@ -56,6 +56,14 @@ jobs:
           test -z "$(git status --porcelain -- lib/src/gen)"
       - name: Unit and widget tests
         run: flutter test --test-randomize-ordering-seed random
+      - name: Screenshots (off-screen render with the bundled fonts, for review)
+        run: SCREENSHOT_DIR="$RUNNER_TEMP/shots" flutter test test/brand_screenshot_test.dart
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: app-screenshots
+          path: ${{ runner.temp }}/shots/*.png
+          retention-days: 14
+          if-no-files-found: error
 
   integration:
     name: App integration (ghostwaved from this tree, virtual mesh)

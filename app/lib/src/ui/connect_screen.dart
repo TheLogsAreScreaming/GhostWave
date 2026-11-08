@@ -5,6 +5,7 @@ import '../app/providers.dart';
 import '../link/contact_card.dart';
 import '../link/node_link.dart';
 import '../link/transport.dart';
+import 'theme.dart';
 
 /// Enter the node's `host:port`, connect, see the link state.
 class ConnectScreen extends ConsumerStatefulWidget {
@@ -51,6 +52,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const _Logo(),
+          const SizedBox(height: 16),
           TextField(
             controller: _address,
             keyboardType: TextInputType.url,
@@ -115,7 +118,7 @@ class LinkStateCard extends ConsumerWidget {
       ),
       LinkUp(:final target, :final info) => (
         Icons.check_circle,
-        Colors.green.shade600,
+        GwColors.success,
         'Connected to ${decodeLenient(info.name)}',
         '$target · node ${nodeIdHex(info.nodeId)} · ${info.firmware}',
       ),
@@ -161,4 +164,23 @@ class _Help extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The GhostWave mark above the address field, with clear space around it.
+class _Logo extends StatelessWidget {
+  const _Logo();
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        children: [
+          Image.asset('assets/brand/logo.png', width: 96, height: 96, semanticLabel: 'GhostWave logo'),
+          const SizedBox(height: 8),
+          Text('GhostWave', style: Theme.of(context).textTheme.headlineSmall),
+        ],
+      ),
+    ),
+  );
 }

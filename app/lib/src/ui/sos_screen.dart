@@ -11,6 +11,7 @@ import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'format.dart';
 import 'widgets.dart';
+import 'theme.dart';
 
 /// How long the SOS button must be held.
 const Duration kSosHold = Duration(seconds: 3);
@@ -115,7 +116,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
             else
               for (final a in own.acks.reversed)
                 ListTile(
-                  leading: const Icon(Icons.check_circle, color: Colors.green),
+                  leading: const Icon(Icons.check_circle, color: GwColors.success),
                   title: Text(mesh.nameOf(a.responder)),
                   subtitle: Text('${timeAgo(a.at)} · seq ${a.seq}'),
                 ),
@@ -257,7 +258,9 @@ class _HoldToConfirmButtonState extends State<HoldToConfirmButton> with SingleTi
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = widget.enabled ? scheme.error : scheme.outline;
+    // SOS is alert red, never a brand colour; grey when it cannot be sent.
+    final color = widget.enabled ? GwColors.alert : scheme.outline;
+    final onColor = widget.enabled ? GwColors.onAlert : scheme.onSurface;
     return Semantics(
       button: true,
       label: 'SOS. Press and hold for 3 seconds to send.',
@@ -288,7 +291,7 @@ class _HoldToConfirmButtonState extends State<HoldToConfirmButton> with SingleTi
                   alignment: Alignment.center,
                   child: Text(
                     _c.value > 0 ? '${(kSosHold.inSeconds * (1 - _c.value)).ceil()}' : 'SOS',
-                    style: TextStyle(color: scheme.onError, fontSize: 48, fontWeight: FontWeight.w900),
+                    style: TextStyle(color: onColor, fontSize: 48, fontWeight: FontWeight.w900),
                   ),
                 ),
               ],
@@ -315,16 +318,15 @@ class SosAlertBanner extends ConsumerWidget {
     if (alerts.isEmpty) return const SizedBox.shrink();
     final a = alerts.first;
     final online = ref.watch(sessionProvider) != null;
-    final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: scheme.error,
+      color: GwColors.alert,
       child: SafeArea(
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
           child: Row(
             children: [
-              Icon(Icons.sos, color: scheme.onError, size: 32),
+              const Icon(Icons.sos, color: GwColors.onAlert, size: 32),
               const SizedBox(width: 8),
               Expanded(
                 child: GestureDetector(
@@ -334,7 +336,7 @@ class SosAlertBanner extends ConsumerWidget {
                     children: [
                       Text(
                         'SOS from ${mesh.nameOf(a.src)}${alerts.length > 1 ? ' (+${alerts.length - 1} more)' : ''}',
-                        style: TextStyle(color: scheme.onError, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: GwColors.onAlert, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         [
@@ -342,7 +344,7 @@ class SosAlertBanner extends ConsumerWidget {
                           timeAgo(a.receivedAt),
                           if (a.replayed) 'held, may be old',
                         ].join(' · '),
-                        style: TextStyle(color: scheme.onError),
+                        style: const TextStyle(color: GwColors.onAlert),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -351,13 +353,13 @@ class SosAlertBanner extends ConsumerWidget {
                 ),
               ),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: scheme.onError, foregroundColor: scheme.error),
+                style: FilledButton.styleFrom(backgroundColor: GwColors.onAlert, foregroundColor: GwColors.alert),
                 onPressed: online ? () => ackAlert(context, ref, a.src) : null,
                 child: const Text('Ack'),
               ),
               IconButton(
                 tooltip: 'Hide banner',
-                color: scheme.onError,
+                color: GwColors.onAlert,
                 onPressed: () => ref.read(meshProvider.notifier).dismissAlert(a.src),
                 icon: const Icon(Icons.close),
               ),
