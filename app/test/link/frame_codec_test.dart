@@ -1,6 +1,6 @@
-// Frame codec tests. Golden frames are the byte-exact vectors from GhostWave
-// firmware/tests/test_client_proto.cpp and docs/CLIENT_PROTOCOL.md §6 (commit
-// 694305f8): the node, the Python reference client and this app must agree.
+// Frame codec tests. Golden frames are the byte-exact vectors from
+// firmware/tests/test_client_proto.cpp and docs/CLIENT_PROTOCOL.md §6 in this
+// repo: the node, the Python reference client and this app must agree.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';

@@ -3,8 +3,9 @@
 // each with --client-tcp on loopback, driven only through this app's link
 // code. A's client DMs B's client and gets Delivered.
 //
-// Runs only where ghostwaved is available: set GHOSTWAVED=/path/to/ghostwaved
-// (or have `ghostwaved` on PATH). Skipped otherwise. Optional env:
+// Runs only where ghostwaved is available: set GHOSTWAVED=/path/to/ghostwaved,
+// or build it in this repo (../firmware/build/ghostwaved, from app/), or have
+// `ghostwaved` on PATH. Skipped otherwise. Optional env:
 //   GW_MCAST_PORT  multicast port (default 47760)
 //   GW_TCP_PORT    first client port (default 47830; uses 2)
 //   VMESH_IF       multicast interface address, e.g. 127.0.0.1
@@ -25,6 +26,9 @@ import 'package:ghostwave_app/src/link/transport.dart';
 String? findGhostwaved() {
   final env = Platform.environment['GHOSTWAVED'];
   if (env != null && env.isNotEmpty) return File(env).existsSync() ? env : null;
+  // The daemon from this repo's own firmware tree (tests run with cwd = app/).
+  final inTree = File('../firmware/build/ghostwaved');
+  if (inTree.existsSync()) return inTree.absolute.path;
   for (final dir in (Platform.environment['PATH'] ?? '').split(':')) {
     final f = File('$dir/ghostwaved');
     if (dir.isNotEmpty && f.existsSync()) return f.path;
