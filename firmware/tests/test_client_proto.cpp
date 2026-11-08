@@ -126,6 +126,10 @@ static std::vector<FromRadio> sampleFrom() {
   m = {}, m.reqId = 77, m.kind = FromKind::Status;
   m.status = {1, 2, 3, 4, 5, 6, 7, 0x1FFFFFFFFull, 9, 10, 11, true, 13, 14, 15};
   v.push_back(m);
+  m.reqId = 177, m.status.batteryPct.set(0);   // 0 % stays distinct from "unknown"
+  v.push_back(m);
+  m.reqId = 178, m.status.batteryPct.set(87);
+  v.push_back(m);
   m = {}, m.reqId = 78, m.kind = FromKind::Position;   // no fix
   v.push_back(m);
   m = {}, m.reqId = 79, m.kind = FromKind::Position, m.pos = posFromDegrees(-89.9999999, -179.9999999);

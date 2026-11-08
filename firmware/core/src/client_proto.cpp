@@ -219,7 +219,7 @@ bool StatusInfo::operator==(const StatusInfo& o) const {
          delivered == o.delivered && forwarded == o.forwarded && stored == o.stored &&
          airMs == o.airMs && storeSize == o.storeSize && neighbors == o.neighbors &&
          sosHeld == o.sosHeld && sosActive == o.sosActive && uptimeS == o.uptimeS &&
-         clients == o.clients && queued == o.queued;
+         clients == o.clients && queued == o.queued && batteryPct == o.batteryPct;
 }
 
 // ------------------------------------------------------------- ToRadio --
@@ -414,6 +414,7 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.u32(13, t.uptimeS);
       s.u32(14, t.clients);
       s.u32(15, t.queued);
+      s.opt(16, t.batteryPct);
       break;
     }
     case FromKind::Position: s.pos(1, m.pos); break;
@@ -537,6 +538,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 13: return ok(x.u32(t.uptimeS));
             case 14: return ok(x.u32(t.clients));
             case 15: return ok(x.u32(t.queued));
+            case 16: return ok(x.opt(t.batteryPct));
           }
           return 0;
         case FromKind::Position:

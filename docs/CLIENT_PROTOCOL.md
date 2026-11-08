@@ -150,7 +150,7 @@ Notes on the requests:
 | 13 | `SosAlert` | `src`, `seq`, `pos`, `accuracy_m`, `battery_pct`, `text` | a new SOS, or a newer seq of one already held |
 | 14 | `SosAckReceived` | `responder`, `seq` | someone acknowledged our SOS |
 | 15 | `Neighbor` | `node_id`, `pos`, `is_new` | a neighbor's beacon (live only, not queued) |
-| 16 | `Status` | counters, `store_size`, `neighbors`, `sos_held`, `sos_active`, `uptime_s`, `clients`, `queued` | reply to `GetStatus` |
+| 16 | `Status` | counters, `store_size`, `neighbors`, `sos_held`, `sos_active`, `uptime_s`, `clients`, `queued`, `battery_pct` | reply to `GetStatus` |
 | 17 | `OwnPosition` | `pos` | reply to `GetPosition` |
 | 18 | `Error` | `code`, `detail` | a request failed, or the stream is bad |
 | 19 | `Contact` | `node_id`, `name`, `x25519_pub`, `ed25519_pub`, `pinned` | reply to `ListContacts` |
@@ -356,6 +356,9 @@ core. The bytes are the §2 frames, unchanged; BLE only carries them.
   an X25519 identity only, so `NodeInfo.legacy` is true and contacts are pinned like on a legacy
   daemon. `AddContact` takes an Ed25519 key (its node ID is derived from it) or an X25519 key plus
   node ID, and saves it in flash with the serial CLI's `peer` keys (32 at most).
+- `Status.battery_pct` (0–100) is present only when the node can read its battery: the T1000-E today.
+  It is absent on the RAK4631, the Heltec boards and `ghostwaved`, and it is not the same as 0 %. The
+  T1000-E reading follows a voltage table and runs high while charging. Older apps ignore the field.
 - `SetOwnPosition` sets the node's position from the phone's GPS. It is not saved: after a reboot the
   node falls back to the position stored with `setpos` on the CLI, if any.
 - The serial CLI keeps working while a phone is connected. Both drive the same router.

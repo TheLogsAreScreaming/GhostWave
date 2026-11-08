@@ -533,6 +533,7 @@ void startBle() {
     g_pos = p.valid ? p : (g_set.fixedPos ? gw::Position{g_set.lat, g_set.lon, true} : gw::Position{});
     g_router->setPosition(g_pos, nowMs());
   };
+  hooks.batteryPct = ownBattery;
   hooks.edKeys = &g_edKeys;
   g_channels.reset(new gw::ChannelBook(*g_router));
   hooks.channels = g_channels.get();
