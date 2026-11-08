@@ -292,7 +292,10 @@ class Router {
   bool storeReady(const StoreEntry& e, uint64_t now) const;
   void reattempt(const Key& k, uint64_t now);
   bool closerNeighbor(const Position& tgt, uint64_t maxAgeMs, uint64_t now) const;
-  void sendBeacon(uint64_t now, uint16_t to = 0);
+  void sendBeacon(uint64_t now, uint16_t to = 0, bool seek = false);
+  void armSeek(uint64_t now, bool boot);
+  void seekTick(uint64_t now);
+  bool holding() const { return !store_.empty() || !sos_.empty(); }
   bool openData(const Packet& p, std::vector<uint8_t>& plain);
   void sendSosNow(uint64_t now);
   void onSos(const Packet& p, uint64_t now);
@@ -339,6 +342,14 @@ class Router {
   uint64_t heardAirMs_ = 0, heardMark_ = 0, utilT_ = 0;
   double util_ = 0;
   uint64_t beaconSoonAt_ = 0;   // early beacon so an SOS carrier sees our Bloom filter
+  uint64_t seekAt_ = 0;         // next beacon-recovery retry; 0 = none (DESIGN §6.2)
+  uint8_t seekTries_ = 0;       // retries this episode
+  uint8_t seekTokens_ = 3;      // retries available
+  uint64_t seekRefillT_ = 0;
+  bool seekBoot_ = false, seekHeard_ = false;
+  Position seekPos_;            // where the last check found us, to spot walking
+  uint64_t identProbeAt_ = 0;   // beacon asking a peer heard only by IDENT; 0 = none
+  uint32_t identProbeId_ = 0;
 
   bool haveIdKey_ = false, haveChanKey_ = false, haveSigKey_ = false;
   std::array<uint8_t, 32> idKey_{}, chanKey_{};

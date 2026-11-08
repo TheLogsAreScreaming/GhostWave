@@ -161,7 +161,8 @@ Settings → Device → Factory reset). On the phone, forget `GhostWave-xxxx` in
 - The SX1262 pins, the TCXO voltage (1.8 V on DIO3), DIO2 driving the antenna switch, and P1.05
   powering it. If `status` says `radio FAILED`, the error number tells which.
 - Real transmit power and frequency accuracy. No spectrum check has been made.
-- Settings and bonds in internal flash across reboots, power cuts and reflashes.
+- Settings, bonds, joined group channels and pinned contact keys in internal flash across reboots,
+  power cuts and reflashes.
 - Pairing with LE Secure Connections on iOS and Android, the MTU each negotiates, and notification
   throughput.
 - RAM headroom with the SoftDevice running: the free heap at boot against the ~180 KB worst-case table

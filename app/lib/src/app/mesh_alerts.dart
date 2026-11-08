@@ -1,6 +1,6 @@
 /// Local notifications for incoming DMs and SOS alerts while the app is in the
-/// background but still connected. No push service: when the OS stops the
-/// app, the link closes and nothing more arrives until it is opened again.
+/// background but still connected. No push service: the link only outlives the
+/// UI with the optional background connection (see `background_link.dart`).
 library;
 
 import 'dart:async';
@@ -19,6 +19,9 @@ abstract interface class MeshAlerts {
 
   /// An SOS from [from] (display name) arrived.
   Future<void> sosReceived({required int src, required String from, required String text});
+
+  /// The background connection ended and needs the user. [reason] says why.
+  Future<void> backgroundLinkStopped(String reason);
 }
 
 /// [MeshAlerts] that shows nothing (tests, unsupported platforms).
@@ -34,6 +37,9 @@ class NoMeshAlerts implements MeshAlerts {
 
   @override
   Future<void> sosReceived({required int src, required String from, required String text}) async {}
+
+  @override
+  Future<void> backgroundLinkStopped(String reason) async {}
 }
 
 /// The notifier the mesh controller calls; overridden in `main`.
@@ -74,7 +80,7 @@ class LocalMeshAlerts implements MeshAlerts {
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: AndroidInitializationSettings('ic_stat_ghostwave'),
         iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
@@ -119,5 +125,17 @@ class LocalMeshAlerts implements MeshAlerts {
       android: _sos,
       iOS: DarwinNotificationDetails(interruptionLevel: InterruptionLevel.timeSensitive),
     ),
+  );
+
+  /// DM IDs have bit 30 clear; SOS IDs use the low 30 bits, so this could only
+  /// match the SOS of a node numbered 0x3FFFFFFF.
+  static const _linkStoppedId = 0x7FFFFFFF;
+
+  @override
+  Future<void> backgroundLinkStopped(String reason) => _plugin.show(
+    id: _linkStoppedId,
+    title: 'GhostWave disconnected',
+    body: '$reason Open the app to reconnect. Messages and SOS alerts will not reach this phone until then.',
+    notificationDetails: const NotificationDetails(android: _messages, iOS: DarwinNotificationDetails()),
   );
 }

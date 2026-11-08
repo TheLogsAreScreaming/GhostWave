@@ -17,6 +17,7 @@
 #include <cstring>
 #include <vector>
 
+#include "app_state.h"
 #include "board.h"
 #include "ghostwave/packet.h"
 #include "ghostwave/util.h"
@@ -30,6 +31,10 @@ namespace {
 
 constexpr const char* kPath = "/gw/settings";
 constexpr const char* kTmpPath = "/gw/settings.tmp";
+constexpr const char* kChannelsPath = "/gw/channels";
+constexpr const char* kChannelsTmp = "/gw/channels.tmp";
+constexpr const char* kEdKeysPath = "/gw/edkeys";
+constexpr const char* kEdKeysTmp = "/gw/edkeys.tmp";
 constexpr uint8_t kMagic[4] = {'G', 'W', 'S', '1'};
 constexpr uint8_t kVersion = 1;
 // Optional fields after the peers: tag, length, value. Unknown tags are
@@ -187,17 +192,38 @@ bool readFile(const char* path, std::vector<uint8_t>& out) {
   return ok;
 }
 
-bool saveAll(const Settings& s) {
-  if (!g_fsOk) return false;
-  std::vector<uint8_t> b = encode(s);
-  InternalFS.remove(kTmpPath);   // FILE_O_WRITE appends to an existing file
-  File f = InternalFS.open(kTmpPath, FILE_O_WRITE);
-  if (!f) return false;
-  bool ok = f.write(b.data(), b.size()) == b.size();
-  f.close();
+// Temp file, then a rename, which LittleFS does atomically. Wipes `b`.
+bool writeAtomic(const char* path, const char* tmp, std::vector<uint8_t>& b) {
+  if (!g_fsOk) {
+    gw::wipe(b.data(), b.size());
+    return false;
+  }
+  InternalFS.remove(tmp);   // FILE_O_WRITE appends to an existing file
+  File f = InternalFS.open(tmp, FILE_O_WRITE);
+  bool ok = false;
+  if (f) {
+    ok = f.write(b.data(), b.size()) == b.size();
+    f.close();
+  }
   gw::wipe(b.data(), b.size());
-  // LittleFS rename replaces the old file atomically
-  return ok && InternalFS.rename(kTmpPath, kPath);
+  return ok && InternalFS.rename(tmp, path);
+}
+
+bool saveAll(const Settings& s) {
+  std::vector<uint8_t> b = encode(s);
+  return writeAtomic(kPath, kTmpPath, b);
+}
+
+// The file, or the temp file if a crash came between writing it and the
+// rename. A file that exists but does not decode is reported.
+template <typename T, typename Decode>
+bool loadRecord(const char* path, const char* tmp, T& out, Decode decode) {
+  if (!g_fsOk) return false;
+  std::vector<uint8_t> b;
+  const bool ok = (readFile(path, b) && decode(b, out)) || (readFile(tmp, b) && decode(b, out));
+  gw::wipe(b.data(), b.size());
+  if (!ok && InternalFS.exists(path)) Serial.printf("%s unreadable: ignored\n", path);
+  return ok;
 }
 
 uint32_t deviceId() {
@@ -288,6 +314,24 @@ bool savePeer(Settings& s, uint32_t id, const Key32& pub) {
   s.peers[i] = previous;
   if (adding) --s.peerCount;
   return false;
+}
+
+bool loadChannels(std::vector<SavedChannel>& out) {
+  return loadRecord(kChannelsPath, kChannelsTmp, out, app_state::decodeChannels);
+}
+
+bool saveChannels(const std::vector<SavedChannel>& in) {
+  std::vector<uint8_t> b = app_state::encodeChannels(in);
+  return !b.empty() && writeAtomic(kChannelsPath, kChannelsTmp, b);
+}
+
+bool loadEdKeys(std::map<uint32_t, AppKey>& out) {
+  return loadRecord(kEdKeysPath, kEdKeysTmp, out, app_state::decodeEdKeys);
+}
+
+bool saveEdKeys(const std::map<uint32_t, AppKey>& in) {
+  std::vector<uint8_t> b = app_state::encodeEdKeys(in);
+  return !b.empty() && writeAtomic(kEdKeysPath, kEdKeysTmp, b);
 }
 
 }  // namespace mcu

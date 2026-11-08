@@ -6,11 +6,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../app/background_link.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
+import 'background_setup_screen.dart';
 import 'offline_maps_screen.dart';
 import 'theme.dart';
 import 'walkthrough_screen.dart';
@@ -94,6 +96,7 @@ class SettingsScreen extends ConsumerWidget {
               onSelectionChanged: (s) => ref.read(unitsProvider.notifier).set(s.first),
             ),
           ),
+          if (ref.watch(backgroundLinkProvider).supported) const _BackgroundTiles(),
           ListTile(
             leading: const Icon(Icons.download_for_offline_outlined),
             title: const Text('Offline maps'),
@@ -217,10 +220,49 @@ class SettingsScreen extends ConsumerWidget {
       ..invalidate(nodeAddressProvider)
       ..invalidate(recentNodesProvider)
       ..invalidate(unitsProvider)
+      ..invalidate(backgroundEnabledProvider)
       ..invalidate(tileSourceProvider)
       ..invalidate(walkthroughDoneProvider);
     // back to the first screen: with no saved address, the app shows Connect
     navigator.popUntil((r) => r.isFirst);
+  }
+}
+
+/// The background connection switch, and a warning if Android may still stop it.
+class _BackgroundTiles extends ConsumerWidget {
+  const _BackgroundTiles();
+
+  void _openSetup(BuildContext context) =>
+      unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackgroundSetupScreen())));
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(backgroundEnabledProvider) ?? false;
+    final exempt = ref.watch(batteryExemptProvider).value ?? true;
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.sync_alt),
+          title: const Text('Stay connected in the background'),
+          subtitle: const Text('Keeps the link up with the screen off, so DMs and SOS alerts reach you'),
+          value: on,
+          onChanged: (v) {
+            if (v) {
+              _openSetup(context);
+            } else {
+              ref.read(backgroundEnabledProvider.notifier).set(enabled: false);
+            }
+          },
+        ),
+        if (on && !exempt)
+          ListTile(
+            leading: Icon(Icons.battery_alert_outlined, color: Theme.of(context).colorScheme.error),
+            title: const Text('Android may still stop the connection'),
+            subtitle: const Text('Battery optimization is on for GhostWave. Tap to review.'),
+            onTap: () => _openSetup(context),
+          ),
+      ],
+    );
   }
 }
 
