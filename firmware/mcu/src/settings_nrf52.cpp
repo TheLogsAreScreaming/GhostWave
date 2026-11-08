@@ -32,6 +32,9 @@ constexpr const char* kPath = "/gw/settings";
 constexpr const char* kTmpPath = "/gw/settings.tmp";
 constexpr uint8_t kMagic[4] = {'G', 'W', 'S', '1'};
 constexpr uint8_t kVersion = 1;
+// Optional fields after the peers: tag, length, value. Unknown tags are
+// skipped. A field at its default is left out.
+constexpr uint8_t kTagRegion = 1;
 
 bool g_fsOk = false;
 // The identity secret as loaded. main.cpp wipes Settings::secret once the
@@ -115,6 +118,11 @@ std::vector<uint8_t> encode(const Settings& s) {
     w.u32(s.peers[i].id);
     w.raw(s.peers[i].pub.data(), s.peers[i].pub.size());
   }
+  if (s.region != Region::Us915) {
+    w.u8(kTagRegion);
+    w.u8(1);
+    w.u8(static_cast<uint8_t>(s.region));
+  }
   w.u32(crc32c(w.bytes().data(), w.bytes().size()));
   return std::move(w.bytes());
 }
@@ -150,7 +158,15 @@ bool decode(const std::vector<uint8_t>& b, Settings& s) {
       if (t.peers[j].id == p.id) return false;
   }
   t.peerCount = n;
-  if (!r.ok() || r.left() != 0) return false;
+  while (r.ok() && r.left() != 0) {
+    const uint8_t tag = r.u8();
+    const size_t len = r.u8();
+    if (!r.ok() || r.left() < len) return false;
+    uint8_t value[255];
+    r.raw(value, len);
+    if (tag == kTagRegion && len == 1 && value[0] < kRegionCount) t.region = static_cast<Region>(value[0]);
+  }
+  if (!r.ok()) return false;
   s = t;
   gw::wipe(t.secret.data(), t.secret.size());
   gw::wipe(t.psk.data(), t.psk.size());

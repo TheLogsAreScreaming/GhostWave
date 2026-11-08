@@ -518,7 +518,9 @@ Identity mapping is explicit (the user pairs contacts). The bridge never forward
   Part 15.249's much lower field-strength limit. **Action item: have a compliance
   consultant choose the rule path (likely a hopping or hybrid mode) before selling
   hardware.** Firmware must cap the E22P's 30 dBm output per preset.
-- EU 869.4–869.65 MHz: 500 mW ERP, 10 % duty cycle. Enforced in firmware.
+- EU 869.4–869.65 MHz: 500 mW ERP, 10 % duty cycle. Enforced in the MCU firmware (`region eu868`):
+  a sliding hour of airtime, counted in RAM, so a reboot forgets it. At the cap, frames wait up to a
+  minute and are then dropped until airtime frees up. As §6.1 says, this includes SOS.
 
 ---
 
@@ -532,7 +534,7 @@ Identity mapping is explicit (the user pairs contacts). The bridge never forward
    The 10-neighbor gate is a first guess.
 5. Bridge identity model.
 6. Not yet implemented in firmware: velocity in beacons, client protocol, the
-   regulatory duty-cycle cap, the beacon MAC (§9.1), Bloom-filter use on receive for DTN
+   beacon MAC (§9.1), Bloom-filter use on receive for DTN
    *data* (it is used for SOS), and IDENT in the Pi daemon (it still loads an X25519 secret
    and peer keys from files). Implemented since v0.1: ChaCha20-Poly1305 AEAD for DATA (DM +
    channel keys), the SOS lane (§8), IDENT (§4.5) and Ed25519 → X25519 secret-key conversion.

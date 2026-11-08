@@ -6,6 +6,8 @@
 #include <cstdint>
 
 #include "ghostwave/router.h"
+#include "ghostwave/util.h"
+#include "region.h"
 
 namespace gw {
 namespace mcu {
@@ -14,7 +16,8 @@ class McuRadio : public RadioPort {
  public:
   // "Trail" preset (DESIGN §5, matches ghostwaved): SF/CR/preamble from `phy`,
   // BW125, sync word 0x24, CRC on. Returns the RadioLib status (0 = ok).
-  int16_t begin(const Phy& phy, float freqMHz, int outputDbm);
+  // `dutyPermille`: the region's cap on airtime in any hour; 0 = none.
+  int16_t begin(const Phy& phy, float freqMHz, int outputDbm, uint16_t dutyPermille);
   // Output at the antenna port, clamped to kMaxOutputDbm. Returns the value used.
   int setOutputDbm(int dbm);
   int outputDbm() const { return outputDbm_; }
@@ -28,6 +31,8 @@ class McuRadio : public RadioPort {
 
   uint32_t crcErrors() const { return crcErrors_; }
   uint32_t txErrors() const { return txErrors_; }
+  const DutyWindow& duty() const { return duty_; }
+  uint32_t dutyDropped() const { return dutyDropped_; }
 
  private:
   void femRx();
@@ -35,6 +40,17 @@ class McuRadio : public RadioPort {
 
   int outputDbm_ = 0, driveDbm_ = 0;
   uint32_t crcErrors_ = 0, txErrors_ = 0;
+
+  // The router retries after "busy" but discards a frame on a failed
+  // transmit, and its queue has no limit. So: at the cap, report busy for up
+  // to kDutyHoldMs (old airtime ages out each minute), then let frames fail.
+  static constexpr uint64_t kDutyHoldMs = 60000;
+  Phy phy_;
+  uint32_t maxFrameMs_ = 0;
+  DutyWindow duty_;
+  uint64_t dutyHeldSince_ = 0;
+  bool dutyHolding_ = false;
+  uint32_t dutyDropped_ = 0;
 };
 
 }  // namespace mcu

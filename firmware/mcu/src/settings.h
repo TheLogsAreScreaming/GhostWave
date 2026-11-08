@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "ghostwave/crypto.h"
+#include "region.h"
 
 namespace gw {
 namespace mcu {
@@ -30,6 +31,7 @@ struct Settings {
   double lat = 0, lon = 0;
   int8_t outputDbm = 0;         // at the antenna port, before the board cap
   float freqMHz = 0;
+  Region region = Region::Us915;
   bool responder = false;
   bool requireEnc = false;
   bool bleOn = true;            // nRF52 only: advertise the BLE client link
@@ -44,7 +46,7 @@ bool loadSettings(Settings& s);
 
 bool saveFixedPos(const Settings& s);
 bool savePsk(const Settings& s);
-bool saveRadio(const Settings& s);
+bool saveRadio(const Settings& s);   // power, frequency and region
 bool saveFlags(const Settings& s);
 bool saveBle(const Settings& s);
 // Adds or replaces `id`'s key. False when kMaxStoredPeers are already held.
