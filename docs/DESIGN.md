@@ -552,8 +552,10 @@ Identity mapping is explicit (the user pairs contacts). The bridge never forward
 
 1. `R_max` and the forwarding-area diameter D per preset: measure them in the field. Make them
    adaptive (for example, D from the median distance at which neighbors still hear each other).
-2. Privacy vs. routing: how coarse can positions be before GEO stops working? Test in simulation.
-3. Spray copy count L vs. network size. Test in simulation.
+2. Privacy vs. routing: simulated in §14 (keep cells ≤ 1 km if `fwd_pos` is coarsened too). Still
+   needs a field check; no radio has run this.
+3. Spray copy count L vs. network size: simulated in §14 (keep L = 8; L = 4 at about 80+ nodes).
+   Still needs a field check.
 4. The forwarding area helps dense meshes a lot but costs sparse ones some latency (§14).
    The 10-neighbor gate is a first guess.
 5. Bridge identity model.
@@ -563,10 +565,9 @@ Identity mapping is explicit (the user pairs contacts). The bridge never forward
    and peer keys from files). Implemented since v0.1: ChaCha20-Poly1305 AEAD for DATA (DM +
    channel keys), the SOS lane (§8), IDENT (§4.5), Ed25519 → X25519 secret-key conversion and
    velocity in beacons (sent and stored; no forwarding decision uses it yet).
-7. SOS cost: in backcountry with 6 concurrent SOS events the lane spends ~3× flood3's SOS
-   airtime, because every node holds and re-offers every SOS. Its reach to fixed nodes beats flood3 in the
-   tail but not flood7 (§14). Worth trying: coarser (per-15-min) Bloom keys for updates,
-   and checking whether GhostWave's higher channel load causes the flood7 gap.
+7. SOS cost: in backcountry with 6 concurrent SOS events the lane still spends ~3× flood3's SOS
+   airtime. Per-15-min Bloom keys cut it by a fifth and channel load is not what limited reach
+   (§14, simulation only). The firmware keeps per-`msg_id` keys until someone adopts that.
 
 ---
 
@@ -642,3 +643,123 @@ before, 1904 s after). SOS airtime rose 1.1 % (1428 to 1444 s per run) and total
 `trail` (dense, 50 seeds) every event already arrives within 4 s, and nothing changed beyond
 noise (SOS airtime −0.3 %). As above, part of any difference comes from the reshuffled RNG
 stream.
+
+### Open questions from §13 (`sim/open_questions.py`)
+
+**These are model results only. Nothing here has run on real radios.** The model is flat
+(log-distance path loss, 5 dB fading, no terrain) with random-waypoint movement. Treat comparisons as
+relative and absolute numbers as unvalidated. Seeds and exact commands are below; full tables are in
+`sim/results/open-questions/report.md`, per-seed rows in the CSVs beside it. "±" is an approximate
+95 % interval on the mean across seeds. Reproduce with
+`python3 open_questions.py --study geo spray sos sos2 load` then `--report`.
+
+#### Position coarseness vs. GEO (10 seeds; busy 5)
+
+Positions are snapped to the centre of a square grid cell before going on air. Two scopes:
+
+- **all**: beacon position, gossip, `src_pos` and `fwd_pos` are all coarse.
+- **far**: only what travels beyond one hop (gossip and `src_pos`) is coarse. Neighbors still get
+  exact beacon and `fwd_pos`, so anyone in radio range still learns the exact position.
+
+| Grid cell | trail ≤ 60 s (all) | backcountry delivered / ≤ 60 s (all) | busy ≤ 60 s (all) | air/msg vs exact (all; trail / backcountry / busy) |
+|---|---|---|---|---|
+| exact | 99.9 % | 98.9 % / 56.9 % | 99.8 % | 5.6 / 26.1 / 4.1 s |
+| 1 km | 99.9 % | 98.8 % / 56.8 % | 99.6 % | 5.6 / 26.8 / 4.5 s |
+| 2 km | 99.9 % | 98.6 % / 55.9 % | **92.4 ±13.9 %** | 5.9 / 27.7 / 6.2 s |
+| 3 km | 99.8 % | 98.6 % / 53.8 % | **83.7 ±12.4 %** | 6.5 / 28.3 / 8.5 s |
+| 5 km | 98.7 % | 97.4 % / 51.2 % | 94.1 % (see below) | 7.9 / 31.3 / 3.7 s |
+| 8 km | **77.5 %** | 95.4 % / **44.2 %** | 94.4 % (see below) | 8.1 / 39.6 / 3.7 s |
+
+- With **all** coarse, GEO holds up to a **1 km** cell in all three scenarios. Busy starts to break at
+  2 km, where 5 seeds disagree a lot. Sparse scenarios tolerate 3 km. Beyond that air/msg climbs and
+  delivery leans on DTN.
+- Busy at 5–8 km looks better than at 3 km, but only because the cell is as big as the whole 5 km map:
+  everyone shares a position and frames fall back on destination-first and DTN. Don't read it as a pass.
+- DTN hides the damage. Without DTN (`nodtn`), trail at 8 km delivers 74.1 % against 99.8 % exact, and
+  backcountry 41.2 % against 51.2 %.
+- With **far** only, there was no measurable loss up to 8 km: backcountry 98.5 % / 55.5 %, trail 98.6 %
+  within 60 s, busy 98.9 %, mostly within the seed noise of exact.
+
+**Recommended:** a privacy setting of up to **1 km (all)** or up to about **5 km (far)**. Don't coarsen
+SOS `src_pos` (rescue needs it). **Not simulated:** real attacks on privacy, and cell-crossing beacons.
+
+#### Spray copy count L vs. network size (10 seeds; 160 nodes 5)
+
+Network sizes 20–160, either at backcountry density (`density*`: area grows) or in a fixed 25 km square
+(`area*`: density grows). Run with normal gossip and with gossip off (a worst case that forces far more
+traffic into spray).
+
+| Scenario, gossip on | L = 1 | L = 2 | L = 4 | **L = 8** | L = 16 | L = 32 |
+|---|---|---|---|---|---|---|
+| density40 delivered | 98.1 % | 98.4 % | 98.7 % | **98.9 %** | 98.0 % | 99.1 % |
+| density40 spray median | 1628 s | 893 s | 708 s | **415 s** | 475 s | 480 s |
+| density40 air/msg | 19.9 s | 22.8 s | 24.5 s | **26.1 s** | 29.5 s | 31.0 s |
+| density80 delivered | 88.5 % | 95.0 % | 95.2 % | **96.1 %** | 95.9 % | 95.9 % |
+| density80 air/msg | 28.1 s | 38.2 s | 44.2 s | **54.9 s** | 66.1 s | 81.4 s |
+| density160 delivered | 61.7 % | 81.7 % | 86.5 % | **88.7 %** | 87.1 % | 82.1 % |
+| density160 air/msg | 35.8 s | 54.6 s | 73.9 s | **107.1 s** | 148.2 s | 201.3 s |
+
+- **L = 1 is bad** wherever spray matters (with gossip off, density40 delivers 83.0 % and density80 57.5 %).
+- **L > 8 never helps** delivery and costs airtime fast. At 160 nodes with gossip off, L = 32 collapses
+  (density160 75.2 %, area160 74.5 %, against 85.7 % and 99.5 % at L = 8).
+- **L = 4 vs L = 8:** delivery is within the seed noise everywhere. At 80 nodes L = 4 uses about 20 %
+  less airtime per message (31 % at 160). At 40 nodes it saves 6 % but the median spray latency is 708 s
+  against 415 s. So L = 8 earns its cost in small networks and doesn't in large ones.
+- Spray is a minority path with gossip on in small networks (9 % of messages at 20 nodes, 19 % at 40) and
+  the majority at 160 (64 %). At density160 delivery is limited by channel saturation, not L.
+
+**Recommended:** keep the default **L = 8**. Use **L = 4 at about 80 or more nodes**. A node can't count the
+network; if automation is wanted, the location-table size is a possible proxy, untested here.
+
+**Over-issuing copies.** At origination, both the sim and `firmware/core/src/router.cpp` hand `copies / 2`
+to every neighbor in a loop, decrementing only when each `LINK_ACK` returns. With several neighbors
+more than L copies leave. Reserving copies at send time (`strict_spray`, gossip-off runs) saved about 10 %
+air/msg at density40 and 13 % at density80 with L = 8. Delivery didn't change (98.6 %, 95.8 %); spray latency
+was about 6–30 % higher, within noise at density80 but not clearly so at density40. **Recommended firmware
+fix**, not applied here.
+
+#### SOS airtime and the flood7 gap (backcountry, 6 events per seed)
+
+Shortlist over 100 seeds (600 events). `≤ 5 min nodes` = mean share of other nodes that heard the SOS
+within 5 minutes. `Fix age` = time-averaged age of the newest position held by any fixed node.
+
+| Variant | ≤ 60 s | p90 | p99 | Worst | SOS air / run | ≤ 5 min nodes | Fix age |
+|---|---|---|---|---|---|---|---|
+| flood3 | 87.3 % | 300 s | 901 s | 3001 s | 438 ±15 s | 38 % | 213 s |
+| flood7 | 88.0 % | 300 s | 900 s | 2101 s | 758 ±24 s | 52 % | 199 s |
+| **GhostWave (today)** | 95.3 % | 6 s | 423 s | 1904 s | 1412 ±42 s | 79 % | 251 s |
+| **Bloom key per 15 min** | 96.3 % | 4 s | 419 s | 1966 s | **1122 ±32 s** | 77 % | 274 s |
+| Bloom key per 30 min | 94.5 % | 7 s | 601 s | 2024 s | 910 ±28 s | 75 % | 302 s |
+| 15 min + relay gap 30 min | 94.7 % | 11 s | 900 s | 2683 s | 1041 ±31 s | 77 % | 312 s |
+| 15 min + no periodic re-offer | 95.8 % | 17 s | 600 s | 2612 s | 898 ±23 s | 77 % | 288 s |
+
+- **Coarser Bloom keys help.** Per 15 min (key `(src, seq / 3)`) cuts SOS airtime by 21 %, with no
+  measurable reach loss. The cost is 23 s older fixes at fixed nodes. It does **not** reach parity: the
+  lane is still 2.6× flood3 and 1.5× flood7, but it reaches about twice flood3's nodes within 5 min.
+- Per 30 min saves 36 % but the p99 worsens from 423 s to 601 s and fixes are 51 s older. The
+  combinations saved more but worsened the p90 or p99. Not recommended.
+- **Things that did not help** (30 seeds): relay gap 5 min costs +18 % airtime and gains nothing; a
+  relay gap of 30 min alone saves 7 %; `SOS_DUP_CANCEL = 1` saves 4 %, cuts reach ≤ 60 s to 90.6 %;
+  leaving DTN entries out of the Bloom filter changes nothing, so Bloom saturation isn't the cost.
+- Worst-case times are decided by a few events crossing partitions and move a lot with the seed.
+  With 30 seeds flood7's ≤ 60 s was 91.7 %, with 100 it is 88.0 %. Its p90 flips between 4 s and 300 s
+  because about 10 % of events wait for the next 5-minute repeat. Don't over-read a small gap.
+
+**Is GhostWave's channel load the cause of the flood7 gap? No.** Background messages at ×0, ×0.5, ×1 and
+×2 (30 seeds; ×0 leaves only beacons or position broadcasts):
+
+| Reach ≤ 60 s | ×0 | ×0.5 | ×1 | ×2 |
+|---|---|---|---|---|
+| GhostWave | 95.6 % | 97.8 % | 96.1 % | 94.4 % |
+| flood7 | 91.7 % | 85.6 % | 91.7 % | 86.7 % |
+| flood3 | 90.0 % | 88.9 % | 87.2 % | 88.9 % |
+
+GhostWave's reach doesn't improve when its load is removed. Only ×2 shows a slight drop, inside the noise
+of 30 seeds. Also, the gap in the older table above no longer holds: since the early re-send (§8),
+GhostWave leads flood7 at ≤ 60 s (95.3 % vs 88.0 % over 100 seeds), with the p90 at 6 s vs flood7's
+300 s. The price is airtime, and flood7's fix age is 52 s fresher, because it re-floods every update.
+
+**Recommended firmware change (not made here):** key SOS entries in the beacon Bloom filter by
+`(src, seq / 3)` rather than `msg_id`. Keep everything else in §8 as is. One side effect to check on
+hardware: a neighbor holding an earlier seq in the same 15-min bucket also counts as an echo of our
+current seq for the early re-send.

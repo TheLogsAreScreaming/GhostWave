@@ -243,7 +243,7 @@ SOS_REPEAT, SOS_SIZE = 300, 54  # 19 hdr + 7 src_pos + 4 sos hdr + 20 text + 4 M
 
 
 class Sim:
-    def __init__(self, scenario, proto, seed, sos=False):
+    def __init__(self, scenario, proto, seed, sos=False, traffic=1.0):
         w, n, nfixed, vfrac, interval = SCENARIOS[scenario]
         self.rng = random.Random(seed * 7919 + 1)
         self.t, self.q, self._seq, self._mid = 0.0, [], 0, 0
@@ -265,16 +265,17 @@ class Sim:
         # traffic, identical across protocols
         trng = random.Random(seed * 31 + 7)
         self.msgs = {}
-        for nd in self.nodes:
+        interval /= traffic or 1.0
+        for nd in self.nodes if traffic else ():
             t = TRAFFIC_START + trng.expovariate(1 / interval)
             while t < TRAFFIC_END:
                 dst = trng.randrange(n - 1)
                 dst += dst >= nd.id
                 mid = self.new_mid()
-                self.msgs[mid] = {"src": nd.id, "dst": dst, "t0": t, "t1": None}
+                self.msgs[mid] = {"src": nd.id, "dst": dst, "t0": t, "t1": None, "spray": False}
                 self.at(t, self._originate, nd, dst, mid)
                 t += trng.expovariate(1 / interval)
-        self.stats = {"tx": 0, "air": 0.0, "lost": 0, "kinds": {}}
+        self.stats = {"tx": 0, "air": 0.0, "lost": 0, "kinds": {}, "air_kinds": {}, "sos_roles": {}}
         self.proto = proto
         proto.attach(self)
         for nd in self.nodes:
@@ -285,7 +286,7 @@ class Sim:
             srng = random.Random(seed * 13 + 5)
             for nd in srng.sample([x for x in self.nodes if not x.fixed], SOS_EVENTS):
                 t0 = srng.uniform(TRAFFIC_START, TRAFFIC_END)
-                self.sos[nd.id] = {"t0": t0, "t1": None}
+                self.sos[nd.id] = {"t0": t0, "t1": None, "held": {}, "fresh": []}
                 self.at(t0, proto.start_sos, nd)
 
     def nseq(self):
@@ -309,9 +310,13 @@ class Sim:
     def _originate(self, nd, dst, mid):
         self.proto.originate(nd, dst, mid)
 
-    def sos_hold(self, nd, src):
-        """Node `nd` now holds (or has heard) the SOS from `src`."""
+    def sos_hold(self, nd, src, born):
+        """Node `nd` now holds (or has heard) the SOS from `src`, issued at `born`."""
         e = self.sos.get(src)
+        if e:
+            e["held"].setdefault(nd.id, self.t)
+            if nd.fixed and (not e["fresh"] or born > e["fresh"][-1][1]):
+                e["fresh"].append((self.t, born))
         if e and nd.fixed and e["t1"] is None:
             e["t1"] = self.t
 
@@ -344,6 +349,10 @@ class Sim:
         st["tx"] += 1
         st["air"] += dur
         st["kinds"][f.kind] = st["kinds"].get(f.kind, 0) + 1
+        st["air_kinds"][f.kind] = st["air_kinds"].get(f.kind, 0.0) + dur
+        if f.kind == "sos":
+            role = f.meta.get("role", "flood")
+            st["sos_roles"][role] = st["sos_roles"].get(role, 0) + 1
         pp = n.pos(t)
         for m in self.nodes:
             if m is n:
@@ -379,7 +388,33 @@ class Sim:
         n = len(ms)
         reach = [e["t1"] - e["t0"] for e in self.sos.values() if e["t1"] is not None]
         ns = len(self.sos)
+        spray = [m for m in ms if m["spray"]]
+        slat = [m["t1"] - m["t0"] for m in spray if m["t1"] is not None]
+        others = len(self.nodes) - 1
+
+        def cov(window):
+            """Mean fraction of the other nodes that heard an SOS within `window` s."""
+            return (sum(sum(1 for t in e["held"].values() if t - e["t0"] <= window) / others
+                        for e in self.sos.values()) / ns) if ns else float("nan")
+
+        def age(fresh):
+            """Time-averaged age of the newest fix any fixed node holds, once reached."""
+            area = sum(((u1 - b) ** 2 - (u0 - b) ** 2) / 2
+                       for (u0, b), u1 in zip(fresh, [x[0] for x in fresh[1:]] + [DURATION]))
+            return area / max(1e-9, DURATION - fresh[0][0])
+
+        ages = [age(e["fresh"]) for e in self.sos.values() if e["fresh"]]
         return {
+            "sos_age": statistics.mean(ages) if ages else float("nan"),
+            "spray_n": len(spray),
+            "spray_pdr": len(slat) / len(spray) if spray else float("nan"),
+            "spray_lat_med": statistics.median(slat) if slat else float("nan"),
+            "sos_cov300": cov(300),
+            "sos_cov2400": cov(2400),
+            "air_kinds": self.stats["air_kinds"],
+            "sos_roles": self.stats["sos_roles"],
+            "air_total": self.stats["air"],
+            "lat": lat,
             "sos_n": ns,
             "sos_reach": len(reach) / ns if ns else float("nan"),
             "sos_reach60": sum(1 for x in reach if x <= 60) / ns if ns else float("nan"),
@@ -436,7 +471,8 @@ class Flood(Proto):
 
     def start_sos(self, n):
         # baseline: an emergency broadcast, re-sent every 5 min with a new id
-        self._send_new(n, Frame("sos", n.id, BCAST, self.sim.new_mid(), SOS_SIZE, hops=self.H))
+        self._send_new(n, Frame("sos", n.id, BCAST, self.sim.new_mid(), SOS_SIZE, hops=self.H,
+                                   meta={"born": self.sim.t}))
         self.sim.at(self.sim.t + SOS_REPEAT, self.start_sos, n)
 
     def originate(self, n, dst, mid):
@@ -458,7 +494,7 @@ class Flood(Proto):
     def on_rx(self, n, f, p):
         key = (f.kind, f.src, f.mid)
         if f.kind == "sos":
-            self.sim.sos_hold(n, f.src)
+            self.sim.sos_hold(n, f.src, f.meta["born"])
         if f.kind == "ack" and f.dst == n.id:
             n.wait.pop(f.mid, None)
             return
@@ -611,9 +647,40 @@ class GhostWave(Proto):
     SOS_PROBE_CAP = 8
     SOS_ECHO_WAIT, SOS_ECHO_JITTER, SOS_RESEND_MAX = 15, 5, 2   # early re-send of our own seq
 
-    def __init__(self, slots=False, dtn=True, budget=True, area=True, name="ghostwave"):
+    def __init__(self, slots=False, dtn=True, budget=True, area=True, name="ghostwave",
+                 coarse=0.0, coarse_scope="all", gossip=True, strict_spray=False,
+                 bloom_div=0, bloom_sos_only=False, **constants):
+        """Keyword options beyond the ablations exist for open_questions.py. All
+        defaults reproduce DESIGN behaviour exactly (no extra RNG draws):
+          coarse         grid size in metres for positions put on air (0 = exact)
+          coarse_scope   "all": beacon pos, gossip, src_pos and fwd_pos are coarse
+                         "far": only what travels beyond one hop (gossip, src_pos)
+          gossip         False: beacons carry no location gossip
+          strict_spray   reserve handed-over copies at send time, never exceeding L
+          bloom_div      n > 0: Bloom key for an SOS is (src, seq // n), not msg_id
+          bloom_sos_only leave DTN store entries out of the beacon Bloom filter
+          **constants    override class constants, e.g. COPIES=4, SOS_RELAY_GAP=1800"""
         self.slotted, self.dtn, self.use_budget, self.name = slots, dtn, budget, name
         self.area = area
+        self.coarse, self.coarse_scope, self.gossip = coarse, coarse_scope, gossip
+        self.strict_spray, self.bloom_div, self.bloom_sos_only = strict_spray, bloom_div, bloom_sos_only
+        for k, v in constants.items():
+            if not hasattr(type(self), k):
+                raise AttributeError(k)
+            setattr(self, k, v)
+
+    def _coarsen(self, p):
+        g = self.coarse
+        if not g:
+            return p
+        return ((math.floor(p[0] / g) + 0.5) * g, (math.floor(p[1] / g) + 0.5) * g)
+
+    def _on_air_pos(self, p):
+        """A position advertised to direct neighbors (beacon, fwd_pos)."""
+        return self._coarsen(p) if self.coarse_scope == "all" else p
+
+    def _bkey(self, e):
+        return e["seq"] // self.bloom_div if self.bloom_div else e["f"].mid
 
     def make_budget(self, nd):
         if not self.use_budget:
@@ -662,12 +729,15 @@ class GhostWave(Proto):
     def _beacon(self, n, ask=None):
         now, me = self.sim.t, self._me(n)
         fresh = [(k, v) for k, v in n.loc.items() if now - v[2] < 1800]
-        gossip = self.sim.rng.sample(fresh, min(3, len(fresh)))
+        gossip = self.sim.rng.sample(fresh, min(3, len(fresh))) if self.gossip else []
+        if self.coarse:
+            gossip = [(k, self._coarsen(v) + (v[2],)) for k, v in gossip]
         bloom = 0
-        for src, mid in list(n.store) + [(s, e["f"].mid) for s, e in n.sos.items()]:
+        stored = [] if self.bloom_sos_only else list(n.store)
+        for src, mid in stored + [(s, self._bkey(e)) for s, e in n.sos.items()]:
             bloom |= _bloom_bits(src, mid)
         n.mac.send(Frame("beacon", n.id, BCAST, 0, self.BEACON,
-                         meta={"pos": me, "t": now, "gossip": gossip, "own": True,
+                         meta={"pos": self._on_air_pos(me), "t": now, "gossip": gossip, "own": True,
                                "bloom": bloom, "sos": bool(n.sos), "ask": ask}))
         n.lastb_pos, n.lastb_t = me, now
 
@@ -702,7 +772,7 @@ class GhostWave(Proto):
     def start_sos(self, n):
         n.sos_seq += 1
         f = Frame("sos", n.id, BCAST, self.sim.new_mid(), SOS_SIZE, hops=self.HOPS, prio=PRIO_SOS,
-                  meta={"seq": n.sos_seq, "own": True})
+                  meta={"seq": n.sos_seq, "own": True, "role": "orig", "born": self.sim.t})
         old = n.sos.get(n.id)
         n.sos[n.id] = {"f": f, "seq": n.sos_seq, "t": self.sim.t, "flood": None, "dups": 0,
                        "offer": None, "offered": old["offered"] if old else {}, "relay_t": self.sim.t}
@@ -722,6 +792,7 @@ class GhostWave(Proto):
             self.sim.at(self.sim.t + self.SOS_ECHO_WAIT, self._sos_resend, n, seq, done)
             return
         g = n.sos[n.id]["f"].copy(hops=self.HOPS)
+        g.meta["role"] = "resend"
         n.sos_own = g
         n.mac.send(g)
         if done + 1 < self.SOS_RESEND_MAX:
@@ -759,10 +830,11 @@ class GhostWave(Proto):
                         "offer": None, "offered": e["offered"] if e else {},
                         "relay_t": now if relay else e["relay_t"]}
         e = n.sos[f.src]
-        self.sim.sos_hold(n, f.src)
+        self.sim.sos_hold(n, f.src, f.meta["born"])
         if f.hops > 0 and relay:
             g = f.copy(hops=f.hops - 1)
             g.meta["own"] = False
+            g.meta["role"] = "relay"
             e["flood"] = g
             self.sim.at(self.sim.t + self.sim.rng.uniform(0, 2 * airtime(g.size) + 0.12),
                         self._sos_fire, n, g)
@@ -783,7 +855,7 @@ class GhostWave(Proto):
             if src == nb:
                 continue
             o = e["offered"].get(nb)
-            if bloom is not None and _bloom_has(bloom, src, e["f"].mid):
+            if bloom is not None and _bloom_has(bloom, src, self._bkey(e)):
                 if o:
                     o[1] = 0
                 continue
@@ -810,6 +882,7 @@ class GhostWave(Proto):
             # when several holders meet the same newcomer only one offers
             g = e["f"].copy(hops=self.HOPS)
             g.meta["own"] = False
+            g.meta["role"] = "offer"
             e["offer"] = g
             self.sim.at(now + self.sim.rng.uniform(0, 2 * airtime(g.size) + 0.12), self._sos_fire, n, g)
         return lacks
@@ -830,7 +903,7 @@ class GhostWave(Proto):
         # one merely behind by a seq is left to the relay gap
         empty = not f.meta["sos"]
         own = n.sos.get(n.id)
-        if not empty and own and _bloom_has(f.meta["bloom"], n.id, own["f"].mid):
+        if not empty and own and _bloom_has(f.meta["bloom"], n.id, self._bkey(own)):
             n.sos_echo = True            # it carries our current seq
         lacks = True
         if is_new or empty:
@@ -870,6 +943,8 @@ class GhostWave(Proto):
                 give = e["copies"] // 2
                 e["given"].add(f.src)
                 self._unicast(n, f0, f.src, give, key)
+                if self.strict_spray:
+                    e["copies"] -= give
 
     def _retry_store(self, n):
         if not self.dtn:
@@ -916,7 +991,7 @@ class GhostWave(Proto):
     def originate(self, n, dst, mid):
         me = self._me(n)
         f = Frame("data", n.id, dst, mid, self.DATA, hops=self.HOPS,
-                  meta={"srcpos": me, "src_t": self.sim.t})
+                  meta={"srcpos": self._coarsen(me), "src_t": self.sim.t})
         key = (n.id, mid)
         n.seen.add(key)
         if dst in n.loc:
@@ -924,6 +999,7 @@ class GhostWave(Proto):
             f.meta.update(tgt=(x, y), tgt_t=t)
             self._geo_send(n, f)
         elif self.dtn:
+            self.sim.msgs[mid]["spray"] = True
             self._store(n, f, "spray", self.COPIES)
             now = self.sim.t
             e = n.store[key]
@@ -933,7 +1009,10 @@ class GhostWave(Proto):
                         self._unicast(n, f, nid, 1, key)
                         break
                     e["given"].add(nid)
-                    self._unicast(n, f, nid, e["copies"] // 2, key)
+                    give = e["copies"] // 2
+                    self._unicast(n, f, nid, give, key)
+                    if self.strict_spray:
+                        e["copies"] -= give
         # no location and no DTN: nothing we can do
 
     # ---- GEO forwarding (CBF)
@@ -947,7 +1026,7 @@ class GhostWave(Proto):
             tries = 3 if closer or f.dst in n.nb else 2
         g = f.copy()
         g.meta["mode"] = "geo"
-        g.meta["fpos"] = me
+        g.meta["fpos"] = self._on_air_pos(me)
         g.meta["nh"] = 0
         g.meta["own"] = f.src == n.id
         g.meta["wide"] = wide or not self.area or self._nb_count(n) < self.AREA_MIN_NB
@@ -1057,7 +1136,7 @@ class GhostWave(Proto):
     # ---- unicast handoff (spray / direct delivery from store)
     def _unicast(self, n, f, nh, copies, key):
         g = f.copy()
-        g.meta.update(mode="uni", nh=nh, copies=copies, fpos=self._me(n), own=f.src == n.id)
+        g.meta.update(mode="uni", nh=nh, copies=copies, fpos=self._on_air_pos(self._me(n)), own=f.src == n.id)
         n.mac.send(g)
         ukey = ("U", key, nh)
         tok = self.sim.nseq()
@@ -1076,6 +1155,8 @@ class GhostWave(Proto):
             e = n.store.get(ukey[1])
             if e:
                 e["given"].discard(a["nh"])
+                if self.strict_spray and a["nh"] != a["f"].dst:
+                    e["copies"] += a["copies"]
             return
         a["tries"] -= 1
         g = a["g"].copy()
@@ -1094,7 +1175,7 @@ class GhostWave(Proto):
         if f.src == a["f"].dst:
             n.store.pop(key, None)
             n.acked.add(key)
-        elif e:
+        elif e and not self.strict_spray:
             e["copies"] -= a["copies"]
             if e["copies"] < 1:
                 n.store.pop(key, None)
