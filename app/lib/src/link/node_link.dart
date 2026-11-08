@@ -244,6 +244,8 @@ class NodeLink {
       unawaited(sub.cancel());
       if (gen != _generation) return;
       _scheduleRetry(gen, 1, reason);
+    } on TransportFatalException catch (e) {
+      if (gen == _generation) _set(LinkFailed(t.label, e.reason));
     } on PinRequiredException {
       await s?.close();
       if (gen == _generation) _set(LinkNeedsPin(t.label));

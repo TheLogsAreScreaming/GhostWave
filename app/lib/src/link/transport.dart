@@ -1,10 +1,21 @@
-/// Byte transports for the client link. TCP today; BLE (a Nordic-UART-style
-/// service carrying the same frames) plugs in behind the same interface later.
+/// Byte transports for the client link: TCP here, Bluetooth LE in `ble.dart`.
 library;
 
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+
+/// [Transport.open] failed in a way retrying cannot fix: the user has to act.
+class TransportFatalException implements Exception {
+  /// Creates the exception.
+  const TransportFatalException(this.reason);
+
+  /// What to tell the user.
+  final String reason;
+
+  @override
+  String toString() => reason;
+}
 
 /// One open byte stream to a node.
 abstract interface class TransportConnection {

@@ -10,6 +10,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../gen/ghostwave.pb.dart' as pb;
+import 'ble_radio.dart';
+import '../link/ble.dart';
 import '../link/contact_card.dart';
 import '../link/node_link.dart';
 import '../link/session.dart';
@@ -168,7 +170,7 @@ class RecentNode {
 
   /// "N1 (9d66916b)", or the address before the first successful connect.
   String get label {
-    if (nodeId == null) return address;
+    if (nodeId == null) return BleNodeRef.tryParse(address)?.name ?? address;
     final id = nodeIdHex(nodeId!);
     return name.isEmpty ? id : '$name ($id)';
   }
@@ -237,7 +239,10 @@ class RecentNodesNotifier extends Notifier<List<RecentNode>> {
 /// Recently used nodes.
 final recentNodesProvider = NotifierProvider<RecentNodesNotifier, List<RecentNode>>(RecentNodesNotifier.new);
 
-/// Saved node address (`host:port`), remembered between launches.
+/// The phone's Bluetooth; tests override it.
+final bleRadioProvider = Provider<BleRadio>((ref) => const UniversalBleRadio());
+
+/// Saved node address (`host:port`, or `ble:<id>|<name>`), remembered between launches.
 class NodeAddressNotifier extends Notifier<String?> {
   static const _key = 'node_address';
 
@@ -254,6 +259,23 @@ class NodeAddressNotifier extends Notifier<String?> {
     return ref.watch(sharedPrefsProvider).getString(_key);
   }
 
+  Transport? _transportFor(String address) {
+    final ble = BleNodeRef.tryParse(address);
+    if (ble != null) return BleTransport(ble, ref.read(bleRadioProvider));
+    final tcp = TcpAddress.tryParse(address);
+    return tcp == null ? null : ref.read(transportFactoryProvider)(tcp);
+  }
+
+  /// Saves [address] (either form) and connects to it.
+  Future<void> connectAddress(String address) async {
+    final t = _transportFor(address);
+    if (t == null) return;
+    state = address;
+    ref.read(recentNodesProvider.notifier).touch(address);
+    await ref.read(sharedPrefsProvider).setString(_key, address);
+    ref.read(nodeLinkProvider).connect(t);
+  }
+
   /// Saves [address] and connects to it.
   Future<void> connectTo(TcpAddress address) async {
     state = address.toString();
@@ -264,10 +286,10 @@ class NodeAddressNotifier extends Notifier<String?> {
 
   /// Connects to the saved address, if any (app start).
   void connectSaved() {
-    final a = state == null ? null : TcpAddress.tryParse(state!);
-    if (a == null) return;
+    final t = state == null ? null : _transportFor(state!);
+    if (t == null) return;
     ref.read(recentNodesProvider.notifier).touch(state!);
-    ref.read(nodeLinkProvider).connect(ref.read(transportFactoryProvider)(a));
+    ref.read(nodeLinkProvider).connect(t);
   }
 
   /// Saves [pin] for [target] and tries again.

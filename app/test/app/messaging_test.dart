@@ -237,6 +237,32 @@ void main() {
       expect(mesh().channelMessages.containsKey('theirs'), isFalse, reason: 'history goes too');
     });
 
+    test('radio firmware forgets channels on reboot: the app joins them again', () async {
+      final n = ChannelNode()..channels['crew'] = key(5);
+      n.node.firmware = 'ghostwave-rak4631 0.1.0';
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      c.read(nodeLinkProvider).disconnect();
+      await settle();
+      n.channels.clear(); // rebooted
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      expect(n.channels['crew'], key(5));
+      expect(mesh().channels.keys, ['crew']);
+    });
+
+    test('a node without channels: the app says so', () async {
+      final n = ChannelNode();
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      n.node.protocolMinor = 0;
+      c.read(nodeLinkProvider).disconnect();
+      await settle();
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      await expectLater(ctl().joinChannel(ChannelCard(name: 'x', psk: key(1))), throwsA(isA<StateError>()));
+    });
+
     test('a 1.0 node: no channel requests, joining explains why not', () async {
       final n = ChannelNode(v11: false);
       c.read(nodeLinkProvider).connect(n.node);

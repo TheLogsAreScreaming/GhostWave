@@ -26,7 +26,7 @@ class ChannelsList extends ConsumerWidget {
     final mesh = ref.watch(meshProvider);
     final info = ref.watch(nodeInfoProvider);
     final online = info != null;
-    final supported = (info?.protocolMinor ?? 1) >= 1;
+    final supported = info == null || (info.protocolMinor >= 1 && info.maxChannelTextBytes > 0);
     DateTime last(String name) {
       final l = mesh.channelMessages[name];
       return l == null || l.isEmpty ? DateTime(2000) : l.last.at;
@@ -35,7 +35,7 @@ class ChannelsList extends ConsumerWidget {
     final names = mesh.channels.keys.toList()..sort((a, b) => last(b).compareTo(last(a)));
     if (!supported) {
       return const _Centered(
-        'This node runs an older ghostwaved without group channels. Update GhostWave on the node to use them.',
+        'Group channels are not available on this node. Update its GhostWave software to use them.',
       );
     }
     if (names.isEmpty) {
