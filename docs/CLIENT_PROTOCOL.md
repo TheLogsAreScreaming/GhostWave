@@ -131,8 +131,8 @@ Notes on the requests:
 
 - **Group channels (1.1, DESIGN §9.3)** are flooded a few hops to every node holding the key:
   best effort, with no receipt. A channel is a name and a 32-byte key. A node holds up to 8.
-  `ghostwaved` keeps them across restarts. The MCU firmware (BLE) holds them in RAM for now, so
-  the app joins them again after a reboot. Share one as text or a QR code:
+  `ghostwaved` and the nRF52 firmware keep them across restarts (`<key file>.channels`, and
+  `/gw/channels` in internal flash). Share one as text or a QR code:
   `ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>`. Anyone with it can read and write the
   channel. An `AddChannel` with a name already in use under another key, or a key already joined
   under another name, gets `BAD_ARGUMENT`.
@@ -355,7 +355,8 @@ core. The bytes are the §2 frames, unchanged; BLE only carries them.
   version). The MCU firmware has
   an X25519 identity only, so `NodeInfo.legacy` is true and contacts are pinned like on a legacy
   daemon. `AddContact` takes an Ed25519 key (its node ID is derived from it) or an X25519 key plus
-  node ID, and saves it in flash with the serial CLI's `peer` keys (32 at most).
+  node ID, and saves it in flash with the serial CLI's `peer` keys (32 at most). The Ed25519 key that
+  `ListContacts` reports is saved too (`/gw/edkeys`), for peers whose key was stored.
 - `Status.battery_pct` (0–100) is present only when the node can read its battery: the T1000-E today.
   It is absent on the RAK4631, the Heltec boards and `ghostwaved`, and it is not the same as 0 %. The
   T1000-E reading follows a voltage table and runs high while charging. Older apps ignore the field.

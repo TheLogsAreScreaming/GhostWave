@@ -1,8 +1,11 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'src/app/background_link.dart';
 import 'src/app/location_share.dart';
 import 'src/app/mesh_alerts.dart';
 import 'src/app/mesh_controller.dart';
@@ -36,6 +39,7 @@ Future<void> main() async {
         meshAlertsProvider.overrideWithValue(alerts),
         offlineStoreProvider.overrideWithValue(OfflineStore(dir)),
         pinStoreProvider.overrideWithValue(const SecurePinStore()),
+        if (Platform.isAndroid) backgroundPlatformProvider.overrideWithValue(AndroidBackgroundPlatform()),
       ],
       child: const GhostWaveApp(),
     ),
@@ -73,7 +77,11 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
         .read(appForegroundProvider.notifier)
         .set(foreground: state == AppLifecycleState.resumed || state == AppLifecycleState.inactive);
     // back in front: the link may have died while the screen was off
-    if (state == AppLifecycleState.resumed) ref.read(nodeLinkProvider).checkNow();
+    if (state == AppLifecycleState.resumed) {
+      ref.read(nodeLinkProvider).checkNow();
+      // the user may be back from Android's battery screen
+      ref.invalidate(batteryExemptProvider);
+    }
     // save chat history before the OS may kill a backgrounded app
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       ref.read(meshProvider.notifier).flush();
@@ -86,6 +94,8 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
     ref.watch(meshProvider.select((_) => 0));
     // and location sharing, which follows the link and the foreground state
     ref.watch(locationShareProvider.select((_) => 0));
+    // and the background connection, which follows the link and the user's choice
+    ref.watch(backgroundLinkProvider);
     final hasAddress = ref.watch(nodeAddressProvider) != null;
     return MaterialApp(
       title: 'GhostWave',

@@ -20,6 +20,14 @@ constexpr size_t kBeaconFixed = 13;   // flags, velocity, util, store count, blo
 constexpr size_t kBloomOff = 5;
 constexpr uint8_t kBeaconHasGps = 0x01;
 constexpr uint8_t kBeaconSos = 0x10;  // sender holds at least one SOS
+constexpr uint8_t kBeaconSeek = 0x20;  // sender heard nobody: please answer (DESIGN §6.2)
+// Beacon recovery (DESIGN §6.2). Retries after a boot/move beacon nobody answered.
+constexpr uint64_t kSeekBaseMs = 20 * 1000;     // first retry; doubles each time
+constexpr uint8_t kSeekRetries = 3;             // per episode
+constexpr uint8_t kSeekTokens = 3;              // burst across episodes...
+constexpr uint64_t kSeekRefillMs = 15 * 60 * 1000;   // ...refilled one per this
+constexpr double kSeekStillM = 20;              // moved more between checks: still walking
+constexpr uint32_t kSeekAnswerMaxMs = 8000;     // cap on the answer jitter window
 constexpr uint64_t kIdentAskGapMs = 10 * 60 * 1000;   // ask one neighbor at most this often
 constexpr uint64_t kIdentReplyGapMs = 15 * 1000;      // our IDENTs are at least this far apart
 constexpr size_t kIdentWantCapacity = 8;
@@ -32,6 +40,7 @@ constexpr uint8_t kSosRetryMax = 4;           // probes after an offer: 60, 120,
 constexpr size_t kSosProbeCapacity = 8;
 constexpr uint64_t kSosRelayGapMs = 15 * 60 * 1000;   // re-flood a superseding seq at most this often
 constexpr uint64_t kBeaconReplyMinMs = 10 * 1000;
+constexpr size_t kMaxBeaconBytes = 75;   // with three gossip entries (DESIGN §4.4)
 constexpr uint8_t kSosDupCancel = 2;  // counter-based flood suppression
 constexpr uint64_t kSosEchoWaitMs = 15 * 1000;   // re-send our SOS if no relay is heard by then
 constexpr uint32_t kSosEchoJitterMs = 5 * 1000;
@@ -327,6 +336,7 @@ void Router::tick(uint64_t now) {
     beaconSoonAt_ = 0;
     if (havePos_ && (!beaconed_ || now - lastBeaconT_ >= kBeaconReplyMinMs)) sendBeacon(now);
   }
+  seekTick(now);
   sosTick(now);
   identTick(now);
   chanResendTick(now);
@@ -671,6 +681,14 @@ void Router::onBeacon(const Packet& p, uint64_t now) {
     beaconSoonAt_ = now + rng_.range(200, 2000);
     answered = theirs;
   }
+  seekHeard_ = true;
+  if (!p.payload.empty() && (p.payload[0] & kBeaconSeek)) {
+    // Everyone in range answers this one, so spread the answers over a window
+    // sized for them: 0.2-2 s is too tight for two nodes at SF9.
+    uint32_t window = static_cast<uint32_t>(
+        std::min<uint64_t>(kSeekAnswerMaxMs, 2 * airtimeMs(cfg_.phy, kMaxBeaconBytes) * (neighborCount(now) + 2)));
+    beaconSoonAt_ = now + 200 + rng_.range(0, window);
+  }
   if (old == nb_.end() && nb_.size() >= kLocCapacity) {
     nb_.erase(std::min_element(nb_.begin(), nb_.end(), [](auto& a, auto& b) {
       return a.second.heardMs < b.second.heardMs;
@@ -986,13 +1004,73 @@ void Router::beaconTick(uint64_t now) {
     double moved = beaconed_ ? distanceM(pos_, lastBeaconPos_) : 1e9;
     if (!beaconed_ || (el >= cfg_.beaconMinMs * scale &&
                        (moved >= cfg_.beaconMoveM || el >= cfg_.beaconMaxMs * scale))) {
+      bool boot = !beaconed_;
+      bool arm = boot ? neighborCount(now) == 0 : moved >= cfg_.beaconMoveM;
       sendBeacon(now);
+      if (arm) armSeek(now, boot);
+    } else if (!seekAt_ && holding() && neighborCount(now) == 0 && seekTokens_ > 0 &&
+               el >= cfg_.beaconMinMs * scale) {
+      armSeek(now, false);   // a message waits and nobody is known to be around
     }
   }
   retryStore(now);
 }
 
-void Router::sendBeacon(uint64_t now, uint16_t to) {
+// Recovery from a lost beacon exchange (DESIGN §6.2): a beacon that nothing
+// answered is retried with back-off, asking anyone in range to answer.
+void Router::armSeek(uint64_t now, bool boot) {
+  seekAt_ = now + kSeekBaseMs + rng_.range(0, kSeekBaseMs / 4);
+  seekTries_ = 0;
+  seekBoot_ = boot;
+  seekHeard_ = false;
+  seekPos_ = pos_;
+}
+
+void Router::seekTick(uint64_t now) {
+  if (seekTokens_ >= kSeekTokens) {
+    seekRefillT_ = now;
+  } else if (now - seekRefillT_ >= kSeekRefillMs) {
+    ++seekTokens_;
+    seekRefillT_ = now;
+  }
+  bool gapOk = !beaconed_ || now - lastBeaconT_ >= kBeaconReplyMinMs;
+  if (identProbeAt_ && now >= identProbeAt_) {
+    auto nb = nb_.find(identProbeId_);
+    if ((nb != nb_.end() && now - nb->second.heardMs < kNbFreshMs) || !holding() || seekTokens_ == 0) {
+      identProbeAt_ = 0;
+    } else if (havePos_ && gapOk) {
+      identProbeAt_ = 0;
+      --seekTokens_;
+      sendBeacon(now, shortId(identProbeId_));
+      gapOk = false;
+    }
+  }
+  if (!seekAt_ || now < seekAt_) return;
+  if (seekHeard_ || (!seekBoot_ && !holding()) || seekTokens_ == 0 || !havePos_) {
+    seekAt_ = 0;
+    return;
+  }
+  // still walking: the next 250 m beacon is the retry, so spend nothing yet
+  if (distanceM(pos_, seekPos_) > kSeekStillM) {
+    seekPos_ = pos_;
+    seekAt_ = now + kSeekBaseMs;
+    return;
+  }
+  if (!gapOk || util_ > cfg_.utilTarget) {
+    seekAt_ = now + 5000;
+    return;
+  }
+  --seekTokens_;
+  sendBeacon(now, 0, true);
+  if (++seekTries_ >= kSeekRetries) {
+    seekAt_ = 0;
+  } else {
+    uint64_t gap = kSeekBaseMs << seekTries_;
+    seekAt_ = now + gap + rng_.range(0, static_cast<uint32_t>(gap / 4));
+  }
+}
+
+void Router::sendBeacon(uint64_t now, uint16_t to, bool seek) {
   Packet b;
   b.type = PType::Beacon;
   b.mode = Mode::Unicast;   // 1-hop, never forwarded
@@ -1005,7 +1083,7 @@ void Router::sendBeacon(uint64_t now, uint16_t to) {
   b.hasFwdPos = true;
   b.fwdPos = pos_;
   auto& pl = b.payload;
-  pl.push_back(kBeaconHasGps | (sos_.empty() ? 0 : kBeaconSos));
+  pl.push_back(kBeaconHasGps | (sos_.empty() ? 0 : kBeaconSos) | (seek ? kBeaconSeek : 0));
   pl.push_back(0);
   pl.push_back(0);                                      // velocity: TODO from GPS RMC
   pl.push_back(static_cast<uint8_t>(clampd(util_, 0, 1) * 255));
@@ -1174,6 +1252,13 @@ void Router::onSos(const Packet& p, uint64_t now) {
     e.flood = enqueue(g, false, now);
     uint32_t unit = airtimeMs(cfg_.phy, encodedSize(g));
     e.flood->readyAt = now + rng_.range(0, 2 * unit + kJitterMs);
+  }
+  // An offer made us this partition's only holder, and our flood is one frame:
+  // check each neighbor once, so one that lost it shows its filter (DESIGN §8).
+  if (fresh && p.nextHop == me16()) {
+    for (auto& [id, nb] : nb_)
+      if (now - nb.heardMs < kNbFreshMs && shortId(id) != p.prevHop && id != p.src)
+        probeSos(shortId(id), now + kSosRetryMs, kSosRetryMs / 4);
   }
   SosInfo info;
   info.src = p.src;
@@ -1402,6 +1487,13 @@ void Router::onIdent(const Packet& p, uint64_t now) {
   } else if (it->second.name != name) {
     it->second.name = name;   // signed by the key we already trust
     app_.onPeerIdent(p.src, name, false);
+  }
+  // IDENT is one hop, so its sender is in range; a message waits and its beacon
+  // never got through: ask for that beacon instead of waiting for its next one.
+  auto nb = nb_.find(p.src);
+  if (holding() && havePos_ && !identProbeAt_ && (nb == nb_.end() || now - nb->second.heardMs >= kNbFreshMs)) {
+    identProbeId_ = p.src;
+    identProbeAt_ = now + rng_.range(500, 3000);
   }
 }
 

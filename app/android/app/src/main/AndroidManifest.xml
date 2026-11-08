@@ -11,6 +11,14 @@
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
     <!-- Notifications for DMs and SOS while backgrounded (Android 13+ asks at runtime) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Optional background connection (Settings). connectedDevice covers a node on
+         Bluetooth or the network; CHANGE_NETWORK_STATE is the install-time permission
+         that Android 14+ accepts for this type, so a TCP-only user needs no Bluetooth grant. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
         android:label="GhostWave"
         android:name="${applicationName}"
@@ -37,6 +45,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <service
+            android:name=".LinkForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
