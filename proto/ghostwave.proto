@@ -250,6 +250,7 @@ message Status {
   uint32 clients = 14;
   uint32 queued = 15;            // events waiting for a client
   optional uint32 battery_pct = 16;   // 0-100; absent: the node cannot read its battery
+  bool tx_off = 17;              // the node is not transmitting (`tx on` not set); false on older nodes
 }
 
 message OwnPosition {

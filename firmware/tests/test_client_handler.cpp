@@ -820,7 +820,42 @@ void testBattery() {
   CHECK(over.has && over.v == 100);
 }
 
+static void testStatusTxOff() {
+  std::printf("client handler: Status tx_off\n");
+  NullRadio radio;
+  NullApp app;
+  gw::Config cfg = Rig::mkCfg();
+  gw::Router router(cfg, radio, app);
+  gw::Position pos;
+  auto txOff = [&](std::function<bool()> hook) {
+    FakeTransport t;
+    Handler::Hooks hooks;
+    hooks.txOff = hook;
+    Handler h(router, Rig::ident(), pos, hooks, 0, t);
+    auto& c = t.add("ble");
+    auto send = [&](const ToRadio& m) {
+      Bytes f;
+      frameTo(m, f);
+      FrameReader in;
+      in.push(f.data(), f.size());
+      h.receive(c.conn, in, 1000);
+      return FakeTransport::drain(c);
+    };
+    ToRadio m;
+    m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
+    send(m);
+    m = {}, m.reqId = 2, m.kind = ToKind::GetStatus;
+    auto v = send(m);
+    CHECK(v.size() == 1 && v[0].kind == FromKind::Status);
+    return !v.empty() && v[0].status.txOff;
+  };
+  CHECK(!txOff(nullptr));
+  CHECK(!txOff([] { return false; }));
+  CHECK(txOff([] { return true; }));
+}
+
 int main() {
+  testStatusTxOff();
   testHelloGate();
   testQueueAndReplay();
   testQueueEviction();

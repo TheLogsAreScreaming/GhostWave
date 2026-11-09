@@ -29,7 +29,7 @@
 #include "ghostwave/client_handler.h"
 #endif
 
-#define GW_FW_VERSION "0.1.0-dev.1"
+#define GW_FW_VERSION "0.1.0-dev.3"
 
 namespace {
 
@@ -666,6 +666,7 @@ void startBle() {
     g_router->setPosition(g_pos, nowMs());
   };
   hooks.batteryPct = ownBattery;
+  hooks.txOff = [] { return !txOpen(); };
   hooks.edKeys = &g_edKeys;
   loadEdPins();
   g_channels.reset(new SavedChannelBook(*g_router));

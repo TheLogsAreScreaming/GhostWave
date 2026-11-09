@@ -2764,6 +2764,7 @@ class Status extends $pb.GeneratedMessage {
     $core.int? clients,
     $core.int? queued,
     $core.int? batteryPct,
+    $core.bool? txOff,
   }) {
     final result = Status._();
     if (tx != null) result.tx = tx;
@@ -2782,6 +2783,7 @@ class Status extends $pb.GeneratedMessage {
     if (clients != null) result.clients = clients;
     if (queued != null) result.queued = queued;
     if (batteryPct != null) result.batteryPct = batteryPct;
+    if (txOff != null) result.txOff = txOff;
     return result;
   }
 
@@ -2817,6 +2819,7 @@ class Status extends $pb.GeneratedMessage {
     ..aI(15, _omitFieldNames ? '' : 'queued', fieldType: $pb.PbFieldType.OU3)
     ..aI(16, _omitFieldNames ? '' : 'batteryPct',
         fieldType: $pb.PbFieldType.OU3)
+    ..aOB(17, _omitFieldNames ? '' : 'txOff')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2982,6 +2985,15 @@ class Status extends $pb.GeneratedMessage {
   $core.bool hasBatteryPct() => $_has(15);
   @$pb.TagNumber(16)
   void clearBatteryPct() => $_clearField(16);
+
+  @$pb.TagNumber(17)
+  $core.bool get txOff => $_getBF(16);
+  @$pb.TagNumber(17)
+  set txOff($core.bool value) => $_setBool(16, value);
+  @$pb.TagNumber(17)
+  $core.bool hasTxOff() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearTxOff() => $_clearField(17);
 }
 
 class OwnPosition extends $pb.GeneratedMessage {

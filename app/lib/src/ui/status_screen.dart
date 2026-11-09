@@ -65,6 +65,7 @@ class _StatusList extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = <(String, String)>[
       ('Uptime', formatUptime(s.uptimeS)),
+      ('Transmit', s.txOff ? 'OFF (type tx on on the serial console)' : 'on, or not reported'),
       ('SOS active (ours)', s.sosActive ? 'YES' : 'no'),
       ('SOS alerts held', '${s.sosHeld}'),
       ('Neighbors', '${s.neighbors}'),

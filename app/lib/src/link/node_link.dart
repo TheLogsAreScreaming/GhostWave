@@ -136,6 +136,7 @@ class NodeLink {
 
   final StreamController<LinkState> _states = StreamController<LinkState>.broadcast(sync: true);
   final StreamController<pb.FromRadio> _events = StreamController<pb.FromRadio>.broadcast(sync: true);
+  final StreamController<pb.Status> _heartbeats = StreamController<pb.Status>.broadcast(sync: true);
   LinkState _state = const LinkIdle();
   Transport? _transport;
   int _generation = 0;
@@ -151,6 +152,9 @@ class NodeLink {
 
   /// Unsolicited node events from whichever session is live.
   Stream<pb.FromRadio> get events => _events.stream;
+
+  /// The `Status` from each heartbeat that was answered.
+  Stream<pb.Status> get heartbeats => _heartbeats.stream;
 
   /// The live session, or null.
   LinkSession? get session => switch (_state) {
@@ -281,7 +285,8 @@ class NodeLink {
     if (_pinging || s.isClosed || gen != _generation) return;
     _pinging = true;
     try {
-      await s.request(pb.ToRadio(getStatus: pb.GetStatus()), timeout: heartbeatTimeout);
+      final r = await s.request(pb.ToRadio(getStatus: pb.GetStatus()), timeout: heartbeatTimeout);
+      if (gen == _generation && !s.isClosed) _heartbeats.add(r.status);
     } on ReplyTimeoutException {
       if (gen == _generation && !s.isClosed) {
         await s.close(reason: 'link timed out (no reply in ${heartbeatTimeout.inSeconds} s)');
@@ -318,5 +323,6 @@ class NodeLink {
     disconnect();
     await _states.close();
     await _events.close();
+    await _heartbeats.close();
   }
 }
