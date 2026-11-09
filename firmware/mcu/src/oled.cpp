@@ -23,6 +23,12 @@ uint32_t g_nextDraw = 0;
 uint32_t g_msgFrom = 0;
 char g_msg[kTextMax + 1] = "";
 
+constexpr uint32_t kPasskeyMs = 60000;
+char g_passkey[7] = "";
+volatile bool g_passkeyOn = false;     // written last, so poll() never sees half a passkey
+volatile bool g_passkeyNew = false;
+uint32_t g_passkeyUntil = 0;
+
 }  // namespace
 
 bool begin() {
@@ -45,10 +51,39 @@ void noteMessage(uint32_t src, const uint8_t* text, size_t len) {
   g_msg[n] = 0;
 }
 
+void showPasskey(const uint8_t digits[6]) {
+  g_passkeyOn = false;
+  for (int i = 0; i < 6; ++i) g_passkey[i] = static_cast<char>(digits[i]);
+  g_passkey[6] = 0;
+  g_passkeyNew = true;
+  g_passkeyOn = true;
+}
+
+void clearPasskey() {
+  g_passkeyOn = false;
+  g_passkeyNew = true;   // redraw now rather than leave a stale code up
+}
+
 void poll(uint32_t now, const Status& s) {
-  if (!g_ok || static_cast<int32_t>(now - g_nextDraw) < 0) return;
+  if (!g_ok) return;
+  const bool fresh = g_passkeyNew;
+  if (!fresh && static_cast<int32_t>(now - g_nextDraw) < 0) return;
+  g_passkeyNew = false;
   g_nextDraw = now + kRedrawMs;
+  if (fresh && g_passkeyOn) g_passkeyUntil = now + kPasskeyMs;
+  if (g_passkeyOn && static_cast<int32_t>(now - g_passkeyUntil) >= 0) g_passkeyOn = false;
   g_d.clearDisplay();
+  if (g_passkeyOn) {
+    g_d.setTextSize(1);
+    g_d.setCursor(0, 0);
+    g_d.print("Bluetooth pairing\nEnter on phone:");
+    g_d.setTextSize(3);   // 18 px per character: six digits fill 108 of 128
+    g_d.setCursor(10, 32);
+    g_d.print(g_passkey);
+    g_d.setTextSize(1);
+    g_d.display();
+    return;
+  }
   g_d.setCursor(0, 0);
   g_d.printf("%s %08lx\n", s.name[0] ? s.name : "GhostWave", static_cast<unsigned long>(s.nodeId));
   if (s.sosOwn) g_d.print("** SOS SENDING **\n");

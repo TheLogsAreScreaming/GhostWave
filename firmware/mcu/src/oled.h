@@ -28,6 +28,10 @@ struct Status {
 
 bool begin();
 void noteMessage(uint32_t src, const uint8_t* text, size_t len);
+// Pairing: fills the screen with the 6-digit passkey until pairing ends or a
+// minute passes. Safe to call from the BLE task.
+void showPasskey(const uint8_t digits[6]);
+void clearPasskey();
 // Redraws at most once a second, so the I2C transfer cannot crowd the radio.
 void poll(uint32_t nowMs, const Status& s);
 
