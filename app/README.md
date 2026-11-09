@@ -3,8 +3,8 @@
 The phone app (Android + iOS, Flutter) for the GhostWave backcountry LoRa mesh. It drives one GhostWave
 node over the **client link** defined in [`docs/CLIENT_PROTOCOL.md`](../docs/CLIENT_PROTOCOL.md) and
 [`proto/ghostwave.proto`](../proto/ghostwave.proto).
-Today that link is TCP (`ghostwaved --client-tcp`). BLE to Heltec boards comes later and plugs in behind
-the same transport interface.
+That link is TCP to a Pi or computer (`ghostwaved --client-tcp`), or Bluetooth to a RAK4631 or T1000-E node.
+Heltec boards have no client link over Bluetooth.
 
 It lives in `app/` of the GhostWave repo, next to the firmware it talks to, and shares no code with
 any other mesh app.
@@ -15,7 +15,7 @@ any other mesh app.
 |---|---|
 | **Connect:** host:port, remembered, Hello handshake, auto-reconnect with backoff | done |
 | **Me:** node ID, name, keys, contact-card QR code (copy as text too) | done |
-| **Contacts:** scan a QR code or paste the card text → `AddContact`; last seen and position from `Neighbor` beacons; "heard nearby" list; key-change warning | done |
+| **Contacts:** scan a QR code or paste the card text → `AddContact`; last seen and position from `Neighbor` beacons; "heard nearby" list with "Ask for key" and messages held until the key arrives; key-change warning | done |
 | **Group channels** (node protocol 1.1): create a channel (new random key) and share it by QR code or text (`ghostwave-ch:…`), join by scanning or pasting, channel chat with sender names, leave; best effort (a few hops, no receipts), saved on the phone, offline outbox | done |
 | **Messaging:** unread badges for DMs and channels, tap or long-press to retry a failed message, long-press to copy or delete a message, delete a conversation or clear a channel | done |
 | **Key change:** a contact whose node announced a different key is marked unverified with a prominent warning until you accept the new key (pinned on the node) or keep the old one | done |
@@ -34,7 +34,9 @@ any other mesh app.
 | **First run:** a four-page introduction (what GhostWave is, connecting, your QR card, how SOS works) | done |
 | **SOS:** elapsed time and next repeat while active; an incoming SOS opens the map at the sender, with distance and bearing from you | done |
 | **Units:** km or mi (Settings) | done |
-| iPhone install | blocked, see below |
+| **Backup and restore** (Android): one passphrase-encrypted file with contacts, channels, chat history, saved PINs and settings | done, not tried on a phone |
+| **History on the phone:** contacts, chats, channels and SOS records encrypted at rest | done, not tried on a phone |
+| iPhone install | on hold, see below |
 
 History (contacts, chats, SOS) is stored per node ID in the app's private storage, so connecting to a
 different node does not mix conversations. Each file is encrypted, see [History on the phone](#history-on-the-phone).
@@ -81,7 +83,7 @@ that start with `app-` (for example `app-v0.1.0-dev.1`). Development builds are 
 Or with `adb` and the GitHub CLI on a computer:
 
 ```bash
-gh release download app-v0.1.0-dev.2 --repo TheLogsAreScreaming/GhostWave-Releases --pattern '*.apk' --dir apk
+gh release download app-v0.1.0-dev.14 --repo TheLogsAreScreaming/GhostWave-Releases --pattern '*.apk' --dir apk
 ```
 
 ```bash
@@ -110,7 +112,7 @@ secret here (a fine-grained PAT, or a GitHub App), which has not been set up yet
 
 ## iPhone
 
-**Blocked.** CI runs `flutter build ios --no-codesign` on every PR, which proves the iOS app compiles,
+**On hold.** CI runs `flutter build ios --no-codesign` on every PR, which proves the iOS app compiles,
 but installing it on an iPhone needs either Xcode on a Mac (free Apple ID, re-sign every 7 days) or a
 paid Apple Developer account (TestFlight). That decision is still open. Android comes first.
 
@@ -170,7 +172,7 @@ happens. Not tried on a phone yet.
 ## Known limits
 
 - **Bluetooth has not been tried on real radios.** CI has none: the tests use a fake radio layer. Radio
-  builds keep channels in memory only (the app joins them again after a reboot), and can't be renamed.
+  builds can't be renamed from the app.
 - **The TCP link's security depends on the PIN.** On a network the node requires a PIN (printed at start, and in
   the `vmesh_lan.sh` table), and the link is encrypted with keys agreed from it, so a captured handshake gives
   nothing to guess against. Anyone who has the PIN can connect or pose as the node, so keep it private. The
@@ -187,7 +189,7 @@ happens. Not tried on a phone yet.
   off or the app swiped away, and it costs battery because the phone can't fully sleep. Without it, or on iPhone,
   or if the phone's vendor kills the app anyway, the link closes once the app is stopped. Nothing more arrives until
   it's opened again. There is no push service. The node holds DMs and SOS alerts and replays them on reconnect.
-  **It hasn't been tried on a real phone.** See "Background connection checks" below.
+  **It hasn't been tried on a real phone.** See "Background connection checks" above.
 - **Location sharing in the background is a separate choice.** It needs the location switch, the background connection,
   and "Keep sharing in the background" on the Me tab, which is off by default. It uses a foreground service, so it needs
   only the "while using the app" permission, and the notification says "sharing your location". Android only allows this
