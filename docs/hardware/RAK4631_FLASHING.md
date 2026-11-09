@@ -92,12 +92,11 @@ saved) or from `setpos <lat> <lon>` (saved). `pos` says which one it is using.
 The GhostWave app does not speak BLE yet (a later app release adds it). Until then, you can check
 pairing and the link with Nordic's free **nRF Connect** app (iOS or Android):
 
-1. Keep the serial console open. The passkey is only shown there.
+1. The pairing key is `654321` unless changed with `ble pin`.
 2. In nRF Connect, scan and connect to **`GhostWave-xxxx`**, where `xxxx` is the last four hex digits
    of the node ID from `keys`.
 3. Open the service `47570001-…` and tap the subscribe (notify) button on FromRadio `47570003-…`. The
-   phone asks for a pairing code, and the console prints
-   `BLE pairing: enter passkey 123456 on the phone`. Type those six digits on the phone.
+   phone asks for a pairing code. Type `654321`.
 4. The console prints `BLE pairing done, phone bonded`, then `BLE link encrypted`.
 5. Optional: check the link end to end. Write this hex value (a `Hello`, docs/CLIENT_PROTOCOL.md §6)
    to ToRadio `47570002-…`: `94C30C00010801520708011203617070`. A notification arrives on FromRadio

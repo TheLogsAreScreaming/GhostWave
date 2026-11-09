@@ -316,9 +316,11 @@ Encrypted-link vector: PIN `424242`, `nonce` = bytes 00..0f, node secret = bytes
   - The radio mesh's end-to-end encryption is separate.
 - **Why not on BLE:** the PIN applies to TCP only. BLE already requires an encrypted, passkey-paired link
   (below), and a second PIN would add a step with no added protection.
-- **BLE:** every attribute needs an encrypted, MITM-protected LE Secure Connections link, so a phone
-  must pair (with the passkey the node prints on its serial console) before it can read, write or
-  subscribe. See §9.
+- **BLE:** every attribute needs an encrypted, passkey-paired link, so a phone must pair before it can
+  read, write or subscribe. The default key is the public `654321` on every board, chosen so boards with
+  no screen can be paired without a computer. A static key forces legacy pairing, not LE Secure
+  Connections, so anyone in range who knows the key can pair, and someone recording a pairing could
+  decrypt that link. Change it with `ble pin <6 digits>`. The mesh's end-to-end encryption is separate. See §9.
 - **Keys:** private keys never cross the link. `NodeInfo` and `Contact` carry public keys only.
 
 ## 8. Notes for the Flutter app (Part 2)
@@ -355,11 +357,11 @@ core. The bytes are the §2 frames, unchanged; BLE only carries them.
   `6e57a11b` is `GhostWave-a11b`). Scan for the service UUID, not the name. Advertising runs every 100 ms
   for 30 s after boot or a disconnect, then every 1 s.
 - **One phone at a time.** While one is connected the node does not advertise.
-- **Security:** both characteristics and FromRadio's CCCD need an LE Secure Connections link with MITM
-  protection (`SECMODE_ENC_WITH_LESC_MITM`). A request before pairing gets ATT "insufficient
+- **Security:** both characteristics and FromRadio's CCCD need an encrypted link with MITM protection
+  (`SECMODE_ENC_WITH_MITM`, legacy pairing: see §7). A request before pairing gets ATT "insufficient
   authentication", which makes iOS and Android start pairing. The node has display-only IO
-  capability. It prints a fresh random 6-digit passkey on its USB serial console
-  (`BLE pairing: enter passkey 123456 on the phone`) and the phone types it in. Bonds are kept in the
+  capability. The passkey is fixed: `654321` unless changed with `ble pin` (takes effect on reboot), and the phone
+  types it in. Bonds are kept in the
   node's internal flash, so a bonded phone reconnects without a passkey. `ble clear` on the CLI forgets
   every bond. The phone must then forget the node too.
 

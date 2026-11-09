@@ -147,8 +147,8 @@ class BleTransport implements Transport {
   final BleRadio radio;
 
   static const String _authHelp =
-      'Bluetooth pairing failed. Check the 6-digit passkey on the node\'s USB serial console and '
-      'try again. If the node\'s pairings were cleared, first forget it in Android\'s Bluetooth settings.';
+      'Bluetooth pairing failed. The passkey is 654321 unless it was changed on the node. Try again. '
+      'If the node\'s pairings were cleared, first forget it in Android\'s Bluetooth settings.';
 
   @override
   String get label => node.name;
