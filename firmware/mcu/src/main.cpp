@@ -779,6 +779,13 @@ void startBle() {
   char pin[7];
   gw::mcu::loadBlePin(pin);
   if (g_ble.begin(name, g_set.bleOn, pin)) {
+    // Pairings left by earlier firmware (Meshtastic, say) share this radio's
+    // address, so a phone would reuse its old bond and cached service list and
+    // fail with "characteristic not found". Start clean on first boot.
+    if (gw::mcu::settingsWereFresh()) {
+      g_ble.clearBonds();
+      Serial.println("BLE: first boot, cleared pairings from earlier firmware; forget this node on old phones");
+    }
     g_link = g_handler.get();
     Serial.printf("BLE \"%s\" %s\n", name, g_set.bleOn ? "advertising; pair with the key from `ble pin`" : "off (ble on)");
   } else {

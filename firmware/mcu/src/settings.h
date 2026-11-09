@@ -48,6 +48,8 @@ struct Settings {
 // and its factory-derived node ID: replacing them would change its address.
 // False if storage fails.
 bool loadSettings(Settings& s);
+// Whether loadSettings found none and created them: this is GhostWave's first boot here.
+bool settingsWereFresh();
 
 bool saveFixedPos(const Settings& s);
 bool savePsk(const Settings& s);

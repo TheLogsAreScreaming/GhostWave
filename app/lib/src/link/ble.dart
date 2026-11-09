@@ -66,6 +66,13 @@ class BleAuthException implements Exception {
   const BleAuthException();
 }
 
+/// The phone reached the node but cannot see GhostWave's service: it is still
+/// using a pairing (and cached service list) from earlier firmware.
+class BleStaleBondException implements Exception {
+  /// Creates the exception.
+  const BleStaleBondException();
+}
+
 /// The user refused the Bluetooth permissions.
 class BlePermissionException implements Exception {
   /// Creates the exception.
@@ -150,6 +157,10 @@ class BleTransport implements Transport {
       'Bluetooth pairing failed. The passkey is 654321 unless it was changed on the node. Try again. '
       'If the node\'s pairings were cleared, first forget it in Android\'s Bluetooth settings.';
 
+  static const String _staleHelp =
+      'This phone is using an old Bluetooth pairing for this node, from earlier firmware. In Android\'s '
+      'Bluetooth settings, forget the node, then connect again and pair with 654321.';
+
   @override
   String get label => node.name;
 
@@ -183,6 +194,9 @@ class BleTransport implements Transport {
     } on BleAuthException {
       await conn.close();
       throw const TransportFatalException(_authHelp);
+    } on BleStaleBondException {
+      await conn.close();
+      throw const TransportFatalException(_staleHelp);
     } on Object {
       await conn.close();
       rethrow;

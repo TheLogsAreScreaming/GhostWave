@@ -99,6 +99,9 @@ class _Link implements BleLink {
       await UniversalBle.subscribeNotifications(_id, kBleService, kBleFromRadio, timeout: const Duration(seconds: 90));
     } on UniversalBleException catch (e) {
       if (_authCodes.contains(e.code)) throw const BleAuthException();
+      if (e.code == UniversalBleErrorCode.characteristicNotFound || e.code == UniversalBleErrorCode.serviceNotFound) {
+        throw const BleStaleBondException();
+      }
       rethrow;
     }
   }

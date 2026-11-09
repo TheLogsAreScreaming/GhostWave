@@ -35,6 +35,7 @@ class FakeLink implements BleLink {
   @override
   Future<void> subscribe() async {
     if (radio.pairingFails) throw const BleAuthException();
+    if (radio.staleBond) throw const BleStaleBondException();
     subscribed = true;
   }
 
@@ -91,6 +92,7 @@ class FakeLink implements BleLink {
 class FakeRadio implements BleRadio {
   int? mtu = 247;
   bool pairingFails = false;
+  bool staleBond = false;
   bool failWrites = false;
   bool connectFails = false;
   BleAvailability state = BleAvailability.on;
@@ -231,6 +233,21 @@ void main() {
       link.retryNow();
       fa.flushMicrotasks();
       expect(link.state, isA<LinkUp>());
+      link.dispose();
+      fa.flushTimers(flushPeriodicTimers: false);
+    });
+  });
+
+  test('an old pairing from earlier firmware stops with how to fix it', () {
+    fakeAsync((fa) {
+      final radio = FakeRadio()..staleBond = true;
+      final link = NodeLink();
+      link.connect(BleTransport(node, radio));
+      fa.flushMicrotasks();
+      expect(link.state, isA<LinkFailed>());
+      expect((link.state as LinkFailed).reason, allOf(contains('forget'), contains('654321')));
+      fa.elapse(const Duration(minutes: 2));
+      expect(radio.links, hasLength(1)); // no retry loop
       link.dispose();
       fa.flushTimers(flushPeriodicTimers: false);
     });
