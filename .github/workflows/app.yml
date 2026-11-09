@@ -166,6 +166,55 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  windows:
+    name: App Windows build
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Zip the app folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath out/ghostwave-windows-x64.zip
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ghostwave-windows
+          path: app/out/*.zip
+          retention-days: 14
+          if-no-files-found: error
+
+  macos:
+    name: App macOS build
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: Zip the app
+        run: |
+          mkdir -p out
+          ditto -c -k --keepParent build/macos/Build/Products/Release/GhostWave.app out/ghostwave-macos.zip
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ghostwave-macos
+          path: app/out/*.zip
+          retention-days: 14
+          if-no-files-found: error
+
   ios:
     name: App iOS build (no codesign)
     # macOS runners: only for PRs, main and manual runs (the path filter above
