@@ -200,7 +200,10 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 // this holds every preset at what a bare SX1262 can do until a compliance
 // decision. On the Tracker V2 the FEM gain is subtracted before driving the
 // SX1262, so the antenna port still sees at most this.
-constexpr int kMaxOutputDbm = 22;
+#ifndef GW_MAX_OUTPUT_DBM
+#define GW_MAX_OUTPUT_DBM 22
+#endif
+constexpr int kMaxOutputDbm = GW_MAX_OUTPUT_DBM;
 #if GW_NRF52
 // First real radios for GhostWave: start low for bench tests (two boards a
 // few metres apart). `power <dBm>` raises it.
