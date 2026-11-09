@@ -37,6 +37,8 @@ constexpr double kSeekStillM = 20;              // moved more between checks: st
 constexpr uint32_t kSeekAnswerMaxMs = 8000;     // cap on the answer jitter window
 constexpr uint64_t kIdentAskGapMs = 10 * 60 * 1000;   // ask one neighbor at most this often
 constexpr uint64_t kIdentReplyGapMs = 15 * 1000;      // our IDENTs are at least this far apart
+constexpr uint64_t kIdentRepeatMs = 16 * 1000;        // an announcement goes out twice, this far apart
+constexpr uint32_t kIdentRepeatJitterMs = 4 * 1000;
 constexpr size_t kIdentWantCapacity = 8;
 constexpr size_t kIdentAskedCapacity = 32;
 constexpr size_t kSosHeader = 4;      // seq (2), accuracy, battery
@@ -1081,6 +1083,9 @@ void Router::announceIdent(uint64_t now) {
   uint64_t at = now + rng_.range(100, 1000);
   if (identSent_) at = std::max(at, lastIdentT_ + kIdentReplyGapMs);
   if (!identReplyAt_ || at < identReplyAt_) identReplyAt_ = at;
+  // One frame, no acknowledgement, and a neighbor may be transmitting at that
+  // moment (half duplex), so say it once more.
+  identRepeatAt_ = at + kIdentRepeatMs + rng_.range(0, kIdentRepeatJitterMs);
 }
 
 // ----------------------------------------------------------------- beacons --
@@ -1688,6 +1693,10 @@ void Router::identTick(uint64_t now) {
     uint32_t id = it->first;
     it = identWant_.erase(it);
     if (!peers_.count(id)) askIdent(id, now);
+  }
+  if (identRepeatAt_ && now >= identRepeatAt_) {
+    identRepeatAt_ = 0;
+    if (!identReplyAt_) identReplyAt_ = now;
   }
   if (identReplyAt_ && now >= identReplyAt_) {
     identReplyAt_ = 0;

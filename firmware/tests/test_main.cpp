@@ -1530,6 +1530,30 @@ static void testIdentExchange() {
   CHECK(later >= 2 && later <= 4);
 }
 
+static void testIdentAnnounceRepeats() {
+  std::printf("ident: a rename is announced twice, so one lost frame does not hide it\n");
+  Medium m;
+  uint8_t sa[32], sb[32];
+  uint32_t ida = identity(sa, 1), idb = identity(sb, 100);
+  auto& a = m.add(ida, 0);
+  auto& b = m.add(idb, 2);
+  CHECK(a.router->setSigningKey(sa, "alice") && b.router->setSigningKey(sb, "bob"));
+  m.run(20000);
+  CHECK(a.router->hasPeerKey(idb));
+  CHECK(b.router->setSigningKey(sb, "bob2"));
+  uint32_t before = m.count(PType::Ident);
+  int lost = 0;
+  m.drop = [&](int from, const uint8_t* buf, size_t) {
+    return from == 1 && (buf[0] & 0x1F) == static_cast<uint8_t>(PType::Ident) && lost++ == 0;
+  };
+  b.router->announceIdent(m.now);
+  m.run(10000);
+  CHECK(lost == 1 && a.router->peerList()[0].name == "bob");   // the first copy was lost
+  m.run(30000);
+  CHECK(a.router->peerList()[0].name == "bob2");
+  CHECK(m.count(PType::Ident) == before + 2);
+}
+
 static void testIdentRequest() {
   std::printf("ident: periodic off, keys learned by request from new neighbors\n");
   Medium m;
@@ -2053,6 +2077,7 @@ int main() {
   testSosExpiryAndRollover();
   testIdentCrypto();
   testIdentExchange();
+  testIdentAnnounceRepeats();
   testIdentRequest();
   testIdentForgery();
   testIdentRekey();
