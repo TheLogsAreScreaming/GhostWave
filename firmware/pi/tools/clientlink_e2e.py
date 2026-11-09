@@ -190,7 +190,15 @@ check(e["text"] == b"e2e: twisted ankle" and e["battery_pct"] == 55 and e["accur
       and abs(e["pos"][0] - 46.87) < 1e-4, "SOS carries text, battery, accuracy (4 m steps) and position")
 r = b.request("sos_ack", node_id=ia["node_id"])
 check(r[0]["kind"] == "ok", "B's client acks the SOS")
-e = a.wait_event(lambda e: e["kind"] == "sos_ack" and e["responder"] == ib["node_id"], 60)
+# The router sends an SOS ack once, with no retry, right as A and its neighbors
+# are busiest (B's relay, C's relay, A's next frame), so it can be lost to a
+# collision or A's half-duplex radio. Ack again, as a responder would.
+e = None
+for _ in range(3):
+    e = a.wait_event(lambda e: e["kind"] == "sos_ack" and e["responder"] == ib["node_id"], 20)
+    if e is not None:
+        break
+    b.request("sos_ack", node_id=ia["node_id"])
 check(e is not None, "A's client got SosAckReceived from B")
 st = a.request("get_status")[0]
 check(st["sos_active"] and st["tx"] > 0 and st["clients"] == 1, "A status: SOS active, frames sent")
