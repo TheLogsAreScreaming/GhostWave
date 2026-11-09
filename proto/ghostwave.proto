@@ -177,6 +177,8 @@ message FromRadio {
     ChannelsEnd channels_end = 27;
     // protocol 1.2
     PinChallenge pin_challenge = 28;
+    // protocol 1.5
+    SosCancelled sos_cancelled = 29;
   }
 }
 
@@ -219,6 +221,15 @@ message SosAlert {
   optional uint32 accuracy_m = 4;
   optional uint32 battery_pct = 5;
   bytes text = 6;
+}
+
+// The source of an SOS ended it. verified: its signature matched the key the
+// node holds for it, and the node dropped the alert. false: the node had no key
+// to check with and still holds the alert ("sender says resolved").
+message SosCancelled {
+  fixed32 src = 1;
+  uint32 seq = 2;
+  bool verified = 3;
 }
 
 message SosAckReceived {

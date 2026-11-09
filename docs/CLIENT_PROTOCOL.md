@@ -165,6 +165,7 @@ Notes on the requests:
 | 20 | `ContactsEnd` | `count` | ends `ListContacts` |
 | 21 | `SendQueued` | `dest`, `msg_id`, `client_msg_id` | reply to `SendText` |
 | 22 | `Ok` | none | success with no data |
+| 29 | `SosCancelled` (1.5) | `src`, `seq`, `verified` | the source ended its SOS. `verified`: signature checked and the alert dropped; false: no key to check, the alert stays |
 | 23 | `PeerIdent` | `node_id`, `name`, `is_new`, `ed25519_pub` (1.4) | a verified IDENT taught a new key, or a new name |
 | 24 | `KeyChange` | `node_id`, `ed25519_pub`, `name` | a signed IDENT carries a different key (DESIGN §9.2). Warn the user. The node keeps the old key. |
 | 25 | `ChannelMessage` (1.1) | `channel` (name), `src`, `msg_id`, `text` | a group channel message arrived (queued like `TextMessage`) |

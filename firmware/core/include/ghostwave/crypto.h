@@ -73,6 +73,11 @@ bool identBody(const uint8_t seed[kKeySize], const std::string& name, std::vecto
 // On success fills the sender's Ed25519 public key and name.
 bool identCheck(const std::vector<uint8_t>& body, uint32_t src, uint8_t edPub[kKeySize], std::string& name);
 
+// SOS cancel (DESIGN §8): an Ed25519 signature over "ghostwave-soscancel-v1"
+// || src (4, LE) || seq (2, LE), so only the node that raised an SOS can end it.
+void sosCancelSign(const uint8_t seed[kKeySize], uint32_t src, uint16_t seq, uint8_t sig[kSigSize]);
+bool sosCancelCheck(const uint8_t edPub[kKeySize], uint32_t src, uint16_t seq, const uint8_t sig[kSigSize]);
+
 // DM key between us and a peer: BLAKE2b-256(X25519(mySecret, theirPub) ||
 // min(pubs) || max(pubs) || "ghostwave-dm-v1"). Both sides get the same key.
 // Returns false for a low-order peer key (all-zero shared secret).

@@ -47,6 +47,7 @@ class ClientLink : private gw::client::Transport {
   void onDelivered(uint32_t dst, uint32_t msgId) { h_.onDelivered(dst, msgId); }
   void onSos(const gw::SosInfo& s) { h_.onSos(s); }
   void onSosAck(uint32_t responder, uint16_t seq) { h_.onSosAck(responder, seq); }
+  void onSosCancelled(uint32_t src, uint16_t seq, bool verified) { h_.onSosCancelled(src, seq, verified); }
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen) { h_.onPeerIdent(id, name, firstSeen); }
   void onKeyChange(uint32_t id, const uint8_t edPub[32], const std::string& name) {
     h_.onKeyChange(id, edPub, name);

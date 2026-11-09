@@ -172,6 +172,33 @@ bool identCheck(const std::vector<uint8_t>& body, uint32_t src, uint8_t edPub[kK
   return true;
 }
 
+namespace {
+constexpr char kCancelCtx[] = "ghostwave-soscancel-v1";
+constexpr size_t kCancelCtxLen = sizeof kCancelCtx - 1;
+size_t cancelMsg(uint32_t src, uint16_t seq, uint8_t* out) {
+  std::memcpy(out, kCancelCtx, kCancelCtxLen);
+  for (int i = 0; i < 4; ++i) out[kCancelCtxLen + i] = static_cast<uint8_t>(src >> (8 * i));
+  out[kCancelCtxLen + 4] = static_cast<uint8_t>(seq);
+  out[kCancelCtxLen + 5] = static_cast<uint8_t>(seq >> 8);
+  return kCancelCtxLen + 6;
+}
+}  // namespace
+
+void sosCancelSign(const uint8_t seed[kKeySize], uint32_t src, uint16_t seq, uint8_t sig[kSigSize]) {
+  uint8_t s[kKeySize], sk[64], pub[kKeySize], msg[kCancelCtxLen + 6];
+  std::memcpy(s, seed, kKeySize);
+  crypto_ed25519_key_pair(sk, pub, s);
+  size_t n = cancelMsg(src, seq, msg);
+  crypto_ed25519_sign(sig, sk, msg, n);
+  crypto_wipe(sk, sizeof sk);
+}
+
+bool sosCancelCheck(const uint8_t edPub[kKeySize], uint32_t src, uint16_t seq, const uint8_t sig[kSigSize]) {
+  uint8_t msg[kCancelCtxLen + 6];
+  size_t n = cancelMsg(src, seq, msg);
+  return crypto_ed25519_check(sig, edPub, msg, n) == 0;
+}
+
 bool dmKey(const uint8_t mySecret[kKeySize], const uint8_t theirPub[kKeySize], uint8_t out[kKeySize]) {
   static const char kInfo[] = "ghostwave-dm-v1";
   constexpr size_t kInfoLen = sizeof kInfo - 1;

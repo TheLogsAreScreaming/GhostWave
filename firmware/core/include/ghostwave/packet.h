@@ -24,6 +24,7 @@ enum class PType : uint8_t {
   Ident = 0x05,
   Sos = 0x06,
   SosAck = 0x07,
+  SosCancel = 0x08,   // the source ended its SOS; signed (DESIGN §8)
 };
 
 enum class Mode : uint8_t { Geo = 0, Spray = 1, Unicast = 2, ScopedFlood = 3 };

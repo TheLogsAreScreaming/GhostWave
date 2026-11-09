@@ -266,7 +266,7 @@ void Handler::handle(Conn& c, const ToRadio& m, uint64_t now) {
       return;
     }
     case ToKind::SosStop:
-      r_.stopSos();
+      r_.stopSos(now);
       t_.log("client SOS off");
       reply(c, req, FromKind::Ok);
       return;
@@ -380,6 +380,15 @@ void Handler::onSosAck(uint32_t responder, uint16_t seq) {
   m.kind = FromKind::SosAck;
   m.src = responder;
   m.seq = seq;
+  event(m, true);
+}
+
+void Handler::onSosCancelled(uint32_t src, uint16_t seq, bool verified) {
+  FromRadio m;
+  m.kind = FromKind::SosCancelled;
+  m.src = src;
+  m.seq = seq;
+  m.verified = verified;
   event(m, true);
 }
 

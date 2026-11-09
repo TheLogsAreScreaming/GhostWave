@@ -1599,6 +1599,7 @@ enum FromRadio_Event {
   channel,
   channelsEnd,
   pinChallenge,
+  sosCancelled,
   notSet
 }
 
@@ -1625,6 +1626,7 @@ class FromRadio extends $pb.GeneratedMessage {
     Channel? channel,
     ChannelsEnd? channelsEnd,
     PinChallenge? pinChallenge,
+    SosCancelled? sosCancelled,
   }) {
     final result = FromRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -1648,6 +1650,7 @@ class FromRadio extends $pb.GeneratedMessage {
     if (channel != null) result.channel = channel;
     if (channelsEnd != null) result.channelsEnd = channelsEnd;
     if (pinChallenge != null) result.pinChallenge = pinChallenge;
+    if (sosCancelled != null) result.sosCancelled = sosCancelled;
     return result;
   }
 
@@ -1680,6 +1683,7 @@ class FromRadio extends $pb.GeneratedMessage {
     26: FromRadio_Event.channel,
     27: FromRadio_Event.channelsEnd,
     28: FromRadio_Event.pinChallenge,
+    29: FromRadio_Event.sosCancelled,
     0: FromRadio_Event.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1706,7 +1710,8 @@ class FromRadio extends $pb.GeneratedMessage {
       25,
       26,
       27,
-      28
+      28,
+      29
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'replayed')
@@ -1747,6 +1752,8 @@ class FromRadio extends $pb.GeneratedMessage {
         subBuilder: ChannelsEnd.$_createMessage)
     ..aOM<PinChallenge>(28, _omitFieldNames ? '' : 'pinChallenge',
         subBuilder: PinChallenge.$_createMessage)
+    ..aOM<SosCancelled>(29, _omitFieldNames ? '' : 'sosCancelled',
+        subBuilder: SosCancelled.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1788,6 +1795,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
+  @$pb.TagNumber(29)
   FromRadio_Event whichEvent() => _FromRadio_EventByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -1808,6 +1816,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
+  @$pb.TagNumber(29)
   void clearEvent() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -2038,6 +2047,18 @@ class FromRadio extends $pb.GeneratedMessage {
   void clearPinChallenge() => $_clearField(28);
   @$pb.TagNumber(28)
   PinChallenge ensurePinChallenge() => $_ensure(20);
+
+  /// protocol 1.5
+  @$pb.TagNumber(29)
+  SosCancelled get sosCancelled => $_getN(21);
+  @$pb.TagNumber(29)
+  set sosCancelled(SosCancelled value) => $_setField(29, value);
+  @$pb.TagNumber(29)
+  $core.bool hasSosCancelled() => $_has(21);
+  @$pb.TagNumber(29)
+  void clearSosCancelled() => $_clearField(29);
+  @$pb.TagNumber(29)
+  SosCancelled ensureSosCancelled() => $_ensure(21);
 }
 
 class NodeInfo extends $pb.GeneratedMessage {
@@ -2590,6 +2611,91 @@ class SosAlert extends $pb.GeneratedMessage {
   $core.bool hasText() => $_has(5);
   @$pb.TagNumber(6)
   void clearText() => $_clearField(6);
+}
+
+/// The source of an SOS ended it. verified: its signature matched the key the
+/// node holds for it, and the node dropped the alert. false: the node had no key
+/// to check with and still holds the alert ("sender says resolved").
+class SosCancelled extends $pb.GeneratedMessage {
+  factory SosCancelled({
+    $core.int? src,
+    $core.int? seq,
+    $core.bool? verified,
+  }) {
+    final result = SosCancelled._();
+    if (src != null) result.src = src;
+    if (seq != null) result.seq = seq;
+    if (verified != null) result.verified = verified;
+    return result;
+  }
+
+  SosCancelled._();
+
+  factory SosCancelled.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SosCancelled()..mergeFromBuffer(data, registry);
+  factory SosCancelled.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SosCancelled()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SosCancelled',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: SosCancelled.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'src', fieldType: $pb.PbFieldType.OF3)
+    ..aI(2, _omitFieldNames ? '' : 'seq', fieldType: $pb.PbFieldType.OU3)
+    ..aOB(3, _omitFieldNames ? '' : 'verified')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SosCancelled clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SosCancelled copyWith(void Function(SosCancelled) updates) =>
+      super.copyWith((message) => updates(message as SosCancelled))
+          as SosCancelled;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SosCancelled() / SosCancelled.new instead')
+  static SosCancelled create() => SosCancelled._();
+  static $pb.GeneratedMessage $_createMessage() => SosCancelled._();
+  @$core.override
+  SosCancelled createEmptyInstance() => SosCancelled._();
+  @$core.pragma('dart2js:noInline')
+  static SosCancelled getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SosCancelled>(
+          SosCancelled.$_createMessage);
+  static SosCancelled? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get src => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set src($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSrc() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSrc() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get seq => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set seq($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSeq() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSeq() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get verified => $_getBF(2);
+  @$pb.TagNumber(3)
+  set verified($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasVerified() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearVerified() => $_clearField(3);
 }
 
 class SosAckReceived extends $pb.GeneratedMessage {

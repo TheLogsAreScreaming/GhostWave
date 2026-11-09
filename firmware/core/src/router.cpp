@@ -59,6 +59,7 @@ constexpr uint8_t kSosResendMax = 2;             // early re-sends per seq: afte
 // it is easily lost. The responder repeats it: after ~10 s, then ~20 s more.
 constexpr uint8_t kSosAckRepeats = 2;
 constexpr uint64_t kSosAckRepeatMs = 10 * 1000;
+constexpr uint64_t kSosCancelRepeatMs = 15 * 1000;   // a cancel goes out twice
 constexpr uint32_t kSosAckRepeatJitterMs = 5 * 1000;
 
 double clampd(double x, double lo, double hi) { return x < lo ? lo : x > hi ? hi : x; }
@@ -161,6 +162,7 @@ bool Router::setSigningKey(const uint8_t seed[32], const std::string& name) {
   setIdentityKey(x);
   wipe(x, sizeof x);
   identBody_ = std::move(body);
+  std::memcpy(sigSeed_.data(), seed, 32);
   haveSigKey_ = true;
   return true;
 }
@@ -348,6 +350,7 @@ void Router::onReceive(const uint8_t* buf, size_t len, float rssi, uint64_t now)
     case PType::Data: onData(p, rssi, now); break;
     case PType::Sos: onSos(p, now); break;
     case PType::SosAck: onSosAck(p, now); break;
+    case PType::SosCancel: onSosCancel(p, now); break;
     case PType::Ident: onIdent(p, now); break;
     default: break;
   }
@@ -1281,6 +1284,70 @@ void Router::stopSos() {
   sosOwnTx_.reset();
 }
 
+void Router::stopSos(uint64_t now) {
+  const bool wasOn = sosOn_;
+  stopSos();
+  if (!wasOn) return;
+  sos_.erase(cfg_.nodeId);   // no more offers of it to neighbors met later
+  if (!haveSigKey_) return;
+  sendSosCancel(sosSeq_, now);
+  sosCancelSeq_ = sosSeq_;
+  sosCancelRepeatAt_ = now + kSosCancelRepeatMs + rng_.range(0, kSosAckRepeatJitterMs);   // one repeat
+}
+
+void Router::sendSosCancel(uint16_t seq, uint64_t now) {
+  Packet c;
+  c.type = PType::SosCancel;
+  c.prio = kPrioSos;
+  c.mode = Mode::ScopedFlood;
+  c.src = cfg_.nodeId;
+  c.dst = kBroadcast;
+  c.msgId = rng_.next() | 1;
+  c.hopsLeft = cfg_.hopLimit;
+  c.prevHop = me16();
+  c.payload = {static_cast<uint8_t>(seq & 0xFF), static_cast<uint8_t>(seq >> 8)};
+  uint8_t sig[kSigSize];
+  sosCancelSign(sigSeed_.data(), cfg_.nodeId, seq, sig);
+  c.payload.insert(c.payload.end(), sig, sig + kSigSize);
+  seen_[keyOf(c)].t = now;
+  enqueue(c, true, now);
+}
+
+void Router::onSosCancel(const Packet& p, uint64_t now) {
+  if (p.payload.size() != 2 + kSigSize || p.encrypted || p.src == cfg_.nodeId) return;
+  Key k = keyOf(p);
+  if (seen_.count(k)) return;
+  seen_[k].t = now;
+  const uint16_t seq = static_cast<uint16_t>(p.payload[0] | (p.payload[1] << 8));
+  bool verified = false;
+  auto pr = peers_.find(p.src);
+  if (pr != peers_.end() && pr->second.hasEdPub)
+    verified = sosCancelCheck(pr->second.edPub.data(), p.src, seq, p.payload.data() + 2);
+  if (pr != peers_.end() && pr->second.hasEdPub && !verified) return;   // forged: drop it, do not relay
+  if (verified) {
+    auto it = sos_.find(p.src);
+    if (it != sos_.end() && !seqNewer(it->second.seq, seq)) {
+      if (it->second.flood) it->second.flood->cancelled = true;
+      if (it->second.offer) it->second.offer->cancelled = true;
+      sos_.erase(it);
+    }
+  }
+  // Report each cancel once: the source sends it twice, under new msg IDs.
+  auto known = sosCancelled_.find(p.src);
+  const bool fresh = known == sosCancelled_.end() || seqNewer(seq, known->second);
+  if (fresh && verified) {
+    if (known == sosCancelled_.end() && sosCancelled_.size() >= cfg_.sosCapacity) sosCancelled_.erase(sosCancelled_.begin());
+    sosCancelled_[p.src] = seq;
+  }
+  if (fresh) app_.onSosCancelled(p.src, seq, verified);
+  if (p.hopsLeft == 0) return;
+  Packet g = p;
+  g.hopsLeft = p.hopsLeft - 1;
+  g.prevHop = me16();
+  TxPtr t = enqueue(g, false, now);
+  t->readyAt = now + rng_.range(0, 2 * airtimeMs(cfg_.phy, encodedSize(g)) + kJitterMs);
+}
+
 void Router::sendSosNow(uint64_t now) {
   // An update supersedes a queued original or retry, even when CSMA kept it
   // waiting longer than the repeat interval. Never send the stale seq later.
@@ -1352,6 +1419,8 @@ void Router::onSos(const Packet& p, uint64_t now) {
     if (sosOn_ && seq == sosSeq_) sosEcho_ = true;   // a neighbor relayed or offered it
     return;
   }
+  auto gone = sosCancelled_.find(p.src);
+  if (gone != sosCancelled_.end() && !seqNewer(seq, gone->second)) return;   // a late copy of a cancelled SOS
   auto it = sos_.find(p.src);
   // Reception can occur after the TTL but before sosTick has removed the
   // entry. Expire it here too, so it cannot suppress a newly received SOS.
@@ -1564,6 +1633,10 @@ void Router::sosTick(uint64_t now) {
   if (sosOn_ && now - sosLastTx_ >= cfg_.sosRepeatMs) sendSosNow(now);
   sosResendTick(now);
   sosAckRepeatTick(now);
+  if (sosCancelRepeatAt_ && now >= sosCancelRepeatAt_) {
+    sosCancelRepeatAt_ = 0;
+    if (!sosOn_ && haveSigKey_) sendSosCancel(sosCancelSeq_, now);
+  }
   if (sos_.empty()) sosProbe_.clear();
   // one probe per beacon gap; the others wait their turn
   for (auto it = sosProbe_.begin(); it != sosProbe_.end(); ++it) {

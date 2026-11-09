@@ -388,6 +388,12 @@ class StdoutApp : public gw::AppPort {
     std::fflush(stdout);
     if (link) link->onSosAck(responder, seq);
   }
+  void onSosCancelled(uint32_t src, uint16_t seq, bool verified) override {
+    std::printf("SOS CANCELLED by %08x seq %u%s\n", src, seq, verified ? " (signature checked, alert cleared)"
+                                                                         : " (no key to check it: alert kept)");
+    std::fflush(stdout);
+    if (link) link->onSosCancelled(src, seq, verified);
+  }
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen) override {
     std::printf("IDENT %s %08x \"%s\"\n", firstSeen ? "new peer" : "renamed", id, printable(name).c_str());
     std::fflush(stdout);
@@ -481,7 +487,7 @@ void handleCommand(const std::string& line, gw::Router& r, HostRadio& radio,
     else
       std::printf("SOS rate limited, try again in a minute\n");
   } else if (cmd == "sosstop") {
-    r.stopSos();
+    r.stopSos(nowMs());
     std::printf("SOS off\n");
   } else if (cmd == "sosack") {
     std::string id;

@@ -102,6 +102,7 @@ FROM_EVENTS = {
     27: ("channels_end", {1: ("count", "u32")}),
     # protocol 1.2
     28: ("pin_challenge", {1: ("nonce", "bytes"), 2: ("server_share", "bytes")}),
+    29: ("sos_cancelled", {1: ("src", "fx32"), 2: ("seq", "u32"), 3: ("verified", "bool")}),
 }
 
 ERRORS = ["NONE", "BAD_FRAME", "BAD_VERSION", "UNKNOWN_REQUEST", "NEED_HELLO", "BAD_ARGUMENT",
@@ -534,6 +535,8 @@ def fmt(m):
     if k == "sos":
         where = "at %.6f %.6f" % m["pos"] if m["pos"] else "no fix"
         return "SOS from %08x seq %d %s: %s%s" % (m["src"], m["seq"], where, m["text"].decode("utf-8", "replace"), tag)
+    if k == "sos_cancelled":
+        return "SOS CANCELLED by %08x seq %d (%s)" % (m["src"], m["seq"], "verified" if m.get("verified") else "unverified")
     if k == "sos_ack":
         return "SOSACK from %08x seq %d%s" % (m["responder"], m["seq"], tag)
     if k == "neighbor":
