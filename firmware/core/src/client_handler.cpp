@@ -211,6 +211,7 @@ void Handler::handle(Conn& c, const ToRadio& m, uint64_t now) {
         return;
       }
       if (!m.name.empty()) r_.setPeerName(id, m.name);
+      if (m.ed25519Pub.size() == 32) r_.setPeerEdPub(id, m.ed25519Pub.data());   // lets us check its SOS cancels
       t_.log("client added contact " + hex8(id));
       reply(c, req, FromKind::Ok);
       return;

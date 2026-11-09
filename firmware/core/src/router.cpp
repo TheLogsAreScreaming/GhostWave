@@ -167,6 +167,17 @@ bool Router::setSigningKey(const uint8_t seed[32], const std::string& name) {
   return true;
 }
 
+bool Router::setPeerEdPub(uint32_t id, const uint8_t edPub[32]) {
+  auto it = peers_.find(id);
+  if (it == peers_.end() || nodeIdOf(edPub) != id) return false;
+  uint8_t x[32];
+  ed25519ToX25519(edPub, x);
+  if (std::memcmp(x, it->second.xPub.data(), 32) != 0) return false;
+  std::memcpy(it->second.edPub.data(), edPub, 32);
+  it->second.hasEdPub = true;
+  return true;
+}
+
 bool Router::addPeerKey(uint32_t id, const uint8_t pub[32]) { return storePeer(id, pub, true, 0); }
 
 // Pinned keys replace whatever we hold; learned ones only fill a free slot (or

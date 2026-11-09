@@ -1590,6 +1590,37 @@ static void testSosCancel() {
   CHECK(b.router->hasSos(ida));
   CHECK(b.app.cancels.size() == cancelsBefore);
 
+  // a contact card's Ed25519 key is enough to check a cancel, with no IDENT heard
+  {
+    Medium m3;
+    auto& y = m3.add(idb, 0);
+    y.router->setSigningKey(sb, "b");
+    uint8_t ea[32], xa[32];
+    ed25519Public(sa, ea);
+    ed25519ToX25519(ea, xa);
+    CHECK(y.router->addPeerKey(ida, xa));
+    uint8_t ec[32];
+    ed25519Public(sc, ec);
+    CHECK(!y.router->setPeerEdPub(ida, ec));    // someone else's key
+    CHECK(y.router->setPeerEdPub(ida, ea));
+    y.router->onReceive(sosFrame.data(), sosFrame.size(), -80, 1000);
+    CHECK(y.router->hasSos(ida));
+    Packet k;
+    k.type = PType::SosCancel;
+    k.mode = Mode::ScopedFlood;
+    k.src = ida;
+    k.dst = kBroadcast;
+    k.msgId = 0x2468ace;
+    k.hopsLeft = 2;
+    k.payload = {1, 0};
+    sosCancelSign(sa, ida, 1, sig);
+    k.payload.insert(k.payload.end(), sig, sig + 64);
+    size_t kn = encode(k, buf, sizeof buf);
+    y.router->onReceive(buf, kn, -80, 2000);
+    CHECK(!y.router->hasSos(ida));
+    CHECK(y.app.cancels.size() == 1 && y.app.cancels[0].verified);
+  }
+
   // a node with no key for the source cannot check: it keeps the alert, reports it unverified
   Medium m2;
   auto& x = m2.add(idc, 0);

@@ -185,6 +185,10 @@ class Router {
   bool identAskedWithin(uint32_t id, uint64_t nowMs, uint64_t withinMs) const;
   // The Ed25519 key a signed IDENT taught us for `id`. False if we have none.
   bool peerEdPub(uint32_t id, uint8_t out[32]) const;
+  // Records a peer's Ed25519 key from a contact card, so its signatures (SOS
+  // cancels) can be checked before any IDENT arrives. Only if the key owns `id`
+  // and matches the X25519 key we hold for it.
+  bool setPeerEdPub(uint32_t id, const uint8_t edPub[32]);
 
   // Queue a message; returns its msg_id, or 0 if it cannot be sealed (too big).
   uint32_t send(uint32_t dst, const std::vector<uint8_t>& payload, uint64_t nowMs);
