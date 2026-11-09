@@ -41,5 +41,5 @@ inline void gwBoardPower() {
   digitalWrite(2, HIGH);   // chip enabled
   pinMode(gwFemIsKct ? 5 : 46, OUTPUT);
   gwFemRx();
-  Serial.printf("amplifier: %s\\n", gwFemIsKct ? "KCT8103L" : "GC1109");
+  Serial.printf("amplifier: %s\n", gwFemIsKct ? "KCT8103L" : "GC1109");
 }
