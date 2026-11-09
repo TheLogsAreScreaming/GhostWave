@@ -23,6 +23,11 @@ class McuRadio : public RadioPort {
   int outputDbm() const { return outputDbm_; }
   int driveDbm() const { return driveDbm_; }
 
+  // Called before every transmission; null means always allowed. While it
+  // returns false, frames are refused (receive carries on).
+  void setTxGate(bool (*open)()) { txGate_ = open; }
+  uint32_t txRefused() const { return txRefused_; }
+
   bool channelBusy() override;
   bool transmit(const uint8_t* buf, size_t len) override;
 
@@ -40,6 +45,8 @@ class McuRadio : public RadioPort {
 
   int outputDbm_ = 0, driveDbm_ = 0;
   uint32_t crcErrors_ = 0, txErrors_ = 0;
+  bool (*txGate_)() = nullptr;
+  uint32_t txRefused_ = 0;
 
   // The router retries after "busy" but discards a frame on a failed
   // transmit, and its queue has no limit. So: at the cap, report busy for up

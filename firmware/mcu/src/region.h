@@ -83,5 +83,11 @@ class DutyWindow {
   std::array<uint32_t, kBuckets> ms_{};
 };
 
+// The transmit gate. A fresh board stays silent until `tx on`, so it cannot key
+// up before its antenna and region are sorted out. Our own SOS opens it for as
+// long as the SOS runs: someone asked for help, and a node that stayed quiet
+// then would fail them.
+inline bool txGateOpen(bool txEnabled, bool ownSosActive) { return txEnabled || ownSosActive; }
+
 }  // namespace mcu
 }  // namespace gw

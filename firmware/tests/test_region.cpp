@@ -97,7 +97,15 @@ static void testAges() {
   CHECK(d.usedMs(30 * kMin + 61 * kMin) == 5);
 }
 
+static void testTxGate() {
+  CHECK(!txGateOpen(false, false));
+  CHECK(txGateOpen(true, false));
+  CHECK(txGateOpen(false, true));
+  CHECK(txGateOpen(true, true));
+}
+
 int main() {
+  testTxGate();
   testRegions();
   testUncapped();
   testCap();

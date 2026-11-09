@@ -364,6 +364,7 @@ These replace `ghostwaved`'s command-line options. They are saved in NVS:
 | `requireenc on\|off` | Same as `--require-enc`. Applies after `reboot`. |
 | `responder on\|off` | Same as `--responder`. Applies after `reboot`. |
 | `name [text]` / `name clear` | Shows or sets the name peers see, up to 9 bytes, and announces it. Boards first set up by a build before Ed25519 identities have no name. |
+| `tx on\|off` / `tx` | Allows or stops transmitting. A freshly set-up board starts **off** and only receives. Boards set up by earlier builds stay on. Our own SOS transmits regardless, until it stops. Applies now. |
 | `reboot` | Restarts the node. |
 
 **Radio:** the "Trail" preset, the same as `ghostwaved`: SF9, BW125, CR4/5, 16-symbol preamble, sync
@@ -387,7 +388,8 @@ You need two flashed boards, A and B, a couple of metres apart, each with an ant
 distance, turn the power down on both with `power 2`. Two V3s work, and so does one Tracker with one
 V3.
 
-1. **Give each a position.** On A, type `setpos 46.8700 -113.9900`. On B, type
+1. **Turn on transmit, then give each a position.** With the antennas on, type `tx on` on each board.
+   On A, type `setpos 46.8700 -113.9900`. On B, type
    `setpos 46.8710 -113.9900` (made up, 110 m north). A Tracker with a GPS fix can skip this.
    Then type `pos` on each; it should print `fix ...`.
 2. **Swap public keys.** Type `keys` on each board. It prints `<id> <pubkey>`. On B, type

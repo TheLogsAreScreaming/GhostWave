@@ -85,7 +85,7 @@ bool loadSettings(Settings& s) {
   } else {
     newEdIdentity(s);
     // The key goes last: a power cut before it just makes a new identity next boot.
-    if (!nvs->putBool("edid", true) || !nvs->putUInt("id", s.nodeId)) return false;
+    if (!nvs->putBool("edid", true) || !nvs->putBool("txoff", true) || !nvs->putUInt("id", s.nodeId)) return false;
     if (nvs->putBytes("idkey", s.secret.data(), s.secret.size()) != s.secret.size()) return false;
     Serial.println("generated new identity key");
   }
@@ -104,6 +104,7 @@ bool loadSettings(Settings& s) {
   if (static_cast<size_t>(s.region) >= kRegionCount) s.region = Region::Us915;
   s.responder = nvs->getBool("responder", false);
   s.requireEnc = nvs->getBool("reqenc", false);
+  s.txOn = !nvs->getBool("txoff", false);   // absent on boards from before the gate
 
   s.peerCount = 0;
   size_t len = nvs->getBytesLength("peers");
@@ -145,7 +146,8 @@ bool saveRadio(const Settings& s) {
 
 bool saveFlags(const Settings& s) {
   Nvs nvs(false);
-  return nvs.ok() && nvs->putBool("responder", s.responder) && nvs->putBool("reqenc", s.requireEnc);
+  return nvs.ok() && nvs->putBool("responder", s.responder) && nvs->putBool("reqenc", s.requireEnc) &&
+         nvs->putBool("txoff", !s.txOn);
 }
 
 bool saveBle(const Settings&) { return true; }   // no BLE link on the ESP32 builds yet

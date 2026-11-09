@@ -12,8 +12,8 @@ serial CLI as the Heltec builds, plus the BLE client link (docs/CLIENT_PROTOCOL.
 ## Before you start
 
 - **Antenna on first.** Screw the LoRa antenna onto the RAK4631's LoRa IPEX connector before you
-  plug in USB. The firmware transmits beacons by itself, and transmitting into no antenna can damage
-  the SX1262. The second, smaller IPEX connector is for BLE.
+  plug in USB. A freshly set-up board stays silent until you type `tx on`, but after that it
+  transmits beacons by itself at every boot, and transmitting into no antenna can damage the SX1262. The second, smaller IPEX connector is for BLE.
 - **Power:** the default is **10 dBm** at the antenna port, which is plenty for a bench. `power <dBm>`
   changes it (capped at 22 dBm). **Frequency:** 914.875 MHz, US 902–928 MHz only (DESIGN §12).
 - **Bootloader:** the drop-in UF2 needs the Adafruit nRF52 bootloader with the **S140 6.1.1**
@@ -76,7 +76,7 @@ an older build keeps its X25519 key and node ID. It sends no IDENT and cannot be
 
 These are the same as on the Heltec boards (README, "Run on a Heltec board"): `send`, `known`, `pos`,
 `keys`, `peer`, `sos`, `sosstop`, `sosack`, `stats`, `status`, `setpos`, `psk`, `power`, `freq`,
-`requireenc`, `responder`, `name` and `reboot`. The RAK4631 adds three:
+`requireenc`, `responder`, `name`, `tx` and `reboot`. The RAK4631 adds three:
 
 | Command | Effect |
 |---|---|
@@ -111,7 +111,8 @@ forgetting the node on the phone, type `ble clear` on the console.
 You need two flashed RAK4631s, A and B, a couple of metres apart, each with its LoRa antenna and its
 own serial console. 10 dBm is fine at this distance.
 
-1. **Give each a position.** On A, type `setpos 46.8700 -113.9900`. On B, type
+1. **Turn on transmit, then give each a position.** With the antennas on, type `tx on` on each board
+   (a board first set up by an older build is already on). On A, type `setpos 46.8700 -113.9900`. On B, type
    `setpos 46.8710 -113.9900` (made up, 110 m north). Type `pos` on each. It should print
    `fix 46.870000 -113.990000 (stored)`.
 2. **Check the radio.** Type `status` on each. The second line must say `radio ok`, `10 dBm out` and

@@ -42,6 +42,7 @@ constexpr uint8_t kVersion = 1;
 constexpr uint8_t kTagRegion = 1;
 constexpr uint8_t kTagEdIdentity = 2;   // no value: the secret is an Ed25519 seed
 constexpr uint8_t kTagName = 3;
+constexpr uint8_t kTagTxOff = 4;        // no value; absent on boards from before the gate
 
 bool g_fsOk = false;
 // The identity secret as loaded. main.cpp wipes Settings::secret once the
@@ -139,6 +140,10 @@ std::vector<uint8_t> encode(const Settings& s) {
     w.u8(static_cast<uint8_t>(s.name.size()));
     w.raw(s.name.data(), s.name.size());
   }
+  if (!s.txOn) {
+    w.u8(kTagTxOff);
+    w.u8(0);
+  }
   w.u32(crc32c(w.bytes().data(), w.bytes().size()));
   return std::move(w.bytes());
 }
@@ -182,6 +187,7 @@ bool decode(const std::vector<uint8_t>& b, Settings& s) {
     r.raw(value, len);
     if (tag == kTagRegion && len == 1 && value[0] < kRegionCount) t.region = static_cast<Region>(value[0]);
     if (tag == kTagEdIdentity) t.edIdentity = true;
+    if (tag == kTagTxOff) t.txOn = false;
     if (tag == kTagName) {
       std::string name(reinterpret_cast<const char*>(value), len);
       if (validNodeName(name)) t.name = name;
@@ -303,6 +309,7 @@ bool loadSettings(Settings& s) {
   if (InternalFS.exists(kPath)) Serial.println("settings file unreadable: starting fresh (new identity key)");
   s = Settings();
   newEdIdentity(s);
+  s.txOn = false;
   s.outputDbm = kDefaultOutputDbm;
   s.freqMHz = 914.875f;   // clear of Meshtastic/MeshCore US defaults
   g_secret = s.secret;
