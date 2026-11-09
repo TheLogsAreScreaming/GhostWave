@@ -393,6 +393,7 @@ class Router {
   std::map<uint32_t, Peer> peers_;
   std::vector<uint8_t> identBody_;  // signed once in setSigningKey
   uint64_t nextIdentAt_ = 0;        // periodic broadcast; 0 = not scheduled yet
+  uint64_t identRepeatAt_ = 0;      // second copy of an announcement; 0 = none
   uint64_t identReplyAt_ = 0;       // broadcast answering a request; 0 = none
   uint64_t lastIdentT_ = 0;
   bool identSent_ = false;
