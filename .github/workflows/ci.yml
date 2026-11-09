@@ -110,3 +110,23 @@ jobs:
           path: firmware/mcu/out/*.uf2
           retention-days: 30
           if-no-files-found: error
+
+  mcu-boards-d:
+    # Boards with their own firmware/mcu/boards.d/<env>.ini.
+    name: MCU boards (boards.d)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+      - run: pip install platformio
+      - name: Build every env in boards.d
+        working-directory: firmware/mcu
+        run: |
+          failed=""
+          for f in boards.d/*.ini; do
+            env=$(basename "$f" .ini)
+            pio run -e "$env" || failed="$failed $env"
+          done
+          test -z "$failed" || { echo "failed:$failed"; exit 1; }
