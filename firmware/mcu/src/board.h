@@ -108,6 +108,8 @@ constexpr int kPinLoraDio1 = 10;    // P0.10, an NFC pin: needs CONFIG_NFCT_PINS
 constexpr int kPinLoraBusy = 9;     // P0.09, an NFC pin
 constexpr int kPinLoraRst = 4;      // P0.04
 constexpr float kTcxoVolts = 1.8f;  // SX126X_DIO3_TCXO_VOLTAGE
+constexpr int kPinVbat = 5;         // P0.05 / AIN3, the base board's VBAT divider (variant.h A0)
+constexpr float kVbatScale = 1.73f; // Meshtastic rak3401_1watt ADC_MULTIPLIER; not measured by us
 #define GW_HAS_OLED 1               // RAK1921 in the I2C slot; optional, detected at boot
 #define GW_LORA_SPI SPI1            // P0.03 SCK, P0.30 MOSI, P0.29 MISO (variants/rak4631)
 #define GW_HAS_ANT_POWER 1

@@ -5,6 +5,8 @@
 #include <Arduino.h>
 #include <bluefruit.h>
 
+#include "oled.h"
+
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -56,10 +58,16 @@ void onDisconnect(uint16_t, uint8_t reason) {
 
 bool onPasskey(uint16_t, uint8_t const passkey[6], bool) {
   Serial.printf("BLE pairing: enter passkey %.6s on the phone\n", reinterpret_cast<const char*>(passkey));
+#if GW_HAS_OLED
+  gw::mcu::oled::showPasskey(passkey);
+#endif
   return true;
 }
 
 void onPairComplete(uint16_t, uint8_t status) {
+#if GW_HAS_OLED
+  gw::mcu::oled::clearPasskey();
+#endif
   if (status == BLE_GAP_SEC_STATUS_SUCCESS) Serial.println("BLE pairing done, phone bonded");
   else Serial.printf("BLE pairing failed (status %u)\n", status);
 }

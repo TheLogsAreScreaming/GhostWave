@@ -41,6 +41,7 @@ class BleLink : public gw::client::Transport {
 
   void setEnabled(bool on);
   bool enabled() const { return enabled_; }
+  bool connected() const { return open_; }
   // Forgets every bonded phone (and drops the current connection).
   void clearBonds();
   // One line for the `ble` command.
