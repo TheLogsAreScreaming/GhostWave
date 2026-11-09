@@ -27,6 +27,7 @@ volatile uint32_t g_rxOverflows = 0;
 volatile uint32_t g_connects = 0, g_disconnects = 0;
 volatile uint16_t g_connHdl = BLE_CONN_HANDLE_INVALID;
 volatile uint8_t g_lastReason = 0;
+char g_pin[7] = "";   // the SoftDevice keeps a pointer to this
 
 void onWrite(uint16_t, BLECharacteristic*, uint8_t* data, uint16_t len) {
   xSemaphoreTake(g_rxLock, portMAX_DELAY);
@@ -70,7 +71,7 @@ void onSecured(uint16_t hdl) {
 
 }  // namespace
 
-bool BleLink::begin(const std::string& name, bool enabled) {
+bool BleLink::begin(const std::string& name, bool enabled, const char* pin) {
   name_ = name;
   g_rxLock = xSemaphoreCreateMutex();
   g_rx.reserve(kRxCap);
@@ -83,24 +84,28 @@ bool BleLink::begin(const std::string& name, bool enabled) {
   Bluefruit.Periph.setConnectCallback(onConnect);
   Bluefruit.Periph.setDisconnectCallback(onDisconnect);
 
-  // LE Secure Connections, MITM by passkey entry: the node displays (on the
-  // serial console), the phone types it in. Bonds go to InternalFS.
+  // MITM by passkey entry with a fixed key, so a board with no screen can be
+  // paired without a computer. A static passkey forces legacy pairing (the
+  // SoftDevice cannot do LE Secure Connections with one); see CLIENT_PROTOCOL §7.
+  // Bonds go to InternalFS.
   Bluefruit.Security.setIOCaps(true, false, false);
   Bluefruit.Security.setMITM(true);
+  std::strncpy(g_pin, pin, sizeof g_pin - 1);
+  if (!Bluefruit.Security.setPIN(g_pin)) Serial.println("BLE: could not set the pairing key");
   Bluefruit.Security.setPairPasskeyCallback(onPasskey);
   Bluefruit.Security.setPairCompleteCallback(onPairComplete);
   Bluefruit.Security.setSecuredCallback(onSecured);
 
   g_svc.begin();
-  // Every attribute, the notify CCCD included, needs an LESC + MITM link, so
+  // Every attribute, the notify CCCD included, needs an encrypted MITM link, so
   // nothing can be read, written or subscribed to before pairing.
   g_toRadio.setProperties(CHR_PROPS_WRITE);
-  g_toRadio.setPermission(SECMODE_ENC_WITH_LESC_MITM, SECMODE_ENC_WITH_LESC_MITM);
+  g_toRadio.setPermission(SECMODE_ENC_WITH_MITM, SECMODE_ENC_WITH_MITM);
   g_toRadio.setMaxLen(kMtu - 3);
   g_toRadio.setWriteCallback(onWrite, false);   // straight from the BLE task: it only copies
   g_toRadio.begin();
   g_fromRadio.setProperties(CHR_PROPS_NOTIFY);
-  g_fromRadio.setPermission(SECMODE_ENC_WITH_LESC_MITM, SECMODE_NO_ACCESS);
+  g_fromRadio.setPermission(SECMODE_ENC_WITH_MITM, SECMODE_NO_ACCESS);
   g_fromRadio.setMaxLen(kMtu - 3);
   g_fromRadio.begin();
 

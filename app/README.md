@@ -122,7 +122,7 @@ Bluetooth nodes are the RAK4631 and T1000-E builds. The Heltec builds have no cl
 
 1. Flash the node and open its USB serial console at 115200 baud. Check it prints `BLE "GhostWave-xxxx" advertising`.
 2. In the app: Connect → **Find Bluetooth nodes**, and allow Nearby devices. Your node should be listed with its signal.
-3. Tap it. Android asks for a passkey: type the 6 digits from `BLE pairing: enter passkey …` on the console.
+3. Tap it. Android asks for a passkey: type `654321`, unless it was changed with `ble pin` on the node.
 4. The bar above the tabs should say `Connected to GhostWave-xxxx`.
 5. Reconnect test: restart the node, or walk out of range and back. It should reconnect with no passkey and no taps.
 

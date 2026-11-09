@@ -54,6 +54,12 @@ bool savePsk(const Settings& s);
 bool saveRadio(const Settings& s);   // power, frequency and region
 bool saveFlags(const Settings& s);
 bool saveBle(const Settings& s);
+// The Bluetooth pairing key (nRF52 builds), 6 digits. Kept in its own file so that adding it
+// did not change the settings format boards already have saved.
+constexpr const char* kDefaultBlePin = "654321";
+void loadBlePin(char out[7]);   // the saved key, or the default
+bool saveBlePin(const char* pin);
+bool blePinValid(const char* pin);
 bool saveName(const Settings& s);
 // Copies the stored identity secret: Settings::secret is wiped after boot.
 bool loadIdentitySeed(Key32& out);

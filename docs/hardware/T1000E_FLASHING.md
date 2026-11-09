@@ -89,8 +89,8 @@ Indoors it may never come. For bench tests, use `setpos`: the GPS takes over as 
 ## 4. Pair a phone
 
 This is the same as on the RAK4631 (`RAK4631_FLASHING.md` section 3). Connect to `GhostWave-xxxx` in
-nRF Connect and subscribe to FromRadio. Then type the passkey that the serial console prints. Pairing
-needs the serial console, because the T1000-E has no screen.
+nRF Connect and subscribe to FromRadio. Then type the pairing key, `654321` unless changed with
+`ble pin`. No screen or computer is needed.
 
 ## 5. Two-board bench test
 

@@ -35,7 +35,7 @@ class BleLink : public gw::client::Transport {
 
   // Starts the SoftDevice, the GATT service and pairing. `name` is the
   // advertised name. Advertises only if `enabled`.
-  bool begin(const std::string& name, bool enabled);
+  bool begin(const std::string& name, bool enabled, const char* pin);
   void attach(gw::client::Handler* h) { h_ = h; }
   void poll(uint64_t nowMs);
 

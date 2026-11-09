@@ -322,6 +322,36 @@ bool savePsk(const Settings& s) { return saveAll(s); }
 bool saveRadio(const Settings& s) { return saveAll(s); }
 bool saveFlags(const Settings& s) { return saveAll(s); }
 bool saveBle(const Settings& s) { return saveAll(s); }
+
+namespace {
+constexpr const char* kBlePinPath = "/gw/blepin";
+}
+
+bool blePinValid(const char* pin) {
+  if (!pin) return false;
+  for (int i = 0; i < 6; ++i)
+    if (pin[i] < '0' || pin[i] > '9') return false;
+  return pin[6] == 0;
+}
+
+void loadBlePin(char out[7]) {
+  std::strcpy(out, kDefaultBlePin);
+  Adafruit_LittleFS_Namespace::File f(InternalFS);
+  if (!f.open(kBlePinPath, Adafruit_LittleFS_Namespace::FILE_O_READ)) return;
+  char b[7] = {0};
+  if (f.read(b, 6) == 6 && blePinValid(b)) std::strcpy(out, b);
+  f.close();
+}
+
+bool saveBlePin(const char* pin) {
+  if (!blePinValid(pin)) return false;
+  InternalFS.remove(kBlePinPath);
+  Adafruit_LittleFS_Namespace::File f(InternalFS);
+  if (!f.open(kBlePinPath, Adafruit_LittleFS_Namespace::FILE_O_WRITE)) return false;
+  const bool ok = f.write(reinterpret_cast<const uint8_t*>(pin), 6) == 6;
+  f.close();
+  return ok;
+}
 bool saveName(const Settings& s) { return saveAll(s); }
 
 bool loadIdentitySeed(Key32& out) {

@@ -326,7 +326,7 @@ void printHelp() {
       "settings (saved): name [text] | name clear | setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
       "          tx on|off | power <dBm> | freq <MHz> | region us915|eu868 | responder on|off | requireenc on|off | reboot\n"
 #if GW_HAS_BLE
-      "app link: ble | ble on|off (saved) | ble clear (forget paired phones)\n"
+      "app link: ble | ble on|off (saved) | ble clear (forget paired phones) | ble pin [6 digits]\n"
 #endif
   );
 }
@@ -524,11 +524,23 @@ void handleCommand(std::string line) {
       g_set.bleOn = a == "on";
       g_ble.setEnabled(g_set.bleOn);
       Serial.printf("BLE %s%s\n", g_set.bleOn ? "on, advertising" : "off", gw::mcu::saveBle(g_set) ? "" : " (save failed)");
+    } else if (a == "pin") {
+      std::string pin = word(line);
+      if (pin.empty()) {
+        char now[7];
+        gw::mcu::loadBlePin(now);
+        Serial.printf("pairing key %s%s\n", now, std::strcmp(now, gw::mcu::kDefaultBlePin) ? "" : " (the default)");
+      } else if (!gw::mcu::blePinValid(pin.c_str())) {
+        Serial.println("the pairing key must be exactly 6 digits");
+      } else {
+        Serial.println(gw::mcu::saveBlePin(pin.c_str()) ? "saved, takes effect on reboot; phones already paired keep working"
+                                                        : "save failed");
+      }
     } else if (a == "clear") {
       g_ble.clearBonds();
       Serial.println("forgot every paired phone; remove \"GhostWave\" from the phone's Bluetooth list too");
     } else {
-      Serial.println("usage: ble | ble on | ble off | ble clear");
+      Serial.println("usage: ble | ble on | ble off | ble clear | ble pin <6 digits>");
     }
 #endif
   } else if (cmd == "name") {
@@ -693,9 +705,11 @@ void startBle() {
   // 32 held events, not ghostwaved's 64: each can hold a 128-byte text in RAM.
   g_handler.reset(new gw::client::Handler(*g_router, self, g_pos, hooks, g_bootMs, g_ble, 32));
   g_ble.attach(g_handler.get());
-  if (g_ble.begin(name, g_set.bleOn)) {
+  char pin[7];
+  gw::mcu::loadBlePin(pin);
+  if (g_ble.begin(name, g_set.bleOn, pin)) {
     g_link = g_handler.get();
-    Serial.printf("BLE \"%s\" %s\n", name, g_set.bleOn ? "advertising; pair with the passkey printed here" : "off (ble on)");
+    Serial.printf("BLE \"%s\" %s\n", name, g_set.bleOn ? "advertising; pair with the key from `ble pin`" : "off (ble on)");
   } else {
     Serial.println("BLE failed to start");
   }

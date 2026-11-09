@@ -108,8 +108,8 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
             child: Padding(
               padding: EdgeInsets.all(12),
               child: Text(
-                'The first time you connect, Android asks for a 6-digit passkey. The node prints it on its USB '
-                'serial console: "BLE pairing: enter passkey …". After that, the phone reconnects by itself.\n\n'
+                'The first time you connect, Android asks for a 6-digit passkey. It is 654321 unless it was changed '
+                'on the node. After that, the phone reconnects by itself.\n\n'
                 'A node talks to one phone at a time, and stops advertising while connected.',
               ),
             ),
