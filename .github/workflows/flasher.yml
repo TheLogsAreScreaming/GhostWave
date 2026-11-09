@@ -1,0 +1,19 @@
+name: Web flasher
+on:
+  push:
+    branches: [main]
+    paths: ['flasher/**', '.github/workflows/flasher.yml']
+  pull_request:
+    paths: ['flasher/**', '.github/workflows/flasher.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+      - run: node --test flasher/tests/dfu.test.mjs
+      - run: python3 flasher/tests/test_build_site.py
