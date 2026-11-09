@@ -53,6 +53,12 @@ constexpr uint64_t kSosEchoWaitMs = 15 * 1000;   // re-send our SOS if no relay 
 constexpr uint32_t kSosEchoJitterMs = 5 * 1000;
 constexpr uint8_t kSosResendMax = 2;             // early re-sends per seq: after ~15 s, then ~30 s more
 
+// An SOS ack gets no reply, and it goes out just as the SOS is being relayed, so
+// it is easily lost. The responder repeats it: after ~10 s, then ~20 s more.
+constexpr uint8_t kSosAckRepeats = 2;
+constexpr uint64_t kSosAckRepeatMs = 10 * 1000;
+constexpr uint32_t kSosAckRepeatJitterMs = 5 * 1000;
+
 double clampd(double x, double lo, double hi) { return x < lo ? lo : x > hi ? hi : x; }
 
 // Re-offer gap to a known neighbor after `tries` re-offers: doubles, capped.
@@ -1417,7 +1423,31 @@ bool Router::ackSos(uint32_t sosSrc, uint64_t now) {
   a.payload = {static_cast<uint8_t>(it->second.seq & 0xFF), static_cast<uint8_t>(it->second.seq >> 8)};
   seen_[keyOf(a)].t = now;
   enqueue(a, true, now);
+  sosAckRepeat_[sosSrc] = {a, it->second.seq, now + kSosAckRepeatMs + rng_.range(0, kSosAckRepeatJitterMs),
+                           kSosAckRepeats};
   return true;
+}
+
+void Router::sosAckRepeatTick(uint64_t now) {
+  for (auto it = sosAckRepeat_.begin(); it != sosAckRepeat_.end();) {
+    SosAckRepeat& r = it->second;
+    auto held = sos_.find(it->first);
+    if (held == sos_.end() || held->second.seq != r.seq) {   // expired, or a newer SOS needs its own ack
+      it = sosAckRepeat_.erase(it);
+      continue;
+    }
+    if (now < r.at) {
+      ++it;
+      continue;
+    }
+    enqueue(r.pkt, true, now);
+    if (--r.left == 0) {
+      it = sosAckRepeat_.erase(it);
+      continue;
+    }
+    r.at = now + (kSosAckRepeatMs << (kSosAckRepeats - r.left)) + rng_.range(0, kSosAckRepeatJitterMs);
+    ++it;
+  }
 }
 
 void Router::onSosAck(const Packet& p, uint64_t now) {
@@ -1519,6 +1549,7 @@ void Router::probeSos(uint16_t nb16, uint64_t at, uint64_t jitterMs) {
 void Router::sosTick(uint64_t now) {
   if (sosOn_ && now - sosLastTx_ >= cfg_.sosRepeatMs) sendSosNow(now);
   sosResendTick(now);
+  sosAckRepeatTick(now);
   if (sos_.empty()) sosProbe_.clear();
   // one probe per beacon gap; the others wait their turn
   for (auto it = sosProbe_.begin(); it != sosProbe_.end(); ++it) {
