@@ -43,7 +43,9 @@ constexpr uint32_t kGpsBaud = 115200;   // GPS_BAUDRATE (UC6580)
 
 #elif defined(GW_BOARD_HELTEC_V3)
 // Source: variants/esp32s3/heltec_v3/variant.h
+#ifndef GW_BOARD_NAME
 #define GW_BOARD_NAME "heltec_v3"
+#endif
 constexpr int kPinLoraSck = 9;
 constexpr int kPinLoraMiso = 11;
 constexpr int kPinLoraMosi = 10;
