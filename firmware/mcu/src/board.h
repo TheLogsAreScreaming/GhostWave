@@ -7,7 +7,10 @@
 
 #include <stdint.h>
 
-#if defined(GW_BOARD_TRACKER_V2)
+#if defined(GW_BOARD_FILE)
+// One header per board in src/boards/, chosen in boards.d/<env>.ini.
+#include GW_BOARD_FILE
+#elif defined(GW_BOARD_TRACKER_V2)
 // Source: variants/esp32s3/heltec_wireless_tracker_v2/variant.h
 //         (+ pins_arduino.h there for SCK/MISO/MOSI/SS, src/configuration.h for
 //          TX_GAIN_LORA, src/mesh/LoRaFEMInterface.cpp for FEM sequencing)
@@ -195,7 +198,10 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 // this holds every preset at what a bare SX1262 can do until a compliance
 // decision. On the Tracker V2 the FEM gain is subtracted before driving the
 // SX1262, so the antenna port still sees at most this.
-constexpr int kMaxOutputDbm = 22;
+#ifndef GW_MAX_OUTPUT_DBM
+#define GW_MAX_OUTPUT_DBM 22
+#endif
+constexpr int kMaxOutputDbm = GW_MAX_OUTPUT_DBM;
 #if GW_NRF52
 // First real radios for GhostWave: start low for bench tests (two boards a
 // few metres apart). `power <dBm>` raises it.
