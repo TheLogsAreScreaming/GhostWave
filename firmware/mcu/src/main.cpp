@@ -23,6 +23,7 @@
 #include "platform.h"
 #include "radio.h"
 #include "settings.h"
+#include "button_gesture.h"
 #include "oled.h"
 #include "ui.h"
 #if GW_HAS_BLE
@@ -142,9 +143,29 @@ gw::client::Handler* g_link = nullptr;   // the app link, once BLE is up
 #endif
 
 // Our battery for SOS bodies: percent, or 0xFF where the board cannot read it.
+#if GW_HAS_OLED
+uint8_t readVbatPct() {
+  analogReference(AR_INTERNAL_3_0);
+  analogReadResolution(12);
+  uint32_t sum = 0;
+  for (int i = 0; i < 8; ++i) sum += analogRead(kPinVbat);
+  uint32_t mv = static_cast<uint32_t>((sum / 8) * 3000.0f / 4096.0f * kVbatScale);
+  return mv < 2500 ? 0xFF : gw::mcu::batteryPercent(mv);   // no cell connected: unknown
+}
+#endif
+
 uint8_t ownBattery() {
 #if GW_HAS_UI
   return gw::mcu::ui::batteryPct();
+#elif GW_HAS_OLED
+  static uint8_t pct = 0xFF;
+  static uint32_t next = 0;
+  uint32_t now = millis();
+  if (static_cast<int32_t>(now - next) >= 0) {
+    pct = readVbatPct();
+    next = now + 30000;
+  }
+  return pct;
 #else
   return 0xFF;
 #endif
@@ -327,6 +348,9 @@ void printHelp() {
       "          tx on|off | power <dBm> | freq <MHz> | region us915|eu868 | responder on|off | requireenc on|off | reboot\n"
 #if GW_HAS_BLE
       "app link: ble | ble on|off (saved) | ble clear (forget paired phones)\n"
+#if GW_HAS_OLED
+      "screen: display (wake it; it sleeps 10 minutes after the last event)\n"
+#endif
 #endif
   );
 }
@@ -544,6 +568,11 @@ void handleCommand(std::string line) {
       case Rename::BadName: Serial.printf("name must be at most %u bytes, no control characters\n", static_cast<unsigned>(gw::kIdentNameMax)); break;
       case Rename::Failed: Serial.println("could not re-sign the identity"); break;
     }
+#if GW_HAS_OLED
+  } else if (cmd == "display") {
+    gw::mcu::oled::wake();
+    Serial.println("display: awake");
+#endif
   } else if (cmd == "reboot") {
     Serial.println("rebooting");
     Serial.flush();
@@ -895,12 +924,25 @@ void gwLoop() {
   pollUi(now);
 #endif
 #if GW_HAS_OLED
-  {
+  if (gw::mcu::oled::due(static_cast<uint32_t>(now))) {
     auto& st = g_router->stats();
-    gw::mcu::oled::poll(static_cast<uint32_t>(now),
-                        {g_set.name.c_str(), g_cfg.nodeId, g_radioOk, g_set.txOn, g_router->sosActive(),
-                         static_cast<uint32_t>(g_router->sosCount()), g_radio.outputDbm(),
-                         static_cast<uint32_t>(g_router->neighborCount(now)), st.tx, st.rx});
+    gw::mcu::oled::Status os{};
+    os.name = g_set.name.c_str();
+    os.nodeId = g_cfg.nodeId;
+    os.radioOk = g_radioOk;
+    os.txOn = g_set.txOn;
+    os.sosOwn = g_router->sosActive();
+    os.sosHeard = static_cast<uint32_t>(g_router->sosCount());
+    os.outputDbm = g_radio.outputDbm();
+    os.neighbors = static_cast<uint32_t>(g_router->neighborCount(now));
+    os.tx = st.tx;
+    os.rx = st.rx;
+    os.bleEnabled = g_ble.enabled();
+    os.bleConnected = g_ble.connected();
+    os.batteryPct = ownBattery();
+    os.neighborIdCount =
+        static_cast<uint8_t>(g_router->freshNeighbors(now, os.neighborIds, gw::mcu::oled::kNeighborRows));
+    gw::mcu::oled::draw(static_cast<uint32_t>(now), os);
   }
 #endif
   if (now - lastTick >= 2) {
