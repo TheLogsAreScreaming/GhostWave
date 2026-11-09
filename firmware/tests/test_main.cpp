@@ -861,6 +861,26 @@ static void testEncryptedRouting() {
   CHECK(m.nodes[3]->router->stats().rxAuthFail > authBefore);
 }
 
+static void testSosAckRepeats() {
+  std::printf("router: a responder repeats its SOS ack, and the source reports it once\n");
+  for (bool loseFirst : {false, true}) {
+    Medium m;
+    auto& a = m.add(600, 0);
+    m.add(601, 2, 0, true);
+    m.run(5000);
+    int ackFrames = 0;
+    m.drop = [&](int from, const uint8_t* buf, size_t) {
+      return loseFirst && from == 1 && (buf[0] & 0x1F) == static_cast<uint8_t>(PType::SosAck) && ackFrames++ == 0;
+    };
+    CHECK(a.router->startSos("broken leg", 40, 3, m.now));
+    m.run(5000);
+    CHECK(a.app.sosAcks.size() == (loseFirst ? 0u : 1u));
+    m.run(60000);
+    CHECK(a.app.sosAcks.size() == 1 && a.app.sosAcks[0].first == 601);
+    CHECK(m.count(PType::SosAck) == 3);   // the first, then two repeats, then silence
+  }
+}
+
 static void testSosPartitionedChain() {
   std::printf("router: SOS spreads through a partitioned 4-node chain via a carrier\n");
   Medium m;
@@ -2028,6 +2048,7 @@ int main() {
   testSosBusyChannel();
   testSosRadioFailure();
   testSosCarrierRadioFailure();
+  testSosAckRepeats();
   testSosStopRestart();
   testSosExpiryAndRollover();
   testIdentCrypto();

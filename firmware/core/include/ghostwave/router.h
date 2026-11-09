@@ -327,6 +327,7 @@ class Router {
   void probeSos(uint16_t nb16, uint64_t at, uint64_t jitterMs);
   void sosTick(uint64_t now);
   void sosResendTick(uint64_t now);
+  void sosAckRepeatTick(uint64_t now);
   bool storePeer(uint32_t id, const uint8_t xPub[32], bool pinned, uint64_t now);
   void sendIdent(uint32_t dst, uint64_t now);
   void onIdent(const Packet& p, uint64_t now);
@@ -415,6 +416,13 @@ class Router {
   uint8_t sosResends_ = 0;      // early re-sends of the current seq
   uint64_t sosResendAt_ = 0;    // 0 = none due
   TxPtr sosOwnTx_;              // our latest own SOS frame
+  struct SosAckRepeat {
+    Packet pkt;                 // same msg_id each time, so a copy that was heard is dropped
+    uint16_t seq = 0;
+    uint64_t at = 0;
+    uint8_t left = 0;
+  };
+  std::map<uint32_t, SosAckRepeat> sosAckRepeat_;   // by SOS source; at most one per held SOS
   std::string sosText_;
   uint8_t sosBattery_ = 0xFF, sosAccuracy_ = 0xFF;
 };
