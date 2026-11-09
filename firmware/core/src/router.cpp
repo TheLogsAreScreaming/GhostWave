@@ -553,6 +553,15 @@ size_t Router::neighborCount(uint64_t now) const {
   return n;
 }
 
+size_t Router::freshNeighbors(uint64_t now, uint32_t* out, size_t max) const {
+  size_t n = 0;
+  for (auto& [id, nb] : nb_) {
+    if (n == max) break;
+    if (now - nb.heardMs < kNbFreshMs) out[n++] = id;
+  }
+  return n;
+}
+
 bool Router::closerNeighbor(const Position& tgt, uint64_t maxAge, uint64_t now) const {
   double mine = distanceM(pos_, tgt);
   for (auto& [id, n] : nb_)

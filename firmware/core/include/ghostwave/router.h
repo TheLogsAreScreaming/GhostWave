@@ -222,6 +222,8 @@ class Router {
   const RouterStats& stats() const { return stats_; }
   size_t storeSize() const { return store_.size(); }
   size_t neighborCount(uint64_t nowMs) const;
+  // IDs of neighbors heard recently, up to `max`. Returns how many were written.
+  size_t freshNeighbors(uint64_t nowMs, uint32_t* out, size_t max) const;
   size_t neighborTableSize() const { return nb_.size(); }
   // The velocity in a neighbor's latest beacon. False for an unknown neighbor.
   // Informational: no forwarding decision uses it yet.
