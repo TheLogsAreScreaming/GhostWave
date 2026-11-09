@@ -160,6 +160,7 @@ struct StatusInfo {
   uint32_t uptimeS = 0;
   uint32_t clients = 0, queued = 0;
   OptU32 batteryPct;   // absent: the node cannot read its battery
+  bool txOff = false;  // the node is not transmitting right now
   bool operator==(const StatusInfo& o) const;
 };
 

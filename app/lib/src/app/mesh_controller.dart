@@ -39,6 +39,7 @@ class MeshState {
     this.channelMessages = const {},
     this.channelUnread = const {},
     this.historyProblem = HistoryProblem.none,
+    this.txOff = false,
   });
 
   /// The node this history belongs to (null before the first connect).
@@ -77,6 +78,9 @@ class MeshState {
   /// Why this node's saved history did not load, if it didn't.
   final HistoryProblem historyProblem;
 
+  /// Whether the connected node reports that it is not transmitting.
+  final bool txOff;
+
   /// All unread DMs and channel messages.
   int get totalUnread => unread.values.fold(0, (a, b) => a + b) + channelUnread.values.fold(0, (a, b) => a + b);
 
@@ -106,6 +110,7 @@ class MeshState {
     Map<String, GroupChannel>? channels,
     Map<String, List<ChannelMessage>>? channelMessages,
     Map<String, int>? channelUnread,
+    bool? txOff,
   }) => MeshState(
     nodeId: nodeId ?? this.nodeId,
     contacts: contacts ?? this.contacts,
@@ -119,6 +124,7 @@ class MeshState {
     channelMessages: channelMessages ?? this.channelMessages,
     channelUnread: channelUnread ?? this.channelUnread,
     historyProblem: historyProblem,
+    txOff: txOff ?? this.txOff,
   );
 }
 
@@ -151,9 +157,11 @@ class MeshController extends Notifier<MeshState> {
     listenSelf((_, next) => _snap = next);
     final evSub = link.events.listen(_onEvent);
     final stSub = link.states.listen(_onState);
+    final hbSub = link.heartbeats.listen(_applyTxOff);
     ref.onDispose(() {
       unawaited(evSub.cancel());
       unawaited(stSub.cancel());
+      unawaited(hbSub.cancel());
       _flushSave();
     });
     if (link.state case final LinkUp up) scheduleMicrotask(() => _onState(up));
@@ -205,6 +213,7 @@ class MeshController extends Notifier<MeshState> {
       try {
         final r = await session.request(pb.ToRadio(getStatus: pb.GetStatus()));
         if (!ref.mounted) return;
+        _applyTxOff(r.status);
         if (state.ownSos.active != r.status.sosActive) {
           state = state.copyWith(
             ownSos: OwnSos(
@@ -224,6 +233,10 @@ class MeshController extends Notifier<MeshState> {
     } finally {
       _syncing = false;
     }
+  }
+
+  void _applyTxOff(pb.Status s) {
+    if (state.txOff != s.txOff) state = state.copyWith(txOff: s.txOff);
   }
 
   /// Reloads the node's contact list and merges it with ours.

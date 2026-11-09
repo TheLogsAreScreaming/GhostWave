@@ -301,6 +301,7 @@ void Handler::handle(Conn& c, const ToRadio& m, uint64_t now) {
         const uint8_t pct = hooks_.batteryPct();
         if (pct != 0xFF) st.status.batteryPct.set(std::min<uint8_t>(pct, 100));
       }
+      if (hooks_.txOff) st.status.txOff = hooks_.txOff();
       send(c, st);
       return;
     }

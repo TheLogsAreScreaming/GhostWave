@@ -4,7 +4,7 @@ GhostWave node firmware for the **RAK4631** WisBlock core (nRF52840 + SX1262) on
 **RAK19003** base board. It is built from `firmware/mcu`, env `rak4631`, and has the same router and
 serial CLI as the Heltec builds, plus the BLE client link (docs/CLIENT_PROTOCOL.md §9).
 
-> **Untested on hardware.** As of `fw-rak4631-v0.1.0-dev.1`, this build compiles, links and passes the
+> **Untested on hardware.** As of `fw-rak4631-v0.1.0-dev.3`, this build compiles, links and passes the
 > host tests. Nobody has run it on a board yet. The pins come from RAK's datasheet and agree with
 > RAK's and Meshtastic's variant files (`firmware/mcu/variants/rak4631/variant.h`), but they have not
 > been checked on a board. Expect to find problems, and keep the Meshtastic UF2 at hand to go back.
@@ -21,8 +21,8 @@ serial CLI as the Heltec builds, plus the BLE client link (docs/CLIENT_PROTOCOL.
 
 ## 1. Flash (UF2 drag and drop)
 
-1. Download `ghostwave-rak4631-0.1.0-dev.1.uf2` from the prerelease
-   [`fw-rak4631-v0.1.0-dev.1`](https://github.com/TheLogsAreScreaming/GhostWave-Releases/releases/tag/fw-rak4631-v0.1.0-dev.1).
+1. Download `ghostwave-rak4631-0.1.0-dev.3.uf2` from the prerelease
+   [`fw-rak4631-v0.1.0-dev.3`](https://github.com/TheLogsAreScreaming/GhostWave-Releases/releases/tag/fw-rak4631-v0.1.0-dev.3).
    A CI build of any commit is also in that run's `ghostwave-rak4631-uf2` artifact.
 2. Plug the base board into the computer with a USB **data** cable.
 3. **Double-tap the reset button** on the base board (two presses within about half a second). A
@@ -36,7 +36,7 @@ serial CLI as the Heltec builds, plus the BLE client link (docs/CLIENT_PROTOCOL.
 From the command line instead of dragging (macOS):
 
 ```bash
-cp ghostwave-rak4631-0.1.0-dev.1.uf2 /Volumes/RAK4631/
+cp ghostwave-rak4631-0.1.0-dev.3.uf2 /Volumes/RAK4631/
 ```
 
 To build it yourself: `cd firmware/mcu && pio run -e rak4631`. The UF2 is

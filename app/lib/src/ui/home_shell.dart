@@ -104,6 +104,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         children: [
           SosAlertBanner(onView: () => setState(() => _tab = _sosTab)),
           ConnectionBar(safeTop: alerts == 0),
+          if (mesh.txOff && ref.watch(linkStateProvider).value is LinkUp) const _TxOffBanner(),
           Expanded(
             child: MediaQuery.removePadding(
               context: context,
@@ -153,6 +154,34 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             label: 'Status',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Says why messages are not going out while the node's transmitter is off.
+class _TxOffBanner extends StatelessWidget {
+  const _TxOffBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Icon(Icons.portable_wifi_off, color: scheme.onErrorContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Radio transmit is off. Messages wait here until you type tx on on the node\'s serial console.',
+                style: TextStyle(color: scheme.onErrorContainer),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

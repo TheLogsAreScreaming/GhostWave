@@ -872,6 +872,7 @@ const Status$json = {
       '10': 'batteryPct',
       '17': true
     },
+    {'1': 'tx_off', '3': 17, '4': 1, '5': 8, '10': 'txOff'},
   ],
   '8': [
     {'1': '_battery_pct'},
@@ -887,8 +888,8 @@ final $typed_data.Uint8List statusDescriptor = $convert.base64Decode(
     'KA1SCXN0b3JlU2l6ZRIcCgluZWlnaGJvcnMYCiABKA1SCW5laWdoYm9ycxIZCghzb3NfaGVsZB'
     'gLIAEoDVIHc29zSGVsZBIdCgpzb3NfYWN0aXZlGAwgASgIUglzb3NBY3RpdmUSGQoIdXB0aW1l'
     'X3MYDSABKA1SB3VwdGltZVMSGAoHY2xpZW50cxgOIAEoDVIHY2xpZW50cxIWCgZxdWV1ZWQYDy'
-    'ABKA1SBnF1ZXVlZBIkCgtiYXR0ZXJ5X3BjdBgQIAEoDUgAUgpiYXR0ZXJ5UGN0iAEBQg4KDF9i'
-    'YXR0ZXJ5X3BjdA==');
+    'ABKA1SBnF1ZXVlZBIkCgtiYXR0ZXJ5X3BjdBgQIAEoDUgAUgpiYXR0ZXJ5UGN0iAEBEhUKBnR4'
+    'X29mZhgRIAEoCFIFdHhPZmZCDgoMX2JhdHRlcnlfcGN0');
 
 @$core.Deprecated('Use ownPositionDescriptor instead')
 const OwnPosition$json = {
