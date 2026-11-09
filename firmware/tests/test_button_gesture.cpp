@@ -53,6 +53,21 @@ void testLong() {
   CHECK(h.empty());
 }
 
+void testTriple() {
+  // Double fires straight away, then the third press is its own event
+  auto h = run({{true, 120}, {false, 150}, {true, 120}, {false, 150}, {true, 120}});
+  CHECK(h.size() == 2 && h[0].ev == Ev::Double && h[1].ev == Ev::Triple);
+  // third press too late: a Double, then an ordinary Single
+  h = run({{true, 120}, {false, 150}, {true, 120}, {false, 900}, {true, 120}});
+  CHECK(h.size() == 2 && h[0].ev == Ev::Double && h[1].ev == Ev::Single);
+  // a long hold after a double press is still an SOS, not a power-off
+  h = run({{true, 120}, {false, 150}, {true, 120}, {false, 150}, {true, 3500}});
+  CHECK(h.size() == 2 && h[0].ev == Ev::Double && h[1].ev == Ev::Long);
+  // four presses: no second Triple
+  h = run({{true, 120}, {false, 150}, {true, 120}, {false, 150}, {true, 120}, {false, 900}});
+  CHECK(h.size() == 2);
+}
+
 void testDoubleAndSingle() {
   auto h = run({{true, 120}, {false, 150}, {true, 120}});
   CHECK(h.size() == 1 && h[0].ev == Ev::Double);
@@ -108,6 +123,7 @@ void testBattery() {
 int main() {
   testLong();
   testDoubleAndSingle();
+  testTriple();
   testBounce();
   testBattery();
   std::printf("button gesture: %d passed, %d failed\n", g_pass, g_fail);

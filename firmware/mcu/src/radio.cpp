@@ -127,6 +127,8 @@ void McuRadio::femTx() {
 #endif
 }
 
+void McuRadio::sleep() { g_sx.sleep(); }
+
 bool McuRadio::channelBusy() {
   if (txGate_ && !txGate_()) return false;   // transmit() refuses it: no need for a CAD
   if (!duty_.allows(nowMs(), maxFrameMs_)) {

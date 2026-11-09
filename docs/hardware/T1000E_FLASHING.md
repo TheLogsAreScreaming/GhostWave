@@ -15,9 +15,9 @@ docs/CLIENT_PROTOCOL.md §9), plus the GPS, an SOS button, sounds and a battery 
 - **Antennas** are inside the case. Nothing to attach.
 - **Power:** the default is **10 dBm**, and `power <dBm>` changes it (capped at 22 dBm). From 15 dBm
   up the LR1110 switches to its high-power amplifier. **Frequency:** 914.875 MHz, US 902–928 MHz only.
-- **No power-off yet.** Meshtastic turns the T1000-E off with a long press. GhostWave uses the long
-  press for SOS and has no sleep or off mode yet, so on battery it runs until the battery is flat.
-  To keep it from draining in a drawer, flash Meshtastic back (section 5) or leave it on the charger.
+- **Power off:** press the button three times quickly while on battery. It gives one long low tone and
+  shuts down, and a button press wakes it. It refuses during an SOS, within 5 s of stopping one, and
+  while USB power is connected. Long press is SOS, not off as on Meshtastic.
 - **Transmit is off at first.** A freshly set-up board only receives until you type `tx on` on the
   serial console. Holding the button for an SOS transmits anyway, until the SOS stops.
 - **Bootloader:** Seeed's UF2 bootloader with the **S140 7.3.0** SoftDevice, as the T1000-E ships.
@@ -79,6 +79,7 @@ Indoors it may never come. For bench tests, use `setpos`: the GPS takes over as 
 |---|---|---|
 | **Hold ~3 s** | Starts an SOS (text `SOS (button)`, with battery %, at the current position). It repeats until stopped, like `sos` on the CLI. | A tick at 1 s and 2 s while holding, then three long beeps. The LED flashes every 2 s while the SOS is on. |
 | **Double press** | Stops our SOS. | One low beep. Two very low beeps if no SOS was on. |
+| **Three quick presses** | Powers off, on battery with no SOS running. A press wakes it. | One long low tone. Two very low beeps if refused. |
 | **Single press** | Prints `stats` on the console. | One short chirp, so you know it is alive. |
 | — (a DM arrives) | Prints `MSG from ...` | Two short beeps. |
 | — (a responder acks our SOS) | Prints `SOSACK from ...` | Three rising tones. |

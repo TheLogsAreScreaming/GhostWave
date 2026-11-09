@@ -1,5 +1,5 @@
 // Turns raw button samples into gestures: a long press (held ~3 s, fires once
-// while still held), a double press and a single press. Pure logic with no
+// while still held), a double press, a third quick press after it, and a single press. Pure logic with no
 // Arduino calls, so the host tests check it (firmware/tests/test_button_gesture.cpp).
 #pragma once
 
@@ -10,7 +10,7 @@ namespace mcu {
 
 class ButtonGesture {
  public:
-  enum class Event { None, Single, Double, Long };
+  enum class Event { None, Single, Double, Triple, Long };
 
   static constexpr uint32_t kDebounceMs = 30;
   static constexpr uint32_t kLongMs = 3000;      // hold this long: Long (SOS)
@@ -30,19 +30,31 @@ class ButtonGesture {
         longFired_ = false;
       } else if (!longFired_) {
         if (nowMs - pressStart_ <= kShortMaxMs + kDebounceMs) {
+          // Double fires at once (it stops an SOS), so a third press is its own event.
+          if (tripleOpen_) {
+            tripleOpen_ = false;
+            if (pressStart_ - lastRelease_ <= kGapMs) {
+              clicks_ = 0;
+              return Event::Triple;
+            }
+          }
           if (++clicks_ == 2) {
             clicks_ = 0;
+            tripleOpen_ = true;
+            lastRelease_ = nowMs;
             return Event::Double;
           }
           lastRelease_ = nowMs;
         } else {
           clicks_ = 0;   // a medium press: nothing
+          tripleOpen_ = false;
         }
       }
     }
     if (stable_ && !longFired_ && nowMs - pressStart_ >= kLongMs) {
       longFired_ = true;
       clicks_ = 0;
+      tripleOpen_ = false;
       return Event::Long;
     }
     if (!stable_ && clicks_ == 1 && nowMs - lastRelease_ > kGapMs) {
@@ -57,7 +69,7 @@ class ButtonGesture {
   uint32_t heldMs(uint32_t nowMs) const { return stable_ ? nowMs - pressStart_ : 0; }
 
  private:
-  bool raw_ = false, stable_ = false, longFired_ = false;
+  bool raw_ = false, stable_ = false, longFired_ = false, tripleOpen_ = false;
   uint32_t rawSince_ = 0, pressStart_ = 0, lastRelease_ = 0;
   int clicks_ = 0;
 };

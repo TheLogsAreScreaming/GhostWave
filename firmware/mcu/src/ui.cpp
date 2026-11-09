@@ -3,6 +3,9 @@
 #if GW_HAS_UI
 
 #include <Arduino.h>
+#include <nrf_gpio.h>
+#include <nrf_sdm.h>
+#include <nrf_soc.h>
 
 namespace gw {
 namespace mcu {
@@ -109,6 +112,35 @@ ButtonGesture::Event poll(uint32_t now, bool sosActive) {
   }
   if (!g_button.held()) g_lastHoldBeep = 0;
   return ev;
+}
+
+bool usbPowered() {
+  uint32_t status = 0;
+  uint8_t sd = 0;
+  sd_softdevice_is_enabled(&sd);
+  if (sd) sd_power_usbregstatus_get(&status);
+  else status = NRF_POWER->USBREGSTATUS;
+  return (status & POWER_USBREGSTATUS_VBUSDETECT_Msk) != 0;
+}
+
+void powerOff() {
+  tone(kPinBuzzer, 900);
+  digitalWrite(kPinLed, HIGH);
+  delay(500);
+  noTone(kPinBuzzer);
+  digitalWrite(kPinLed, LOW);
+  digitalWrite(kPinBuzzerEn, LOW);
+  digitalWrite(kPinGpsPower, LOW);
+  digitalWrite(kPinSensorPower, LOW);
+  // the press that got us here must be over, or the wake-up sense fires at once
+  for (uint32_t waited = 0; digitalRead(kPinButton) == HIGH && waited < 3000; waited += 10) delay(10);
+  delay(100);
+  nrf_gpio_cfg_sense_input(g_ADigitalPinMap[kPinButton], NRF_GPIO_PIN_PULLDOWN, NRF_GPIO_PIN_SENSE_HIGH);
+  uint8_t sd = 0;
+  sd_softdevice_is_enabled(&sd);
+  if (sd) sd_power_system_off();
+  else NRF_POWER->SYSTEMOFF = 1;
+  for (;;) delay(1000);   // not reached on hardware
 }
 
 uint32_t batteryMv() { return g_battMv; }

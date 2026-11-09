@@ -799,12 +799,21 @@ void gwSetup() {
 }
 
 #if GW_HAS_UI
-// Button: hold ~3 s = SOS on, double press = SOS off, single press = a chirp
+[[noreturn]] void powerDown() {
+  Serial.println("powering off; press the button to wake");
+  Serial.flush();
+  if (g_radioOk) g_radio.sleep();
+  gw::mcu::ui::powerOff();
+}
+
+// Button: hold ~3 s = SOS on, double press = SOS off, three quick presses =
+// power off (on battery, with no SOS running), single press = a chirp
 // and the status on the console. The buzzer marks SOS on / off whoever
 // started it (button, CLI or app), so it watches the router's state.
 void pollUi(uint64_t now) {
   using Ev = gw::mcu::ButtonGesture::Event;
   static bool lastSos = false;
+  static uint64_t sosStoppedAt = 0;
   gw::Router& r = *g_router;
   Ev ev = gw::mcu::ui::poll(static_cast<uint32_t>(now), r.sosActive());
   if (ev == Ev::Long) {
@@ -820,9 +829,21 @@ void pollUi(uint64_t now) {
   } else if (ev == Ev::Double) {
     if (r.sosActive()) {
       r.stopSos();
+      sosStoppedAt = now;
       Serial.println("button: SOS off");
     } else {
       GW_SOUND(Refused);
+    }
+  } else if (ev == Ev::Triple) {
+    // sosStoppedAt: a double press that just ended an SOS must not run on into a shutdown
+    if (r.sosActive() || (sosStoppedAt && now - sosStoppedAt < 5000)) {
+      Serial.println("button: not powering off during an SOS");
+      GW_SOUND(Refused);
+    } else if (gw::mcu::ui::usbPowered()) {
+      Serial.println("button: on USB power, staying on");
+      GW_SOUND(Refused);
+    } else {
+      powerDown();
     }
   } else if (ev == Ev::Single) {
     GW_SOUND(Alive);

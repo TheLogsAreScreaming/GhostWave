@@ -28,6 +28,11 @@ void begin();
 // Returns a button gesture, if one completed. `sosActive` makes the LED blink.
 ButtonGesture::Event poll(uint32_t nowMs, bool sosActive);
 void play(Sound s);
+// Whether USB power is present (the node then stays on).
+bool usbPowered();
+// Quiets the peripherals and enters System OFF. A button press or USB power
+// wakes the node, which then boots normally. Does not return.
+[[noreturn]] void powerOff();
 // Battery: millivolts (0 = no reading yet) and percent (0xFF = unknown).
 uint32_t batteryMv();
 uint8_t batteryPct();
