@@ -30,6 +30,20 @@
       ]
     },
     {
+      "id": "rak_wismesh_tag",
+      "name": "RAK WisMesh Tag",
+      "detail": "RAK4630 in a sealed tag. First build: never run on a Tag",
+      "softdevice": "S140 6.1.1",
+      "sdFwid": 182,
+      "appStart": 155648,
+      "enter": "If the automatic step doesn't work, see RAK's instructions for putting the Tag in UF2 mode.",
+      "guide": "RAK4631_FLASHING.md",
+      "checks": [
+        "This is a RAK WisMesh Tag.",
+        "I understand this build has never run on a Tag."
+      ]
+    },
+    {
       "id": "t1000e",
       "name": "Seeed T1000-E",
       "detail": "SenseCAP card tracker",
