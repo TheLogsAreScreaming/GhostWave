@@ -124,7 +124,7 @@ jobs:
         env:
           GW_DEV_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_DEV_KEYSTORE_PASSWORD }}
           GW_DEV_KEY_ALIAS: ${{ secrets.ANDROID_DEV_KEY_ALIAS }}
-        run: flutter build apk --release --split-per-abi --target-platform android-arm64 --build-number ${{ github.run_number }}
+        run: flutter build apk --release --split-per-abi --target-platform android-arm64 --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
       - name: Check the APK signer
         run: |
           bt=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
@@ -178,7 +178,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter pub get
-      - run: flutter build windows --release
+      - run: flutter build windows --release --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
       - name: Zip the app folder
         shell: pwsh
         run: |
@@ -203,7 +203,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter pub get
-      - run: flutter build macos --release
+      - run: flutter build macos --release --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
       - name: Zip the app
         run: |
           mkdir -p out
@@ -230,4 +230,4 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: flutter build ios --no-codesign
-        run: flutter build ios --no-codesign --build-number ${{ github.run_number }}
+        run: flutter build ios --no-codesign --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}

@@ -287,6 +287,10 @@ void secureRandom(uint8_t* out, size_t n) {
   NRF_RNG->TASKS_STOP = 1;
 }
 
+bool g_freshSettings = false;
+
+bool settingsWereFresh() { return g_freshSettings; }
+
 bool loadSettings(Settings& s) {
   g_fsOk = InternalFS.begin();
   if (!g_fsOk) {
@@ -310,6 +314,7 @@ bool loadSettings(Settings& s) {
   s = Settings();
   newEdIdentity(s);
   s.txOn = false;
+  g_freshSettings = true;
   s.outputDbm = kDefaultOutputDbm;
   s.freqMHz = 914.875f;   // clear of Meshtastic/MeshCore US defaults
   g_secret = s.secret;

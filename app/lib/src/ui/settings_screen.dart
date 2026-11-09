@@ -25,6 +25,9 @@ import 'widgets.dart';
 const int kMaxNodeNameBytes = 9;
 
 /// App version, read once from the platform.
+/// The commit this build came from, set by CI with --dart-define (empty in local builds).
+const String kBuildCommit = String.fromEnvironment('GW_COMMIT');
+
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) => PackageInfo.fromPlatform());
 
 /// Registers the bundled fonts' SIL OFL licenses with the license page.
@@ -50,7 +53,9 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final info = ref.watch(nodeInfoProvider);
     final pkg = ref.watch(packageInfoProvider).value;
-    final version = pkg == null ? '' : '${pkg.version} (build ${pkg.buildNumber})';
+    final version = pkg == null
+        ? ''
+        : '${pkg.version} (build ${pkg.buildNumber}${kBuildCommit.isEmpty ? '' : ', $kBuildCommit'})';
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
