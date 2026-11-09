@@ -30,6 +30,9 @@ struct Status {
   uint8_t batteryPct;                 // 0xFF = unknown
   uint32_t neighborIds[kNeighborRows];
   uint8_t neighborIdCount;
+  bool rangeShow, rangeSender;       // range test: show its page; this node is the one pinging
+  uint32_t rangeSent, rangeDelivered, rangeRxSeq, rangeRxCount;
+  int rangeRssi;                     // dBm, the last frame heard
 };
 
 bool begin();
