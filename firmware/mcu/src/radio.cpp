@@ -101,6 +101,9 @@ int16_t McuRadio::begin(const Phy& phy, float freqMHz, int outputDbm, uint16_t d
                           phy.preamble, kTcxoVolts, false);
   if (st != RADIOLIB_ERR_NONE) return st;
   st = g_sx.setDio2AsRfSwitch(true);
+#ifdef GW_LORA_RXEN
+  g_sx.setRfSwitchPins(GW_LORA_RXEN, RADIOLIB_NC);   // LNA enable; DIO2 still drives the switch
+#endif
   if (st == RADIOLIB_ERR_NONE) st = g_sx.setCRC(2);
 #endif
   if (st == RADIOLIB_ERR_NONE) st = g_sx.startReceive();
