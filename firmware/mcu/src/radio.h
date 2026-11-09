@@ -34,6 +34,9 @@ class McuRadio : public RadioPort {
   // Non-blocking: true and fills buf/len/rssi when a good frame was received.
   bool poll(uint8_t* buf, size_t cap, size_t& len, float& rssiDbm);
 
+  // Puts the radio in its lowest-power state, before the node powers off.
+  void sleep();
+
   uint32_t crcErrors() const { return crcErrors_; }
   uint32_t txErrors() const { return txErrors_; }
   const DutyWindow& duty() const { return duty_; }

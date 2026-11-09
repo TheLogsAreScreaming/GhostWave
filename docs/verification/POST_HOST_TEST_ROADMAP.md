@@ -21,6 +21,7 @@ The code exists and CI builds or host-tests it. Each item still needs a test on 
 - Per-region band limits and the regulatory duty-cycle cap (#121).
 - Client link: PIN (#115), TCP encryption after the PIN handshake (#131), battery level (#122),
   keys for heard nodes (#134), transmit-off reporting with an app banner (#138).
+- T1000-E power-off: three quick presses, then System OFF until a button press (not measured yet).
 - Android app through `app-v0.1.0-dev.15`: Bluetooth, background connection and location, encrypted
   chat history, encrypted backup, long messages split into parts. Part of this has only been tried
   against the virtual mesh or in CI, and from dev.4 on most of it is untried on a phone.
@@ -40,20 +41,19 @@ The code exists and CI builds or host-tests it. Each item still needs a test on 
 
 8. Confirm board revisions and pin mappings against manufacturer documents.
 9. Decide US transmit power policy (DESIGN §12).
-10. Add a power-off or sleep mode for the T1000-E.
-11. Bluetooth firmware updates: assessed in #123, not built.
-12. Board identity backup: not built. Private keys must not cross the client link, so the app's
+10. Bluetooth firmware updates: assessed in #123, not built.
+11. Board identity backup: not built. Private keys must not cross the client link, so the app's
     backup covers phone data only.
-13. App ID: `org.ghostwave.ghostwave_app`. `org.ghostwave.app` is possible only until the first
+12. App ID: `org.ghostwave.ghostwave_app`. `org.ghostwave.app` is possible only until the first
     store upload. Release signing key and privacy policy are parked.
-14. iPhone: on hold. CI only proves it compiles.
-15. Later: Meshtastic/MeshCore bridge, Pi HATs, field tuning.
+13. iPhone: on hold. CI only proves it compiles.
+14. Later: Meshtastic/MeshCore bridge, Pi HATs, field tuning.
 
 ## Before any release candidate
 
-16. Fix what hardware testing finds.
-17. Perform a security review.
-18. Only then consider a release candidate and 1.0.
+15. Fix what hardware testing finds.
+16. Perform a security review.
+17. Only then consider a release candidate and 1.0.
 
 ## Explicit exclusions
 
