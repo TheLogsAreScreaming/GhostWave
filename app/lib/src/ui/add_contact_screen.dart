@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -177,7 +178,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                 ),
               ),
             )
-          else
+          else if (!Platform.isWindows) // the scanner plugin has no Windows build; paste the card instead
             FilledButton.icon(
               onPressed: _busy ? null : () => setState(() => _scanning = true),
               icon: const Icon(Icons.qr_code_scanner),

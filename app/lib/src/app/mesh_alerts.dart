@@ -86,6 +86,16 @@ class LocalMeshAlerts implements MeshAlerts {
           requestBadgePermission: false,
           requestSoundPermission: false,
         ),
+        macOS: DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestBadgePermission: false,
+          requestSoundPermission: false,
+        ),
+        windows: WindowsInitializationSettings(
+          appName: 'GhostWave',
+          appUserModelId: 'org.ghostwave.GhostWave',
+          guid: '7f3a9c1e-4b62-4d8a-9e15-2c6d8f0a7b31',
+        ),
       ),
       onDidReceiveNotificationResponse: (r) {
         final p = r.payload;
@@ -102,6 +112,8 @@ class LocalMeshAlerts implements MeshAlerts {
     if (android != null) return await android.requestNotificationsPermission() ?? false;
     final ios = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
     if (ios != null) return await ios.requestPermissions(alert: true, sound: true) ?? false;
+    final macos = _plugin.resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
+    if (macos != null) return await macos.requestPermissions(alert: true, sound: true) ?? false;
     return false;
   }
 
