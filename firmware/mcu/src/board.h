@@ -67,7 +67,9 @@ constexpr bool kVextOn = false;     // LOW = on
 // Sources: RAK4631 datasheet "RAK4630 internal connections" table, cross-
 // checked with meshtastic/firmware @ 11e3b28 variants/nrf52840/rak4631/
 // variant.h (SX126X_*). Arduino pin = GPIO number, P1.xx = 32 + xx.
+#ifndef GW_BOARD_NAME
 #define GW_BOARD_NAME "rak4631"
+#endif
 constexpr int kPinLoraCs = 42;      // P1.10 NSS
 constexpr int kPinLoraDio1 = 47;    // P1.15 DIO1 (IRQ)
 constexpr int kPinLoraBusy = 46;    // P1.14 BUSY
