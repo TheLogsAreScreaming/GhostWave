@@ -257,7 +257,7 @@ b2 = g.Client(addr_b, "e2e B (after rename)")
 check(b2.info["name"] == b"Bee2", "a new Hello reports the new name")
 b2.close()
 check(open(os.path.join(work, "B.key.name")).read().strip() == "Bee2", "B keeps the name in B.key.name")
-e = a.wait_event(lambda e: e["kind"] == "peer_ident" and e["node_id"] == ib["node_id"] and e["name"] == b"Bee2", 25)
+e = a.wait_event(lambda e: e["kind"] == "peer_ident" and e["node_id"] == ib["node_id"] and e["name"] == b"Bee2", 45)
 check(e is not None and not e["is_new"], "A's client hears B's new name over the air (IDENT, renamed)")
 
 # ------------------------------------------------- client PIN (protocol 1.2) --

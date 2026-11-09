@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        env: [heltec_wireless_tracker_v2, heltec_v3, heltec_wsl_v3, rak4631, t1000e]
+        env: [heltec_wireless_tracker_v2, heltec_v3, heltec_wsl_v3, rak4631, rak3401_1w, t1000e]
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-python@v5.6.0
@@ -89,7 +89,7 @@ jobs:
         working-directory: firmware/mcu
         run: pio run -e ${{ matrix.env }}
       - name: Name the UF2 and report flash / RAM use
-        if: matrix.env == 'rak4631' || matrix.env == 't1000e'
+        if: matrix.env == 'rak4631' || matrix.env == 'rak3401_1w' || matrix.env == 't1000e'
         working-directory: firmware/mcu
         run: |
           short=$(git rev-parse --short HEAD)
@@ -104,7 +104,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4.6.2
-        if: matrix.env == 'rak4631' || matrix.env == 't1000e'
+        if: matrix.env == 'rak4631' || matrix.env == 'rak3401_1w' || matrix.env == 't1000e'
         with:
           name: ghostwave-${{ matrix.env }}-uf2
           path: firmware/mcu/out/*.uf2

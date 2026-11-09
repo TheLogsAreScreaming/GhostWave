@@ -92,6 +92,31 @@ constexpr int kPin3v3SEnable = 34;
 #define GW_HAS_BLE 1
 #define GW_NRF52 1
 
+#elif defined(GW_BOARD_RAK3401_1W)
+// RAK3401 core + RAK13302 1 W module (SX1262 + SKY66122 PA), for example the
+// WisMesh High Power Booster kit. Sources: meshtastic/firmware
+// variants/nrf52840/rak3401_1watt/variant.h and RAK's RAK13302 datasheet.
+// The radio is on the WisBlock slot bus (SPI1), not the RAK4631's internal bus.
+#define GW_BOARD_NAME "rak3401_1w"
+constexpr int kPinLoraCs = 26;      // P0.26
+constexpr int kPinLoraDio1 = 10;    // P0.10, an NFC pin: needs CONFIG_NFCT_PINS_AS_GPIOS
+constexpr int kPinLoraBusy = 9;     // P0.09, an NFC pin
+constexpr int kPinLoraRst = 4;      // P0.04
+constexpr float kTcxoVolts = 1.8f;  // SX126X_DIO3_TCXO_VOLTAGE
+#define GW_HAS_OLED 1               // RAK1921 in the I2C slot; optional, detected at boot
+#define GW_LORA_SPI SPI1            // P0.03 SCK, P0.30 MOSI, P0.29 MISO (variants/rak4631)
+#define GW_HAS_ANT_POWER 1
+constexpr int kPinAntPower = 21;    // P0.21 SX126X_POWER_EN
+constexpr int kPin3v3SEnable = 34;  // WB_IO2: the slot's 3V3_S rail, needed by the module
+#define GW_HAS_KCT8103L 0
+// TX_GAIN_LORA for RAK13302: dB of PA gain at each SX1262 drive level 0..21.
+// Meshtastic's numbers, not measured by us. RAK's datasheet agrees: drive 13
+// gives 21 dBm, 22 gives 30 dBm.
+#define GW_HAS_PA_CURVE 1
+constexpr uint8_t kPaGainDb[22] = {7, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 8};
+#define GW_HAS_GPS 0
+#define GW_HAS_BLE 1
+#define GW_NRF52 1
 #elif defined(GW_BOARD_T1000E)
 // Seeed SenseCAP T1000-E. Sources: Seeed's T1000-E SDK (smtc_hal_config.h),
 // Seeed's Arduino variant and meshtastic/firmware @ 11e3b28
@@ -136,7 +161,7 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 // Seeed's SDK lists as SENSE_ADC_VCC, an analog input.
 
 #else
-#error "Define GW_BOARD_TRACKER_V2, GW_BOARD_HELTEC_V3, GW_BOARD_RAK4631 or GW_BOARD_T1000E (see platformio.ini)"
+#error "Define GW_BOARD_TRACKER_V2, GW_BOARD_HELTEC_V3, GW_BOARD_RAK4631, GW_BOARD_RAK3401_1W or GW_BOARD_T1000E (see platformio.ini)"
 #endif
 
 #ifndef GW_RADIO_LR1110
@@ -148,6 +173,15 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 
 #ifndef GW_HAS_ANT_POWER
 #define GW_HAS_ANT_POWER 0
+#endif
+#ifndef GW_HAS_OLED
+#define GW_HAS_OLED 0
+#endif
+#ifndef GW_HAS_PA_CURVE
+#define GW_HAS_PA_CURVE 0
+#endif
+#ifndef GW_LORA_SPI
+#define GW_LORA_SPI SPI
 #endif
 #ifndef GW_HAS_BLE
 #define GW_HAS_BLE 0
