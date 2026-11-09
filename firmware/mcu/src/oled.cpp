@@ -127,6 +127,19 @@ void drawSos(const Status& s) {
   else g_d.printf("Alerts held: %lu\nOpen the app.", static_cast<unsigned long>(s.sosHeard));
 }
 
+void drawRange(const Status& s) {
+  g_d.setCursor(0, kBodyY);
+  if (s.rangeSender) g_d.printf("Range test: pinging\n");
+  else g_d.printf("Range test: last #%lu\n", static_cast<unsigned long>(s.rangeRxSeq));
+  g_d.setTextSize(2);
+  g_d.setCursor(0, kBodyY + 11);
+  if (s.rangeSender) g_d.printf("%lu/%lu", static_cast<unsigned long>(s.rangeDelivered), static_cast<unsigned long>(s.rangeSent));
+  else g_d.printf("%lu rx", static_cast<unsigned long>(s.rangeRxCount));
+  g_d.setTextSize(1);
+  g_d.setCursor(0, kBodyY + 31);
+  g_d.printf("Signal %d dBm", s.rangeRssi);
+}
+
 void drawPasskey() {
   g_d.setTextSize(1);
   g_d.setCursor(0, 0);
@@ -190,7 +203,7 @@ void draw(uint32_t now, const Status& s) {
   if (g_passkeyOn && static_cast<int32_t>(now - g_passkeyUntil) >= 0) g_passkeyOn = false;
 
   const bool sos = s.sosOwn || s.sosHeard;
-  if (g_wakeRequest || passkeyFresh || g_passkeyOn || sos) g_policy.wake(now);
+  if (g_wakeRequest || passkeyFresh || g_passkeyOn || sos || s.rangeShow) g_policy.wake(now);
   g_wakeRequest = false;
   if (g_haveLast && (s.bleConnected != g_lastBle || s.txOn != g_lastTx || sos != g_lastSos)) g_policy.wake(now);
   g_lastBle = s.bleConnected;
@@ -220,6 +233,8 @@ void draw(uint32_t now, const Status& s) {
     drawBar(s);
     if (sos) {
       drawSos(s);
+    } else if (s.rangeShow) {
+      drawRange(s);
     } else {
       switch (g_policy.page(now, g_msg[0] ? 3 : 2)) {
         case kNeighborPage: drawNeighbors(s); break;

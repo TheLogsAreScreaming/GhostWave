@@ -25,6 +25,7 @@
 #include "settings.h"
 #include "button_gesture.h"
 #include "oled.h"
+#include "rangetest.h"
 #include "ui.h"
 #if GW_HAS_BLE
 #include "ble_link.h"
@@ -171,6 +172,12 @@ uint8_t ownBattery() {
 #endif
 }
 
+gw::mcu::RangeTest g_rt;
+float g_lastRssi = 0;         // the last frame this node heard
+uint32_t g_rtRxSeq = 0;       // the last range ping received
+uint32_t g_rtRxCount = 0;
+uint64_t g_rtShowUntil = 0;   // keep the range page up this long after a ping
+
 // Prints router events on the console, and passes them to the app link.
 class SerialApp : public gw::AppPort {
  public:
@@ -181,10 +188,20 @@ class SerialApp : public gw::AppPort {
     Serial.printf("MSG from %08x id %08x: %.*s\n", src, msgId, static_cast<int>(p.size()),
                   reinterpret_cast<const char*>(p.data()));
     GW_SOUND(Message);
+    if (uint32_t n = gw::mcu::rangePingSeq(p.data(), p.size())) {
+      g_rtRxSeq = n;
+      ++g_rtRxCount;
+      g_rtShowUntil = nowMs() + 90000;
+      Serial.printf("RANGE ping %u received, signal %.0f dBm (%u received so far)\n", static_cast<unsigned>(n), g_lastRssi,
+                    static_cast<unsigned>(g_rtRxCount));
+    }
     GW_LINK(onMessage(src, msgId, p));
   }
   void onDelivered(uint32_t dst, uint32_t msgId) override {
     Serial.printf("DELIVERED to %08x id %08x\n", dst, msgId);
+    if (uint32_t n = g_rt.onDelivered(msgId))
+      Serial.printf("RANGE ping %u delivered, %u of %u so far, last signal heard %.0f dBm\n", static_cast<unsigned>(n),
+                    static_cast<unsigned>(g_rt.delivered()), static_cast<unsigned>(g_rt.sent()), g_lastRssi);
     GW_LINK(onDelivered(dst, msgId));
   }
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) override {
@@ -342,6 +359,7 @@ void printTxState() {
 
 void printHelp() {
   Serial.print(
+      "range test: rangetest <hex-id> [seconds] | rangetest stop | rangetest\n"
       "commands: send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | status | pos\n"
       "          keys | peer <hex-id> <hex-pubkey> | sos <text> | sosstop | sosack <hex-id>\n"
       "settings (saved): name [text] | name clear | setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
@@ -393,9 +411,33 @@ void handleCommand(std::string line) {
       return;
     }
     uint32_t mid = r.send(dst, std::vector<uint8_t>(line.begin(), line.end()), nowMs());
-    if (mid) Serial.printf("queued id %08x -> %08x\n", mid, dst);
-    if (!txOpen()) Serial.println("TX is off, so this will not be sent (tx on)");
-    else Serial.println("too long to send");
+    if (mid) {
+      Serial.printf("queued id %08x -> %08x\n", mid, dst);
+      if (!txOpen()) Serial.println("TX is off, so this will not be sent (tx on)");
+    } else {
+      Serial.println("too long to send");
+    }
+  } else if (cmd == "rangetest") {
+    std::string a = word(line);
+    uint32_t dst;
+    if (a == "stop") {
+      g_rt.stop();
+      Serial.printf("range test stopped: %u of %u delivered\n", static_cast<unsigned>(g_rt.delivered()),
+                    static_cast<unsigned>(g_rt.sent()));
+    } else if (a.empty()) {
+      Serial.printf("range test %s: %u of %u delivered\n", g_rt.active() ? "running" : "not running",
+                    static_cast<unsigned>(g_rt.delivered()), static_cast<unsigned>(g_rt.sent()));
+    } else if (!parseId(a, dst)) {
+      Serial.println("usage: rangetest <hex-id> [seconds] | rangetest stop | rangetest");
+    } else if (!txOpen()) {
+      Serial.println("TX is off: type tx on first");
+    } else {
+      std::string sec = word(line);
+      uint32_t ms = sec.empty() ? gw::mcu::RangeTest::kDefaultIntervalMs : static_cast<uint32_t>(std::atoi(sec.c_str())) * 1000u;
+      g_rt.start(dst, ms, nowMs());
+      Serial.printf("range test to %08x every %u s; rangetest stop ends it\n", dst,
+                    static_cast<unsigned>(g_rt.intervalMs() / 1000));
+    }
   } else if (cmd == "known") {
     std::string id = word(line), la = word(line), lo = word(line);
     uint32_t nid;
@@ -919,7 +961,19 @@ void gwLoop() {
   uint64_t now = nowMs();
   size_t len;
   float rssi;
-  if (g_radioOk && g_radio.poll(buf, sizeof buf, len, rssi)) g_router->onReceive(buf, len, rssi, now);
+  if (g_radioOk && g_radio.poll(buf, sizeof buf, len, rssi)) {
+    g_lastRssi = rssi;
+    g_router->onReceive(buf, len, rssi, now);
+  }
+  if (g_rt.due(now)) {
+    char ping[16];
+    int n = std::snprintf(ping, sizeof ping, "RT %u", static_cast<unsigned>(g_rt.nextSeq()));
+    const uint32_t seq = g_rt.nextSeq();
+    const uint32_t mid = g_router->send(g_rt.dst(), std::vector<uint8_t>(ping, ping + n), now);
+    g_rt.onSent(mid, now);
+    Serial.printf("RANGE ping %u %s\n", static_cast<unsigned>(seq), mid ? "sent" : "refused");
+    if (!g_rt.active()) Serial.println("range test finished: reached its limit of pings");
+  }
 #if GW_HAS_GPS
   pollGps(now);
 #endif
@@ -954,6 +1008,13 @@ void gwLoop() {
     os.bleEnabled = g_ble.enabled();
     os.bleConnected = g_ble.connected();
     os.batteryPct = ownBattery();
+    os.rangeShow = g_rt.active() || now < g_rtShowUntil;
+    os.rangeSender = g_rt.sent() > 0 || g_rt.active();
+    os.rangeSent = g_rt.sent();
+    os.rangeDelivered = g_rt.delivered();
+    os.rangeRxSeq = g_rtRxSeq;
+    os.rangeRxCount = g_rtRxCount;
+    os.rangeRssi = static_cast<int>(g_lastRssi);
     os.neighborIdCount =
         static_cast<uint8_t>(g_router->freshNeighbors(now, os.neighborIds, gw::mcu::oled::kNeighborRows));
     gw::mcu::oled::draw(static_cast<uint32_t>(now), os);
