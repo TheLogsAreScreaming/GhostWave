@@ -128,12 +128,18 @@ int McuRadio::setOutputDbm(int dbm) {
 }
 
 void McuRadio::femRx() {
+#ifdef GW_HAS_BOARD_FEM
+  gwFemRx();
+#endif
 #if GW_HAS_KCT8103L
   digitalWrite(kPinFemCtx, LOW);    // receive through the LNA
 #endif
 }
 
 void McuRadio::femTx() {
+#ifdef GW_HAS_BOARD_FEM
+  gwFemTx();
+#endif
 #if GW_HAS_KCT8103L
   digitalWrite(kPinFemCtx, HIGH);   // PA path (CPS follows DIO2)
 #endif
