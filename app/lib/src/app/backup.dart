@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/backup_codec.dart';
 import '../data/mesh_store.dart';
+import 'location_share.dart';
 import 'mesh_controller.dart';
 import 'preferences.dart';
 import 'providers.dart';
@@ -184,6 +185,7 @@ class BackupController {
       ..invalidate(nodeAddressProvider)
       ..invalidate(recentNodesProvider)
       ..invalidate(unitsProvider)
+      ..invalidate(locationShareProvider)
       ..invalidate(tileSourceProvider)
       ..invalidate(walkthroughDoneProvider);
     _ref.read(nodeAddressProvider.notifier).connectSaved();

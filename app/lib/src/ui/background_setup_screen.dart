@@ -77,7 +77,9 @@ class _BackgroundSetupScreenState extends ConsumerState<BackgroundSetupScreen> {
                 const _Point(
                   icon: Icons.location_off_outlined,
                   title: 'Your location stays foreground only',
-                  text: 'Location sharing still pauses when the app is in the background.',
+                  text:
+                      'Location sharing pauses in the background unless you separately turn on '
+                      '"Keep sharing in the background" on the Me tab.',
                 ),
                 const SizedBox(height: 8),
                 const Text('You can change this at any time in Settings.'),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../app/background_link.dart';
 import '../app/location_share.dart';
 import '../app/providers.dart';
 import '../link/contact_card.dart';
@@ -123,6 +124,28 @@ class _Field extends StatelessWidget {
 class _LocationShareCard extends ConsumerWidget {
   const _LocationShareCard();
 
+  Future<void> _confirmBackground(BuildContext context, LocationShareController ctl) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Share location in the background?'),
+        content: const Text(
+          'GhostWave keeps reading this phone\'s GPS while it is connected, with the screen off or the app closed '
+          'in the background.\n\n'
+          'Your node uses that position in its radio beacons, so nodes in range can see where you are, depending on '
+          'the node\'s position settings.\n\n'
+          'It uses more battery. The notification says "sharing your location" while it is on, and you can '
+          'turn it off here at any time.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Not now')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Share in background')),
+        ],
+      ),
+    );
+    if (ok == true) await ctl.setBackground(enabled: true);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = ref.watch(locationShareProvider);
@@ -146,7 +169,7 @@ class _LocationShareCard extends ConsumerWidget {
         false,
       ),
       LocationShareState(active: true) => ('Waiting for a GPS fix…', false),
-      _ => ('On. Shares while the app is open and connected.', false),
+      _ => (loc.background ? 'On. Shares while connected.' : 'On. Shares while the app is open and connected.', false),
     };
     final fixable =
         loc.enabled && (loc.access == LocationAccess.deniedForever || loc.access == LocationAccess.serviceOff);
@@ -160,6 +183,16 @@ class _LocationShareCard extends ConsumerWidget {
             value: loc.enabled,
             onChanged: (on) => unawaited(ctl.setEnabled(enabled: on)),
           ),
+          if (loc.enabled &&
+              ref.watch(backgroundLinkProvider).supported &&
+              ref.watch(backgroundEnabledProvider) == true)
+            SwitchListTile(
+              secondary: const Icon(Icons.share_location),
+              title: const Text('Keep sharing in the background'),
+              subtitle: const Text('Off by default. The notification says when it is on.'),
+              value: loc.background,
+              onChanged: (on) => unawaited(on ? _confirmBackground(context, ctl) : ctl.setBackground(enabled: false)),
+            ),
           if (fixable)
             Align(
               alignment: Alignment.centerRight,
