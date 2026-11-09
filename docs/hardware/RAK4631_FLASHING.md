@@ -157,6 +157,13 @@ Meshtastic and GhostWave use the same internal-flash filesystem. Meshtastic igno
 other and keeps its own settings. For a clean start in Meshtastic, use its *factory reset* (app:
 Settings → Device → Factory reset). On the phone, forget `GhostWave-xxxx` in the Bluetooth settings.
 
+## RAK WisMesh Tag
+
+Build env `rak_wismesh_tag`. The Tag is a RAK4630 in a sealed case, so the radio pins, bootloader and
+steps above are the same, with the UF2 from that env. **Untested on hardware.** Its built-in GPS,
+button and buzzer are not used yet: position comes from the app or `setpos`, and there is no SOS
+button. Its USB drive may have a different name.
+
 ## What is not verified until it runs on a board
 
 - The SX1262 pins, the TCXO voltage (1.8 V on DIO3), DIO2 driving the antenna switch, and P1.05
