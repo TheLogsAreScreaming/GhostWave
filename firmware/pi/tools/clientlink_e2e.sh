@@ -46,7 +46,11 @@ fdnum=3
 start() {   # start NAME KM TCPPORT [BINDHOST [extra args...]]
   local n=$1 km=$2 cport=$3 host=${4:-127.0.0.1}
   shift 4 2>/dev/null || shift $#
-  local args=(--radio udp --mcast "239.77.0.1:$port" --key "$work/$n.key" --name "$n"
+  # --vfade 0: this test is about the client link, and it waits for frames the
+  # router sends only once (IDENT after a rename, an SOS ack). With random fading
+  # about 1 such frame in 130 is lost at 1.5 km and the run fails for no real
+  # reason. RF loss is exercised by vmesh.sh and the simulator.
+  local args=(--radio udp --vfade 0 --mcast "239.77.0.1:$port" --key "$work/$n.key" --name "$n"
               --lat "$(lat_at "$km")" --lon -113.99 --client-tcp "$host:$cport" "$@")
   [ -n "${VMESH_IF:-}" ] && args+=(--vif "$VMESH_IF")
   mkfifo "$work/$n.in"
