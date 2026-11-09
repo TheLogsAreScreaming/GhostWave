@@ -120,6 +120,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               padding: const EdgeInsets.all(8),
               child: const Text('Offline: messages are saved and sent when the node reconnects.'),
             ),
+          if (contact == null)
+            Container(
+              width: double.infinity,
+              color: scheme.surfaceContainerHighest,
+              padding: const EdgeInsets.all(8),
+              child: const Text('No key for this node yet. Messages stay on this phone until it arrives.'),
+            ),
           Expanded(
             child: msgs.isEmpty
                 ? const Center(child: Text('No messages yet.'))

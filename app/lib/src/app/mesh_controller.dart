@@ -236,6 +236,7 @@ class MeshController extends Notifier<MeshState> {
       return;
     }
     if (!ref.mounted) return;
+    final known = state.contacts.keys.toSet();
     final contacts = Map<int, Contact>.of(state.contacts);
     for (final c in list) {
       final old = contacts[c.nodeId];
@@ -248,6 +249,7 @@ class MeshController extends Notifier<MeshState> {
     }
     state = state.copyWith(contacts: contacts);
     _save();
+    _releaseHeld(session, contacts.keys.where((id) => !known.contains(id)));
   }
 
   // ---------------------------------------------------------------- events --
@@ -406,10 +408,13 @@ class MeshController extends Notifier<MeshState> {
         p.nodeId: (old ?? Contact(nodeId: p.nodeId)).copyWith(
           name: (old?.name.isNotEmpty ?? false) ? old!.name : name,
           lastSeen: _now(),
+          ed25519Hex: p.ed25519Pub.length == 32 ? hexEncode(p.ed25519Pub) : old?.ed25519Hex,
         ),
       },
     );
     _save();
+    final session = _link.session;
+    if (old == null && session != null) _releaseHeld(session, [p.nodeId]);
   }
 
   void _onKeyChange(pb.KeyChange k) {
@@ -511,21 +516,52 @@ class MeshController extends Notifier<MeshState> {
     );
     _save();
     final session = _link.session;
-    if (session != null) await _deliver(session, msg);
+    if (session == null) return;
+    if (!_hasKey(peer)) {
+      // never hand it to the node: with no key it would not be sealed for this peer
+      unawaited(requestKey(peer).then<void>((_) {}, onError: (Object _) {}));
+      return;
+    }
+    await _deliver(session, msg);
+  }
+
+  bool _hasKey(int peer) => state.contacts.containsKey(peer);
+
+  /// Whether the connected node can ask a heard node for its key (protocol 1.4).
+  bool get nodeCanRequestKey {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 4 && !s.info.legacy;
+  }
+
+  /// Asks a node in radio range for its key now. Returning means the node asked,
+  /// not that the key came: it arrives later as a contact. Throws [NodeError].
+  Future<void> requestKey(int peer) async {
+    final session = _link.session;
+    if (session == null || !nodeCanRequestKey) return;
+    await session.request(pb.ToRadio(requestKey: pb.RequestKey(nodeId: peer)));
+  }
+
+  /// Sends what was held for [peers], whose keys the node now has.
+  void _releaseHeld(LinkSession session, Iterable<int> peers) {
+    for (final peer in peers) {
+      for (final m in state.messages[peer] ?? const <ChatMessage>[]) {
+        if (m.outgoing && m.state == MsgState.pending) unawaited(_deliver(session, m));
+      }
+    }
   }
 
   /// Sends a failed message again.
   Future<void> retry(ChatMessage m) async {
     _replace(m, m.copyWith(state: MsgState.pending, clearError: true));
     final session = _link.session;
-    if (session != null) await _deliver(session, m);
+    if (session != null && _hasKey(m.peer)) await _deliver(session, m);
   }
 
   Future<void> _flushOutbox(LinkSession session) async {
     final pending = [
       for (final l in state.messages.values)
         for (final m in l)
-          if (m.outgoing && m.state == MsgState.pending) m,
+          if (m.outgoing && m.state == MsgState.pending && _hasKey(m.peer)) m,
     ]..sort((a, b) => a.at.compareTo(b.at));
     for (final m in pending) {
       if (session.isClosed || !ref.mounted) return;

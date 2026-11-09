@@ -271,6 +271,7 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
       break;
     case ToKind::RemoveChannel: s.str(1, m.channel); break;
     case ToKind::SetName: s.str(1, m.name); break;
+    case ToKind::RequestKey: s.fx32(1, m.nodeId); break;
     case ToKind::ListChannels:
     case ToKind::ListContacts:
     case ToKind::SosStop:
@@ -286,7 +287,7 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
   m = ToRadio{};
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
-    if (f < 10 || f > 25) return 0;
+    if (f < 10 || f > 26) return 0;
     if (v.wt != kLen) return -1;
     ToKind k = static_cast<ToKind>(f);
     m.kind = k;
@@ -338,6 +339,9 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
           return 0;
         case ToKind::SetName:
           if (g == 1) return ok(x.str(m.name));
+          return 0;
+        case ToKind::RequestKey:
+          if (g == 1) return ok(x.fx32(m.nodeId));
           return 0;
         default: return 0;
       }
@@ -435,6 +439,7 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.fx32(1, m.nodeId);
       s.str(2, m.name);
       s.boolean(3, m.isNew);
+      s.bytes(4, m.ed25519Pub);
       break;
     case FromKind::KeyChange:
       s.fx32(1, m.nodeId);
@@ -569,6 +574,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
           if (g == 1) return ok(x.fx32(m.nodeId));
           if (g == 2) return ok(x.str(m.name));
           if (g == 3) return ok(x.boolean(m.isNew));
+          if (g == 4) return ok(x.bytes(m.ed25519Pub));
           return 0;
         case FromKind::KeyChange:
           if (g == 1) return ok(x.fx32(m.nodeId));

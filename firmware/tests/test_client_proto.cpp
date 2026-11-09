@@ -94,6 +94,8 @@ static std::vector<ToRadio> sampleTo() {
   v.push_back(m);
   m = {}, m.reqId = 18, m.kind = ToKind::SetName, m.name = "Ridge1";
   v.push_back(m);
+  m = {}, m.reqId = 21, m.kind = ToKind::RequestKey, m.nodeId = 0x0A0B0C0D;   // 1.4
+  v.push_back(m);
   m = {}, m.reqId = 19, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientName = "app", m.clientShare = Bytes(16, 7),
   m.pinProof = key(2);   // 1.2
   v.push_back(m);
@@ -145,7 +147,7 @@ static std::vector<FromRadio> sampleFrom() {
   v.push_back(m);
   m = {}, m.reqId = 83, m.kind = FromKind::Ok;
   v.push_back(m);
-  m = {}, m.kind = FromKind::PeerIdent, m.nodeId = 4, m.name = "dave", m.isNew = true;
+  m = {}, m.kind = FromKind::PeerIdent, m.nodeId = 4, m.name = "dave", m.isNew = true, m.ed25519Pub = key(9);
   v.push_back(m);
   m = {}, m.kind = FromKind::KeyChange, m.nodeId = 4, m.ed25519Pub = key(8), m.name = "dave";
   v.push_back(m);

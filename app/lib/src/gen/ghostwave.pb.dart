@@ -107,6 +107,7 @@ enum ToRadio_Request {
   removeChannel,
   listChannels,
   setName,
+  requestKey,
   notSet
 }
 
@@ -129,6 +130,7 @@ class ToRadio extends $pb.GeneratedMessage {
     RemoveChannel? removeChannel,
     ListChannels? listChannels,
     SetName? setName,
+    RequestKey? requestKey,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -148,6 +150,7 @@ class ToRadio extends $pb.GeneratedMessage {
     if (removeChannel != null) result.removeChannel = removeChannel;
     if (listChannels != null) result.listChannels = listChannels;
     if (setName != null) result.setName = setName;
+    if (requestKey != null) result.requestKey = requestKey;
     return result;
   }
 
@@ -177,6 +180,7 @@ class ToRadio extends $pb.GeneratedMessage {
     23: ToRadio_Request.removeChannel,
     24: ToRadio_Request.listChannels,
     25: ToRadio_Request.setName,
+    26: ToRadio_Request.requestKey,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -184,7 +188,8 @@ class ToRadio extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: ToRadio.$_createMessage)
-    ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25])
+    ..oo(
+        0, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
         subBuilder: Hello.$_createMessage)
@@ -218,6 +223,8 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: ListChannels.$_createMessage)
     ..aOM<SetName>(25, _omitFieldNames ? '' : 'setName',
         subBuilder: SetName.$_createMessage)
+    ..aOM<RequestKey>(26, _omitFieldNames ? '' : 'requestKey',
+        subBuilder: RequestKey.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -256,6 +263,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(23)
   @$pb.TagNumber(24)
   @$pb.TagNumber(25)
+  @$pb.TagNumber(26)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -273,6 +281,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(23)
   @$pb.TagNumber(24)
   @$pb.TagNumber(25)
+  @$pb.TagNumber(26)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -461,6 +470,18 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearSetName() => $_clearField(25);
   @$pb.TagNumber(25)
   SetName ensureSetName() => $_ensure(16);
+
+  /// protocol 1.4
+  @$pb.TagNumber(26)
+  RequestKey get requestKey => $_getN(17);
+  @$pb.TagNumber(26)
+  set requestKey(RequestKey value) => $_setField(26, value);
+  @$pb.TagNumber(26)
+  $core.bool hasRequestKey() => $_has(17);
+  @$pb.TagNumber(26)
+  void clearRequestKey() => $_clearField(26);
+  @$pb.TagNumber(26)
+  RequestKey ensureRequestKey() => $_ensure(17);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -1496,6 +1517,66 @@ class SetName extends $pb.GeneratedMessage {
   $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
   void clearName() => $_clearField(1);
+}
+
+/// Asks a node in radio range for its signed identity now (protocol 1.4). Beacons
+/// carry no key, so a node that was only heard cannot be sent a sealed DM until
+/// this is answered. Reply: Ok (the key, if it comes, arrives as PeerIdent).
+/// Errors: BAD_ARGUMENT, RATE_LIMITED (asked within 30 s), NO_IDENTITY (legacy node).
+class RequestKey extends $pb.GeneratedMessage {
+  factory RequestKey({
+    $core.int? nodeId,
+  }) {
+    final result = RequestKey._();
+    if (nodeId != null) result.nodeId = nodeId;
+    return result;
+  }
+
+  RequestKey._();
+
+  factory RequestKey.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RequestKey()..mergeFromBuffer(data, registry);
+  factory RequestKey.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RequestKey()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RequestKey',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: RequestKey.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RequestKey clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RequestKey copyWith(void Function(RequestKey) updates) =>
+      super.copyWith((message) => updates(message as RequestKey)) as RequestKey;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RequestKey() / RequestKey.new instead')
+  static RequestKey create() => RequestKey._();
+  static $pb.GeneratedMessage $_createMessage() => RequestKey._();
+  @$core.override
+  RequestKey createEmptyInstance() => RequestKey._();
+  @$core.pragma('dart2js:noInline')
+  static RequestKey getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RequestKey>(RequestKey.$_createMessage);
+  static RequestKey? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get nodeId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set nodeId($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNodeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNodeId() => $_clearField(1);
 }
 
 enum FromRadio_Event {
@@ -3244,11 +3325,13 @@ class PeerIdent extends $pb.GeneratedMessage {
     $core.int? nodeId,
     $core.List<$core.int>? name,
     $core.bool? isNew,
+    $core.List<$core.int>? ed25519Pub,
   }) {
     final result = PeerIdent._();
     if (nodeId != null) result.nodeId = nodeId;
     if (name != null) result.name = name;
     if (isNew != null) result.isNew = isNew;
+    if (ed25519Pub != null) result.ed25519Pub = ed25519Pub;
     return result;
   }
 
@@ -3270,6 +3353,8 @@ class PeerIdent extends $pb.GeneratedMessage {
     ..a<$core.List<$core.int>>(
         2, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
     ..aOB(3, _omitFieldNames ? '' : 'isNew')
+    ..a<$core.List<$core.int>>(
+        4, _omitFieldNames ? '' : 'ed25519Pub', $pb.PbFieldType.OY)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3318,6 +3403,15 @@ class PeerIdent extends $pb.GeneratedMessage {
   $core.bool hasIsNew() => $_has(2);
   @$pb.TagNumber(3)
   void clearIsNew() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.List<$core.int> get ed25519Pub => $_getN(3);
+  @$pb.TagNumber(4)
+  set ed25519Pub($core.List<$core.int> value) => $_setBytes(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasEd25519Pub() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearEd25519Pub() => $_clearField(4);
 }
 
 /// A signed IDENT for node_id carries a different key from the one held.

@@ -26,7 +26,7 @@ constexpr uint8_t kProtocolVersion = 1;
 // SetName. Additions only: a 1.0 client ignores what it does not know.
 // 2: the PIN handshake on Hello (PinChallenge, BAD_PIN).
 // 3: that handshake also agrees keys, and the link is encrypted after it.
-constexpr uint32_t kProtocolMinor = 3;
+constexpr uint32_t kProtocolMinor = 4;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -99,6 +99,7 @@ enum class ToKind : uint8_t {
   RemoveChannel = 23,
   ListChannels = 24,
   SetName = 25,
+  RequestKey = 26,        // 1.4
 };
 
 struct ToRadio {

@@ -182,6 +182,10 @@ bool Router::storePeer(uint32_t id, const uint8_t pub[32], bool pinned, uint64_t
   auto old = peers_.find(id);
   if (old != peers_.end()) {
     pr.name = old->second.name;
+    if (old->second.hasEdPub && old->second.xPub == pr.xPub) {
+      pr.edPub = old->second.edPub;
+      pr.hasEdPub = true;
+    }
     wipe(old->second.dm.data(), old->second.dm.size());
   }
   peers_[id] = pr;
@@ -198,6 +202,8 @@ std::vector<PeerInfo> Router::peerList() const {
     pi.id = kv.first;
     pi.xPub = kv.second.xPub;
     pi.name = kv.second.name;
+    pi.edPub = kv.second.edPub;
+    pi.hasEdPub = kv.second.hasEdPub;
     pi.pinned = kv.second.pinned;
     out.push_back(pi);
   }
@@ -1544,6 +1550,18 @@ bool Router::requestIdent(uint32_t id, uint64_t now) {
   return true;
 }
 
+bool Router::identAskedWithin(uint32_t id, uint64_t now, uint64_t withinMs) const {
+  auto a = identAsked_.find(id);
+  return a != identAsked_.end() && now - a->second < withinMs;
+}
+
+bool Router::peerEdPub(uint32_t id, uint8_t out[32]) const {
+  auto it = peers_.find(id);
+  if (it == peers_.end() || !it->second.hasEdPub) return false;
+  std::memcpy(out, it->second.edPub.data(), 32);
+  return true;
+}
+
 void Router::askIdent(uint32_t id, uint64_t now) {
   if (identAsked_.size() >= kIdentAskedCapacity && !identAsked_.count(id)) {
     auto oldest = std::min_element(identAsked_.begin(), identAsked_.end(),
@@ -1603,15 +1621,22 @@ void Router::onIdent(const Packet& p, uint64_t now) {
   auto it = peers_.find(p.src);
   if (it == peers_.end()) {
     if (storePeer(p.src, x, false, now)) {   // trust on first use
-      peers_[p.src].name = name;
+      Peer& fresh = peers_[p.src];
+      fresh.name = name;
+      std::memcpy(fresh.edPub.data(), edPub, 32);
+      fresh.hasEdPub = true;
       app_.onPeerIdent(p.src, name, true);
     }
   } else if (std::memcmp(it->second.xPub.data(), x, 32) != 0) {
     ++stats_.keyChanges;   // keep the key we have; the host decides
     app_.onKeyChange(p.src, edPub, name);
-  } else if (it->second.name != name) {
-    it->second.name = name;   // signed by the key we already trust
-    app_.onPeerIdent(p.src, name, false);
+  } else {
+    std::memcpy(it->second.edPub.data(), edPub, 32);   // matches the key we hold
+    it->second.hasEdPub = true;
+    if (it->second.name != name) {
+      it->second.name = name;   // signed by the key we already trust
+      app_.onPeerIdent(p.src, name, false);
+    }
   }
   // IDENT is one hop, so its sender is in range; a message waits and its beacon
   // never got through: ask for that beacon instead of waiting for its next one.

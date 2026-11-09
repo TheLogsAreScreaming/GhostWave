@@ -45,6 +45,8 @@ message ToRadio {
     RemoveChannel remove_channel = 23;
     ListChannels list_channels = 24;
     SetName set_name = 25;
+    // protocol 1.4
+    RequestKey request_key = 26;
   }
 }
 
@@ -140,6 +142,14 @@ message SetName {
   string name = 1;
 }
 
+// Asks a node in radio range for its signed identity now (protocol 1.4). Beacons
+// carry no key, so a node that was only heard cannot be sent a sealed DM until
+// this is answered. Reply: Ok (the key, if it comes, arrives as PeerIdent).
+// Errors: BAD_ARGUMENT, RATE_LIMITED (asked within 30 s), NO_IDENTITY (legacy node).
+message RequestKey {
+  fixed32 node_id = 1;
+}
+
 // --------------------------------------------------------------- node -> app
 
 message FromRadio {
@@ -179,7 +189,7 @@ message NodeInfo {
   bool legacy = 6;               // X25519-only node: no ed25519_pub, no IDENT
   string firmware = 7;
   uint32 max_text_bytes = 8;     // SendText.text limit with a DM key
-  uint32 protocol_minor = 9;     // 0 = original 1.0 node; 1 = channels, SetName; 3 = encrypted PIN link
+  uint32 protocol_minor = 9;     // 0 = original 1.0 node; 1 = channels, SetName; 3 = encrypted PIN link; 4 = RequestKey
   uint32 max_channel_text_bytes = 10;   // SendChannelText.text limit (1.1)
 }
 
@@ -272,7 +282,7 @@ message Contact {
   fixed32 node_id = 1;
   bytes name = 2;
   bytes x25519_pub = 3;
-  bytes ed25519_pub = 4;         // only if pinned from an Ed25519 key this run
+  bytes ed25519_pub = 4;         // if pinned from an Ed25519 key this run, or learned from IDENT (1.4)
   bool pinned = 5;               // false: learned from IDENT (trust on first use)
 }
 
@@ -287,6 +297,7 @@ message PeerIdent {
   fixed32 node_id = 1;
   bytes name = 2;
   bool is_new = 3;
+  bytes ed25519_pub = 4;         // the signed key, 32 bytes (protocol 1.4)
 }
 
 // A signed IDENT for node_id carries a different key from the one held.
