@@ -396,6 +396,11 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.fx32(1, m.src);
       s.u32(2, m.seq);
       break;
+    case FromKind::SosCancelled:
+      s.fx32(1, m.src);
+      s.u32(2, m.seq);
+      s.boolean(3, m.verified);
+      break;
     case FromKind::Neighbor:
       s.fx32(1, m.nodeId);
       s.pos(2, m.pos);
@@ -471,7 +476,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
     if (f == 2) return ok(v.boolean(m.replayed));
-    if (f < 10 || f > 28) return 0;
+    if (f < 10 || f > 29) return 0;
     if (v.wt != kLen) return -1;
     FromKind k = static_cast<FromKind>(f);
     m.kind = k;
@@ -521,6 +526,11 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
         case FromKind::SosAck:
           if (g == 1) return ok(x.fx32(m.src));
           if (g == 2) return ok(x.u32(m.seq));
+          return 0;
+        case FromKind::SosCancelled:
+          if (g == 1) return ok(x.fx32(m.src));
+          if (g == 2) return ok(x.u32(m.seq));
+          if (g == 3) return ok(x.boolean(m.verified));
           return 0;
         case FromKind::Neighbor:
           if (g == 1) return ok(x.fx32(m.nodeId));

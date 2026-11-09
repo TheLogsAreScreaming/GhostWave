@@ -205,6 +205,11 @@ class AlertTile extends ConsumerWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (a.cancelled)
+              Text(
+                a.cancelVerified ? 'Ended by the sender' : 'Sender says resolved (not verified)',
+                style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary),
+              ),
             Text(details.join('\n')),
             if (pos != null)
               TextButton.icon(

@@ -642,6 +642,15 @@ const FromRadio$json = {
       '9': 0,
       '10': 'pinChallenge'
     },
+    {
+      '1': 'sos_cancelled',
+      '3': 29,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.SosCancelled',
+      '9': 0,
+      '10': 'sosCancelled'
+    },
   ],
   '8': [
     {'1': 'event'},
@@ -672,7 +681,8 @@ final $typed_data.Uint8List fromRadioDescriptor = $convert.base64Decode(
     'ABKAsyHC5naG9zdHdhdmUuY2xpZW50LnYxLkNoYW5uZWxIAFIHY2hhbm5lbBJFCgxjaGFubmVs'
     'c19lbmQYGyABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYxLkNoYW5uZWxzRW5kSABSC2NoYW5uZW'
     'xzRW5kEkgKDXBpbl9jaGFsbGVuZ2UYHCABKAsyIS5naG9zdHdhdmUuY2xpZW50LnYxLlBpbkNo'
-    'YWxsZW5nZUgAUgxwaW5DaGFsbGVuZ2VCBwoFZXZlbnQ=');
+    'YWxsZW5nZUgAUgxwaW5DaGFsbGVuZ2USSAoNc29zX2NhbmNlbGxlZBgdIAEoCzIhLmdob3N0d2'
+    'F2ZS5jbGllbnQudjEuU29zQ2FuY2VsbGVkSABSDHNvc0NhbmNlbGxlZEIHCgVldmVudA==');
 
 @$core.Deprecated('Use nodeInfoDescriptor instead')
 const NodeInfo$json = {
@@ -807,6 +817,21 @@ final $typed_data.Uint8List sosAlertDescriptor = $convert.base64Decode(
     'ABKAsyHS5naG9zdHdhdmUuY2xpZW50LnYxLlBvc2l0aW9uUgNwb3MSIgoKYWNjdXJhY3lfbRgE'
     'IAEoDUgAUglhY2N1cmFjeU2IAQESJAoLYmF0dGVyeV9wY3QYBSABKA1IAVIKYmF0dGVyeVBjdI'
     'gBARISCgR0ZXh0GAYgASgMUgR0ZXh0Qg0KC19hY2N1cmFjeV9tQg4KDF9iYXR0ZXJ5X3BjdA==');
+
+@$core.Deprecated('Use sosCancelledDescriptor instead')
+const SosCancelled$json = {
+  '1': 'SosCancelled',
+  '2': [
+    {'1': 'src', '3': 1, '4': 1, '5': 7, '10': 'src'},
+    {'1': 'seq', '3': 2, '4': 1, '5': 13, '10': 'seq'},
+    {'1': 'verified', '3': 3, '4': 1, '5': 8, '10': 'verified'},
+  ],
+};
+
+/// Descriptor for `SosCancelled`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List sosCancelledDescriptor = $convert.base64Decode(
+    'CgxTb3NDYW5jZWxsZWQSEAoDc3JjGAEgASgHUgNzcmMSEAoDc2VxGAIgASgNUgNzZXESGgoIdm'
+    'VyaWZpZWQYAyABKAhSCHZlcmlmaWVk');
 
 @$core.Deprecated('Use sosAckReceivedDescriptor instead')
 const SosAckReceived$json = {

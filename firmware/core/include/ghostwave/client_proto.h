@@ -26,7 +26,8 @@ constexpr uint8_t kProtocolVersion = 1;
 // SetName. Additions only: a 1.0 client ignores what it does not know.
 // 2: the PIN handshake on Hello (PinChallenge, BAD_PIN).
 // 3: that handshake also agrees keys, and the link is encrypted after it.
-constexpr uint32_t kProtocolMinor = 4;
+// 5: SosCancelled.
+constexpr uint32_t kProtocolMinor = 5;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -150,6 +151,7 @@ enum class FromKind : uint8_t {
   Channel = 26,
   ChannelsEnd = 27,
   PinChallenge = 28,   // 1.2
+  SosCancelled = 29,   // 1.5
 };
 
 struct StatusInfo {
@@ -197,6 +199,8 @@ struct FromRadio {
   // Contact: nodeId, name, x25519Pub, ed25519Pub (if known), pinned.
   // ContactsEnd: count
   bool pinned = false;
+  // SosCancelled: src, seq, verified (signature checked against the key we hold)
+  bool verified = false;
   uint32_t count = 0;
   StatusInfo status;
   // Error

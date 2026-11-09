@@ -87,7 +87,7 @@ class MeshState {
   /// Alerts that still want the banner.
   List<SosAlertEntry> get activeAlerts => [
     for (final a in alerts)
-      if (!a.acked && !a.dismissed) a,
+      if (!a.acked && !a.dismissed && !(a.cancelled && a.cancelVerified)) a,
   ];
 
   /// A display name for [id].
@@ -278,6 +278,15 @@ class MeshController extends Notifier<MeshState> {
         _onSos(e.sos, replayed: e.replayed);
       case pb.FromRadio_Event.sosAck:
         _onSosAck(e.sosAck);
+      case pb.FromRadio_Event.sosCancelled:
+        final c = e.sosCancelled;
+        // a verified cancel ends the alert; an unverified one is only the sender's claim
+        _setAlert(
+          c.src,
+          (a) => a.seq > c.seq
+              ? a
+              : a.copyWith(cancelled: true, cancelVerified: c.verified, dismissed: c.verified ? true : null),
+        );
       case pb.FromRadio_Event.neighbor:
         _onNeighbor(e.neighbor);
       case pb.FromRadio_Event.peerIdent:

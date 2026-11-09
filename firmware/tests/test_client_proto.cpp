@@ -44,7 +44,7 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.firmware == b.firmware && a.maxTextBytes == b.maxTextBytes && a.src == b.src &&
          a.dest == b.dest && a.msgId == b.msgId && a.clientMsgId == b.clientMsgId &&
          a.text == b.text && a.pos == b.pos && a.seq == b.seq && a.accuracyM == b.accuracyM &&
-         a.batteryPct == b.batteryPct && a.isNew == b.isNew && a.pinned == b.pinned &&
+         a.batteryPct == b.batteryPct && a.isNew == b.isNew && a.pinned == b.pinned && a.verified == b.verified &&
          a.count == b.count && a.status == b.status && a.error == b.error && a.detail == b.detail &&
          a.protocolMinor == b.protocolMinor && a.maxChannelTextBytes == b.maxChannelTextBytes &&
          a.channel == b.channel && a.psk == b.psk && a.nonce == b.nonce;
@@ -122,6 +122,10 @@ static std::vector<FromRadio> sampleFrom() {
   m = {}, m.kind = FromKind::Sos, m.src = 5, m.seq = 1;   // no fix, nothing known
   v.push_back(m);
   m = {}, m.kind = FromKind::SosAck, m.src = 6, m.seq = 3;
+  v.push_back(m);
+  m = {}, m.kind = FromKind::SosCancelled, m.src = 7, m.seq = 4, m.verified = true;
+  v.push_back(m);
+  m = {}, m.kind = FromKind::SosCancelled, m.src = 8, m.seq = 5;
   v.push_back(m);
   m = {}, m.kind = FromKind::Neighbor, m.nodeId = 8, m.pos = posFromDegrees(1, 2), m.isNew = true;
   v.push_back(m);

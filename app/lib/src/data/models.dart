@@ -328,6 +328,8 @@ class SosAlertEntry {
     this.replayed = false,
     this.acked = false,
     this.dismissed = false,
+    this.cancelled = false,
+    this.cancelVerified = false,
   });
 
   /// From [toJson].
@@ -342,6 +344,8 @@ class SosAlertEntry {
     replayed: (j['replayed'] as bool?) ?? false,
     acked: (j['acked'] as bool?) ?? false,
     dismissed: (j['dismissed'] as bool?) ?? false,
+    cancelled: (j['cancelled'] as bool?) ?? false,
+    cancelVerified: (j['cancelVerified'] as bool?) ?? false,
   );
 
   /// The node in trouble.
@@ -374,8 +378,15 @@ class SosAlertEntry {
   /// The banner was dismissed (it stays in the SOS list).
   final bool dismissed;
 
+  /// The sender ended this SOS (protocol 1.5).
+  final bool cancelled;
+
+  /// The cancel's signature was checked against the sender's key. When false,
+  /// the node had no key to check it with, so it is only the sender's claim.
+  final bool cancelVerified;
+
   /// A copy with some fields changed.
-  SosAlertEntry copyWith({bool? acked, bool? dismissed}) => SosAlertEntry(
+  SosAlertEntry copyWith({bool? acked, bool? dismissed, bool? cancelled, bool? cancelVerified}) => SosAlertEntry(
     src: src,
     seq: seq,
     receivedAt: receivedAt,
@@ -386,6 +397,8 @@ class SosAlertEntry {
     replayed: replayed,
     acked: acked ?? this.acked,
     dismissed: dismissed ?? this.dismissed,
+    cancelled: cancelled ?? this.cancelled,
+    cancelVerified: cancelVerified ?? this.cancelVerified,
   );
 
   /// JSON form.
@@ -400,6 +413,8 @@ class SosAlertEntry {
     if (replayed) 'replayed': true,
     if (acked) 'acked': true,
     if (dismissed) 'dismissed': true,
+    if (cancelled) 'cancelled': true,
+    if (cancelVerified) 'cancelVerified': true,
   };
 }
 

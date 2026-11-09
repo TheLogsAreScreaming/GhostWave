@@ -115,6 +115,7 @@ class Handler {
   void onDelivered(uint32_t dst, uint32_t msgId);
   void onSos(const gw::SosInfo& s);
   void onSosAck(uint32_t responder, uint16_t seq);
+  void onSosCancelled(uint32_t src, uint16_t seq, bool verified);
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen);
   void onKeyChange(uint32_t id, const uint8_t edPub[32], const std::string& name);
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew);

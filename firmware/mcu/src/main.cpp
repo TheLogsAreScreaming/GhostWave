@@ -222,6 +222,12 @@ class SerialApp : public gw::AppPort {
     GW_SOUND(SosAcked);
     GW_LINK(onSosAck(responder, seq));
   }
+  void onSosCancelled(uint32_t src, uint16_t seq, bool verified) override {
+    Serial.printf("SOS CANCELLED by %08x seq %u%s\n", src, seq, verified ? " (signature checked, alert cleared)"
+                                                                        : " (no key to check it: alert kept)");
+    GW_SOUND(SosOff);
+    GW_LINK(onSosCancelled(src, seq, verified));
+  }
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen) override {
     Serial.printf("IDENT %s %08x \"%s\"\n", firstSeen ? "learned key for" : "name change from", id, name.c_str());
     GW_LINK(onPeerIdent(id, name, firstSeen));
@@ -477,7 +483,7 @@ void handleCommand(std::string line) {
     else
       Serial.println("SOS rate limited, try again in a minute");
   } else if (cmd == "sosstop") {
-    r.stopSos();
+    r.stopSos(nowMs());
     Serial.println("SOS off");
   } else if (cmd == "sosack") {
     uint32_t src;
@@ -932,7 +938,7 @@ void pollUi(uint64_t now) {
     }
   } else if (ev == Ev::Double) {
     if (r.sosActive()) {
-      r.stopSos();
+      r.stopSos(nowMs());
       sosStoppedAt = now;
       Serial.println("button: SOS off");
     } else {

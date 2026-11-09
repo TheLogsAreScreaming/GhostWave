@@ -203,6 +203,9 @@ check(e is not None, "A's client got SosAckReceived from B")
 st = a.request("get_status")[0]
 check(st["sos_active"] and st["tx"] > 0 and st["clients"] == 1, "A status: SOS active, frames sent")
 check(a.request("sos_stop")[0]["kind"] == "ok" and not a.request("get_status")[0]["sos_active"], "SosStop")
+e = b.wait_event(lambda e: e["kind"] == "sos_cancelled" and e["src"] == ia["node_id"], 30)
+check(e is not None and e["verified"], "B's client hears the signed SOS cancel, verified")
+check(not b.request("get_status")[0]["sos_held"], "B dropped the cancelled SOS")
 if time.time() - t_sos < 55:
     r = a.request("sos_start", text=b"again")
     check(r[0].get("code_name") == "RATE_LIMITED", "second SOS within a minute -> RATE_LIMITED")
@@ -210,8 +213,8 @@ else:   # a slow step above used up the minute: the check would be meaningless
     say("skip  second SOS within a minute (over a minute since SosStart)")
 
 # -------------------------------------------- group channels (protocol 1.1) --
-check(ia.get("protocol_minor") == 4 and ia.get("max_channel_text_bytes") == 86,
-      "NodeInfo: protocol_minor 4, max_channel_text_bytes 86")
+check(ia.get("protocol_minor") == 5 and ia.get("max_channel_text_bytes") == 86,
+      "NodeInfo: protocol_minor 5, max_channel_text_bytes 86")
 PSK = bytes(range(1, 33))
 for cl, who in ((a, "A"), (b, "B")):
     must(cl.request("add_channel", name="e2e crew", psk=PSK)[0]["kind"] == "ok", "%s joins #e2e crew" % who)

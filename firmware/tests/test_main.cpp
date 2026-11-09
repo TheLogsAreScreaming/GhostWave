@@ -282,6 +282,9 @@ struct TestApp : AppPort {
   void onDelivered(uint32_t, uint32_t mid) override { delivered.push_back(mid); }
   void onSos(const SosInfo& s) override { sos.push_back(s); }
   void onSosAck(uint32_t who, uint16_t seq) override { sosAcks.push_back({who, seq}); }
+  struct Cancel { uint32_t src; uint16_t seq; bool verified; };
+  std::vector<Cancel> cancels;
+  void onSosCancelled(uint32_t src, uint16_t seq, bool verified) override { cancels.push_back({src, seq, verified}); }
   void onPeerIdent(uint32_t id, const std::string& name, bool first) override {
     if (first) idents.push_back({id, name});
   }
@@ -1530,6 +1533,112 @@ static void testIdentExchange() {
   CHECK(later >= 2 && later <= 4);
 }
 
+static void testSosCancel() {
+  std::printf("router: a signed SOS cancel clears the alert; a forged one does not\n");
+  Medium m;
+  uint8_t sa[32], sb[32], sc[32];
+  uint32_t ida = identity(sa, 1), idb = identity(sb, 100), idc = identity(sc, 160);
+  auto& a = m.add(ida, 0);
+  auto& b = m.add(idb, 2);
+  CHECK(a.router->setSigningKey(sa, "a") && b.router->setSigningKey(sb, "b"));
+  m.run(20000);                                  // IDENT exchange: b holds a's key
+  CHECK(b.router->hasPeerKey(ida));
+  CHECK(a.router->startSos("broken leg", 40, 3, m.now));
+  m.run(5000);
+  uint16_t seq = 0;
+  CHECK(b.router->hasSos(ida, &seq) && seq == 1);
+  std::vector<uint8_t> sosFrame;
+  for (auto& f : m.frames) {
+    Packet p;
+    if (decode(f.data(), f.size(), p) && p.type == PType::Sos && p.src == ida) sosFrame = f;
+  }
+  CHECK(!sosFrame.empty());
+
+  uint32_t before = m.count(PType::SosCancel);
+  a.router->stopSos(m.now);
+  m.run(5000);
+  CHECK(!b.router->hasSos(ida));
+  CHECK(b.app.cancels.size() == 1 && b.app.cancels[0].src == ida && b.app.cancels[0].seq == 1 &&
+        b.app.cancels[0].verified);
+  b.router->onReceive(sosFrame.data(), sosFrame.size(), -80, m.now);   // a late copy of the old SOS
+  CHECK(!b.router->hasSos(ida));
+  m.run(30000);
+  CHECK(m.count(PType::SosCancel) - before >= 2);   // sent, then repeated once
+  CHECK(b.app.cancels.size() == 1);                  // the repeat is new on air but changes nothing
+
+  // a cancel for a's SOS signed with the wrong key: dropped, and the alert stays
+  m.run(61000);                                      // past the one-SOS-a-minute limit
+  CHECK(a.router->startSos("again", 40, 3, m.now));
+  m.run(10000);
+  CHECK(b.router->hasSos(ida, &seq) && seq == 2);
+  Packet f;
+  f.type = PType::SosCancel;
+  f.mode = Mode::ScopedFlood;
+  f.src = ida;
+  f.dst = kBroadcast;
+  f.msgId = 0x1234567;
+  f.hopsLeft = 2;
+  f.payload = {2, 0};
+  uint8_t sig[64];
+  sosCancelSign(sc, ida, 2, sig);                    // c's key, not a's
+  f.payload.insert(f.payload.end(), sig, sig + 64);
+  uint8_t buf[256];
+  size_t n = encode(f, buf, sizeof buf);
+  CHECK(n > 0);
+  size_t cancelsBefore = b.app.cancels.size();
+  b.router->onReceive(buf, n, -80, m.now);
+  CHECK(b.router->hasSos(ida));
+  CHECK(b.app.cancels.size() == cancelsBefore);
+
+  // a contact card's Ed25519 key is enough to check a cancel, with no IDENT heard
+  {
+    Medium m3;
+    auto& y = m3.add(idb, 0);
+    y.router->setSigningKey(sb, "b");
+    uint8_t ea[32], xa[32];
+    ed25519Public(sa, ea);
+    ed25519ToX25519(ea, xa);
+    CHECK(y.router->addPeerKey(ida, xa));
+    uint8_t ec[32];
+    ed25519Public(sc, ec);
+    CHECK(!y.router->setPeerEdPub(ida, ec));    // someone else's key
+    CHECK(y.router->setPeerEdPub(ida, ea));
+    y.router->onReceive(sosFrame.data(), sosFrame.size(), -80, 1000);
+    CHECK(y.router->hasSos(ida));
+    Packet k;
+    k.type = PType::SosCancel;
+    k.mode = Mode::ScopedFlood;
+    k.src = ida;
+    k.dst = kBroadcast;
+    k.msgId = 0x2468ace;
+    k.hopsLeft = 2;
+    k.payload = {1, 0};
+    sosCancelSign(sa, ida, 1, sig);
+    k.payload.insert(k.payload.end(), sig, sig + 64);
+    size_t kn = encode(k, buf, sizeof buf);
+    y.router->onReceive(buf, kn, -80, 2000);
+    CHECK(!y.router->hasSos(ida));
+    CHECK(y.app.cancels.size() == 1 && y.app.cancels[0].verified);
+  }
+
+  // a node with no key for the source cannot check: it keeps the alert, reports it unverified
+  Medium m2;
+  auto& x = m2.add(idc, 0);
+  x.router->setSigningKey(sc, "c");
+  Packet s;
+  CHECK(decode(sosFrame.data(), sosFrame.size(), s));
+  x.router->onReceive(sosFrame.data(), sosFrame.size(), -80, 1000);
+  CHECK(x.router->hasSos(ida));
+  sosCancelSign(sa, ida, 1, sig);
+  f.payload = {1, 0};
+  f.payload.insert(f.payload.end(), sig, sig + 64);
+  f.msgId = 0x7654321;
+  n = encode(f, buf, sizeof buf);
+  x.router->onReceive(buf, n, -80, 2000);
+  CHECK(x.router->hasSos(ida));
+  CHECK(x.app.cancels.size() == 1 && !x.app.cancels[0].verified);
+}
+
 static void testIdentAnnounceRepeats() {
   std::printf("ident: a rename is announced twice, so one lost frame does not hide it\n");
   Medium m;
@@ -2073,6 +2182,7 @@ int main() {
   testSosRadioFailure();
   testSosCarrierRadioFailure();
   testSosAckRepeats();
+  testSosCancel();
   testSosStopRestart();
   testSosExpiryAndRollover();
   testIdentCrypto();

@@ -56,6 +56,10 @@ class AppPort {
   virtual void onSos(const SosInfo& sos) { (void)sos; }
   // A responder acknowledged our SOS.
   virtual void onSosAck(uint32_t responder, uint16_t seq) { (void)responder, (void)seq; }
+  // The source of an SOS ended it. `verified`: its signature matched the key we
+  // hold for it, and the alert was removed. Unverified (no key yet): the alert
+  // stays, and the host should show it as "sender says resolved".
+  virtual void onSosCancelled(uint32_t src, uint16_t seq, bool verified) { (void)src, (void)seq, (void)verified; }
   // A verified IDENT taught us a new peer key (trust on first use), or a known
   // peer changed its name.
   virtual void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen) {
@@ -181,6 +185,10 @@ class Router {
   bool identAskedWithin(uint32_t id, uint64_t nowMs, uint64_t withinMs) const;
   // The Ed25519 key a signed IDENT taught us for `id`. False if we have none.
   bool peerEdPub(uint32_t id, uint8_t out[32]) const;
+  // Records a peer's Ed25519 key from a contact card, so its signatures (SOS
+  // cancels) can be checked before any IDENT arrives. Only if the key owns `id`
+  // and matches the X25519 key we hold for it.
+  bool setPeerEdPub(uint32_t id, const uint8_t edPub[32]);
 
   // Queue a message; returns its msg_id, or 0 if it cannot be sealed (too big).
   uint32_t send(uint32_t dst, const std::vector<uint8_t>& payload, uint64_t nowMs);
@@ -209,6 +217,8 @@ class Router {
   bool startSos(const std::string& text, uint8_t batteryPct, uint8_t accuracy4m, uint64_t nowMs);
   // Cancels pending origination/retries. Stored SOS remains available to carriers until TTL.
   void stopSos();
+  // Stops our SOS and tells everyone, with a signed cancel (needs a signing key).
+  void stopSos(uint64_t nowMs);
   bool sosActive() const { return sosOn_; }
   // Send SOS_ACK for the SOS we hold from `sosSrc`. False if we hold none.
   bool ackSos(uint32_t sosSrc, uint64_t nowMs);
@@ -329,6 +339,8 @@ class Router {
   void probeSos(uint16_t nb16, uint64_t at, uint64_t jitterMs);
   void sosTick(uint64_t now);
   void sosResendTick(uint64_t now);
+  void onSosCancel(const Packet& p, uint64_t now);
+  void sendSosCancel(uint16_t seq, uint64_t now);
   void sosAckRepeatTick(uint64_t now);
   bool storePeer(uint32_t id, const uint8_t xPub[32], bool pinned, uint64_t now);
   void sendIdent(uint32_t dst, uint64_t now);
@@ -393,6 +405,10 @@ class Router {
     uint64_t learnedMs;
   };
   std::map<uint32_t, Peer> peers_;
+  std::array<uint8_t, 32> sigSeed_{};   // our Ed25519 seed, to sign SOS cancels
+  std::map<uint32_t, uint16_t> sosCancelled_;   // verified cancels: source -> seq
+  uint64_t sosCancelRepeatAt_ = 0;
+  uint16_t sosCancelSeq_ = 0;
   std::vector<uint8_t> identBody_;  // signed once in setSigningKey
   uint64_t nextIdentAt_ = 0;        // periodic broadcast; 0 = not scheduled yet
   uint64_t identRepeatAt_ = 0;      // second copy of an announcement; 0 = none
