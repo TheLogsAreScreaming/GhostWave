@@ -714,8 +714,13 @@ void gwSetup() {
   digitalWrite(kPinSensorPower, HIGH);
   gw::mcu::ui::begin();
 #else
-  pinMode(kPinVext, OUTPUT);
-  digitalWrite(kPinVext, kVextOn ? HIGH : LOW);
+  if (kPinVext >= 0) {
+    pinMode(kPinVext, OUTPUT);
+    digitalWrite(kPinVext, kVextOn ? HIGH : LOW);
+  }
+#endif
+#ifdef GW_HAS_BOARD_POWER
+  gwBoardPower();
 #endif
 
   // Keys first (secureRandom borrows the ADC, before anything else uses it).
