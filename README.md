@@ -316,6 +316,7 @@ as `ghostwaved`. Supported boards:
 |---|---|---|
 | `heltec_wireless_tracker_v2` | Heltec Wireless Tracker V2 (SX1262 + KCT8103L PA/LNA + UC6580 GPS) | GPS, or a stored position until the first fix |
 | `heltec_v3` | Heltec WiFi LoRa 32 V3 (SX1262, no GPS) | stored position (`setpos`) |
+| `heltec_wsl_v3` | Heltec Wireless Stick Lite V3 (SX1262, no GPS). Untested on hardware. | stored position (`setpos`) |
 
 The pin maps are in `firmware/mcu/src/board.h`. They come from Meshtastic's variant files, and each
 value cites its source. The RAK4631 (nRF52840) build is env `rak4631` in the same project, with a

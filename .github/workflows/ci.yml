@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        env: [heltec_wireless_tracker_v2, heltec_v3, rak4631, rak_wismesh_tag, rak3401_1w, t1000e]
+        env: [heltec_wireless_tracker_v2, heltec_v3, heltec_wsl_v3, rak4631, rak_wismesh_tag, rak3401_1w, t1000e]
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-python@v5.6.0
