@@ -7,7 +7,10 @@
 
 #include <stdint.h>
 
-#if defined(GW_BOARD_TRACKER_V2)
+#if defined(GW_BOARD_FILE)
+// One header per board in src/boards/, chosen in boards.d/<env>.ini.
+#include GW_BOARD_FILE
+#elif defined(GW_BOARD_TRACKER_V2)
 // Source: variants/esp32s3/heltec_wireless_tracker_v2/variant.h
 //         (+ pins_arduino.h there for SCK/MISO/MOSI/SS, src/configuration.h for
 //          TX_GAIN_LORA, src/mesh/LoRaFEMInterface.cpp for FEM sequencing)
