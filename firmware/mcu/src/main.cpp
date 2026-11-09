@@ -702,7 +702,7 @@ void gwSetup() {
 #if GW_HAS_BLE
   g_bootMs = nowMs();
 #endif
-#if defined(GW_BOARD_RAK4631)
+#if defined(GW_BOARD_RAK4631) || defined(GW_BOARD_RAK3401_1W)
   pinMode(kPin3v3SEnable, OUTPUT);
   digitalWrite(kPin3v3SEnable, HIGH);
 #elif defined(GW_BOARD_T1000E)
