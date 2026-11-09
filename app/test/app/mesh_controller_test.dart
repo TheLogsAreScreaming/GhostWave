@@ -124,7 +124,7 @@ void main() {
   test('DM: pending -> sent -> delivered, receipts are idempotent', () async {
     final c = await makeContainer(dir);
     addTearDown(c.dispose);
-    final node = answeringNode();
+    final node = answeringNode(contacts: [pb.Contact(nodeId: bob)]);
     c.read(nodeLinkProvider).connect(node);
     await settle();
     await c.read(meshProvider.notifier).sendText(bob, 'hello');
@@ -150,7 +150,7 @@ void main() {
   test('a refused DM is failed and can be retried', () async {
     final c = await makeContainer(dir);
     addTearDown(c.dispose);
-    final node = answeringNode();
+    final node = answeringNode(contacts: [pb.Contact(nodeId: bob)]);
     c.read(nodeLinkProvider).connect(node);
     await settle();
     await c.read(meshProvider.notifier).sendText(bob, 'x' * 74);
@@ -162,7 +162,7 @@ void main() {
   test('offline DMs wait as pending and go out on connect', () async {
     final c = await makeContainer(dir);
     addTearDown(c.dispose);
-    final node = answeringNode();
+    final node = answeringNode(contacts: [pb.Contact(nodeId: bob)]);
     // first connect so the controller knows which node's history to use
     c.read(nodeLinkProvider).connect(node);
     await settle();

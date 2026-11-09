@@ -85,6 +85,8 @@ constexpr size_t kMaxGroupChannels = 8;
 struct PeerInfo {
   uint32_t id = 0;
   std::array<uint8_t, 32> xPub{};
+  std::array<uint8_t, 32> edPub{};   // valid if hasEdPub (learned from a signed IDENT)
+  bool hasEdPub = false;
   std::string name;
   bool pinned = false;
 };
@@ -175,6 +177,10 @@ class Router {
   // Asks a neighbor for its IDENT (1 hop; the request carries our own IDENT).
   // False without a signing key.
   bool requestIdent(uint32_t id, uint64_t nowMs);
+  // Whether we asked `id` for its IDENT less than `withinMs` ago.
+  bool identAskedWithin(uint32_t id, uint64_t nowMs, uint64_t withinMs) const;
+  // The Ed25519 key a signed IDENT taught us for `id`. False if we have none.
+  bool peerEdPub(uint32_t id, uint8_t out[32]) const;
 
   // Queue a message; returns its msg_id, or 0 if it cannot be sealed (too big).
   uint32_t send(uint32_t dst, const std::vector<uint8_t>& payload, uint64_t nowMs);
@@ -377,6 +383,8 @@ class Router {
   struct Peer {
     std::array<uint8_t, 32> xPub;   // X25519, compared on every IDENT (TOFU)
     std::array<uint8_t, 32> dm;     // derived DM key
+    std::array<uint8_t, 32> edPub{};   // from a signed IDENT, if hasEdPub
+    bool hasEdPub = false;
     std::string name;
     bool pinned;                    // from addPeerKey: never evicted
     uint64_t learnedMs;

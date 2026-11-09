@@ -523,6 +523,51 @@ void testProtocol11() {
   v = send(m);
   CHECK(v.size() == 1 && v[0].name == "Ridge1");   // the next NodeInfo has it
 
+  // RequestKey (1.4)
+  m = {}, m.reqId = 10, m.kind = ToKind::RequestKey, m.nodeId = 0;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument);
+  m.nodeId = 0x33333333;
+  v = send(m);   // no signing key to ask with
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NoIdentity);
+  uint8_t peerKey[32];
+  for (int i = 0; i < 32; ++i) peerKey[i] = static_cast<uint8_t>(i + 9);
+  router.setIdentityKey(peerKey);
+  CHECK(router.addPeerKey(0x44444444, peerKey));
+  m.nodeId = 0x44444444;
+  v = send(m);   // already held: nothing to ask
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 10);
+
+  {   // with a signing key: asks once, then refuses for 30 s
+    uint8_t seed[32], pub[32];
+    for (int i = 0; i < 32; ++i) seed[i] = static_cast<uint8_t>(i + 40);
+    gw::ed25519Public(seed, pub);
+    gw::Config scfg = Rig::mkCfg();
+    scfg.nodeId = gw::nodeIdOf(pub);
+    gw::Router srouter(scfg, radio, app);
+    CHECK(srouter.setSigningKey(seed, "s"));
+    FakeTransport st;
+    Handler sh(srouter, Rig::ident(), pos, hooks, 0, st);
+    auto& sc = st.add("ble");
+    auto ask = [&](ToKind kind, uint32_t id, uint64_t at) {
+      ToRadio q;
+      q.reqId = 1, q.kind = kind, q.protocolVersion = 1, q.nodeId = id;
+      Bytes f;
+      frameTo(q, f);
+      FrameReader in;
+      in.push(f.data(), f.size());
+      sh.receive(sc.conn, in, at);
+      return FakeTransport::drain(sc);
+    };
+    ask(ToKind::Hello, 0, 1000);
+    auto r = ask(ToKind::RequestKey, 0x55555555, 2000);
+    CHECK(r.size() == 1 && r[0].kind == FromKind::Ok);
+    r = ask(ToKind::RequestKey, 0x55555555, 10000);
+    CHECK(r.size() == 1 && r[0].error == ErrorCode::RateLimited);
+    r = ask(ToKind::RequestKey, 0x55555555, 33000);
+    CHECK(r.size() == 1 && r[0].kind == FromKind::Ok);
+  }
+
   // a node without channels or renaming (no hooks): says so, NodeInfo shows no channel limit
   Rig plain;
   auto& pc = plain.t.add("tcp");

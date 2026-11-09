@@ -194,8 +194,9 @@ happens. Not tried on a phone yet.
   when it's turned on with the app open. **It hasn't been tried on a real phone.**
 - **Contacts come from the node.** A node in radio range becomes a contact on its own once your node
   hears its identity (IDENT; trust on first use, marked with a radio icon). Until then it shows under
-  "Heard nearby, waiting for their key" and cannot be messaged: the client protocol carries no key
-  for heard nodes, so the app cannot add them itself. Scanning or pasting the contact card pins the key
+  "Heard nearby, waiting for their key". Beacons carry no key, so a heard node can't get a sealed DM yet.
+  You can write one anyway: it stays on the phone and goes out once the key arrives. "Ask for key" sends
+  the request straight away (node protocol 1.4 or later). Scanning or pasting the contact card pins the key
   (check-mark icon).
 
 ## Development

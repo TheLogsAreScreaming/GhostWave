@@ -67,6 +67,7 @@ TO_REQUESTS = {
     23: ("remove_channel", {1: ("name", "str")}),
     24: ("list_channels", {}),
     25: ("set_name", {1: ("name", "str")}),
+    26: ("request_key", {1: ("node_id", "fx32")}),
 }
 
 FROM_EVENTS = {
@@ -79,7 +80,7 @@ FROM_EVENTS = {
     13: ("sos", {1: ("src", "fx32"), 2: ("seq", "u32"), 3: ("pos", "pos"), 4: ("accuracy_m", "opt"),
                  5: ("battery_pct", "opt"), 6: ("text", "bytes")}),
     14: ("sos_ack", {1: ("responder", "fx32"), 2: ("seq", "u32")}),
-    15: ("neighbor", {1: ("node_id", "fx32"), 2: ("pos", "pos"), 3: ("is_new", "bool")}),
+    15: ("neighbor", {1: ("node_id", "fx32"), 2: ("pos", "pos"), 3: ("is_new", "bool"), 4: ("ed25519_pub", "bytes")}),
     16: ("status", {1: ("tx", "u32"), 2: ("rx", "u32"), 3: ("rx_bad", "u32"), 4: ("rx_auth_fail", "u32"),
                     5: ("delivered", "u32"), 6: ("forwarded", "u32"), 7: ("stored", "u32"),
                     8: ("air_ms", "u64"), 9: ("store_size", "u32"), 10: ("neighbors", "u32"),
@@ -628,6 +629,8 @@ def main():
         rc = show(c.request("send_channel_text", channel=args[0], text=" ".join(args[1:]).encode(), client_msg_id=1))
     elif cmd == "name" and len(args) == 1:
         rc = show(c.request("set_name", name=args[0]))
+    elif cmd == "reqkey" and len(args) == 1:
+        rc = show(c.request("request_key", node_id=int(args[0], 16)))
     elif cmd != "listen":
         ap.error("unknown command or wrong arguments: %s" % cmd)
     if cmd == "listen" or (a.wait and cmd != "send"):

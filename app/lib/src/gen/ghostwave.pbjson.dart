@@ -178,6 +178,15 @@ const ToRadio$json = {
       '9': 0,
       '10': 'setName'
     },
+    {
+      '1': 'request_key',
+      '3': 26,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.RequestKey',
+      '9': 0,
+      '10': 'requestKey'
+    },
   ],
   '8': [
     {'1': 'request'},
@@ -206,7 +215,8 @@ final $typed_data.Uint8List toRadioDescriptor = $convert.base64Decode(
     'gLMiIuZ2hvc3R3YXZlLmNsaWVudC52MS5SZW1vdmVDaGFubmVsSABSDXJlbW92ZUNoYW5uZWwS'
     'SAoNbGlzdF9jaGFubmVscxgYIAEoCzIhLmdob3N0d2F2ZS5jbGllbnQudjEuTGlzdENoYW5uZW'
     'xzSABSDGxpc3RDaGFubmVscxI5CghzZXRfbmFtZRgZIAEoCzIcLmdob3N0d2F2ZS5jbGllbnQu'
-    'djEuU2V0TmFtZUgAUgdzZXROYW1lQgkKB3JlcXVlc3Q=');
+    'djEuU2V0TmFtZUgAUgdzZXROYW1lEkIKC3JlcXVlc3Rfa2V5GBogASgLMh8uZ2hvc3R3YXZlLm'
+    'NsaWVudC52MS5SZXF1ZXN0S2V5SABSCnJlcXVlc3RLZXlCCQoHcmVxdWVzdA==');
 
 @$core.Deprecated('Use helloDescriptor instead')
 const Hello$json = {
@@ -442,6 +452,18 @@ const SetName$json = {
 /// Descriptor for `SetName`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List setNameDescriptor =
     $convert.base64Decode('CgdTZXROYW1lEhIKBG5hbWUYASABKAlSBG5hbWU=');
+
+@$core.Deprecated('Use requestKeyDescriptor instead')
+const RequestKey$json = {
+  '1': 'RequestKey',
+  '2': [
+    {'1': 'node_id', '3': 1, '4': 1, '5': 7, '10': 'nodeId'},
+  ],
+};
+
+/// Descriptor for `RequestKey`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List requestKeyDescriptor = $convert
+    .base64Decode('CgpSZXF1ZXN0S2V5EhcKB25vZGVfaWQYASABKAdSBm5vZGVJZA==');
 
 @$core.Deprecated('Use fromRadioDescriptor instead')
 const FromRadio$json = {
@@ -982,13 +1004,15 @@ const PeerIdent$json = {
     {'1': 'node_id', '3': 1, '4': 1, '5': 7, '10': 'nodeId'},
     {'1': 'name', '3': 2, '4': 1, '5': 12, '10': 'name'},
     {'1': 'is_new', '3': 3, '4': 1, '5': 8, '10': 'isNew'},
+    {'1': 'ed25519_pub', '3': 4, '4': 1, '5': 12, '10': 'ed25519Pub'},
   ],
 };
 
 /// Descriptor for `PeerIdent`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List peerIdentDescriptor = $convert.base64Decode(
     'CglQZWVySWRlbnQSFwoHbm9kZV9pZBgBIAEoB1IGbm9kZUlkEhIKBG5hbWUYAiABKAxSBG5hbW'
-    'USFQoGaXNfbmV3GAMgASgIUgVpc05ldw==');
+    'USFQoGaXNfbmV3GAMgASgIUgVpc05ldxIfCgtlZDI1NTE5X3B1YhgEIAEoDFIKZWQyNTUxOVB1'
+    'Yg==');
 
 @$core.Deprecated('Use keyChangeDescriptor instead')
 const KeyChange$json = {

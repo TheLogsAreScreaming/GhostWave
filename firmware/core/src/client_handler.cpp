@@ -18,6 +18,7 @@ Pos toPos(const gw::Position& p) { return posFromDegrees(p.lat, p.lon, p.valid);
 gw::Position fromPos(const Pos& p) { return {latDeg(p), lonDeg(p), p.valid}; }
 
 bool usableDest(uint32_t id) { return id != 0 && id != gw::kBroadcast; }
+constexpr uint64_t kRequestKeyGapMs = 30 * 1000;   // RequestKey: IDENT costs airtime
 
 std::string hex8(uint32_t v) {
   char b[9];
@@ -224,7 +225,9 @@ void Handler::handle(Conn& c, const ToRadio& m, uint64_t now) {
         ct.name = p.name;
         ct.x25519Pub.assign(p.xPub.begin(), p.xPub.end());
         ct.pinned = p.pinned;
-        if (hooks_.edKeys) {
+        if (p.hasEdPub) {
+          ct.ed25519Pub.assign(p.edPub.begin(), p.edPub.end());
+        } else if (hooks_.edKeys) {
           auto it = hooks_.edKeys->find(p.id);
           if (it != hooks_.edKeys->end()) {
             uint8_t x[32];
@@ -385,6 +388,8 @@ void Handler::onPeerIdent(uint32_t id, const std::string& name, bool firstSeen) 
   m.nodeId = id;
   m.name = name;
   m.isNew = firstSeen;
+  uint8_t ed[32];
+  if (r_.peerEdPub(id, ed)) m.ed25519Pub.assign(ed, ed + 32);
   event(m, true);
 }
 
@@ -482,7 +487,8 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
         return true;
       }
       break;
-    case ToKind::SetName: break;
+    case ToKind::SetName:
+    case ToKind::RequestKey: break;
     default: return false;
   }
   switch (m.kind) {
@@ -560,6 +566,27 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
         return true;
       }
       self_.name = m.name;
+      reply(c, req, FromKind::Ok);
+      return true;
+    }
+    case ToKind::RequestKey: {
+      if (!usableDest(m.nodeId) || m.nodeId == self_.id) {
+        error(c, req, ErrorCode::BadArgument, "bad node ID");
+        return true;
+      }
+      if (r_.hasPeerKey(m.nodeId)) {   // nothing to ask; ListContacts has it
+        reply(c, req, FromKind::Ok);
+        return true;
+      }
+      if (r_.identAskedWithin(m.nodeId, now, kRequestKeyGapMs)) {
+        error(c, req, ErrorCode::RateLimited, "asked for this key moments ago");
+        return true;
+      }
+      if (!r_.requestIdent(m.nodeId, now)) {
+        error(c, req, ErrorCode::NoIdentity, "this node cannot ask for a key");
+        return true;
+      }
+      t_.log("client asked for the key of " + hex8(m.nodeId));
       reply(c, req, FromKind::Ok);
       return true;
     }

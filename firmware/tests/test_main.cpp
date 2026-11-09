@@ -1480,6 +1480,10 @@ static void testIdentExchange() {
     ed25519ToX25519(ebPub, xb);
     CHECK(pl.size() == 1 && pl[0].id == idb && pl[0].name == "bob" && !pl[0].pinned &&
           std::memcmp(pl[0].xPub.data(), xb, 32) == 0);
+    uint8_t ebSeen[32];   // the signed key reaches the host (protocol 1.4)
+    CHECK(pl[0].hasEdPub && std::memcmp(pl[0].edPub.data(), ebPub, 32) == 0);
+    CHECK(a.router->peerEdPub(idb, ebSeen) && std::memcmp(ebSeen, ebPub, 32) == 0);
+    CHECK(!a.router->peerEdPub(0x1234, ebSeen));
     CHECK(a.router->setPeerName(idb, "Bob B") && a.router->peerList()[0].name == "Bob B");
     CHECK(!a.router->setPeerName(0x1234, "nobody"));
     CHECK(a.router->setPeerName(idb, "bob"));
@@ -1530,6 +1534,7 @@ static void testIdentRequest() {
   CHECK(m.count(PType::Ident) == n);
   // an explicit request still gets an answer
   CHECK(m.nodes[0]->router->requestIdent(id[1], m.now));
+  CHECK(m.nodes[0]->router->identAskedWithin(id[1], m.now, 30000) && !m.nodes[1]->router->identAskedWithin(id[0], m.now, 30000));
   m.run(20000);
   CHECK(m.count(PType::Ident) == n + 2);
 }

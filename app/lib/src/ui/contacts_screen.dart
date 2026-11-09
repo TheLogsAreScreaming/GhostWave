@@ -7,7 +7,9 @@ import '../app/mesh_controller.dart';
 import '../app/providers.dart';
 import '../data/mesh_store.dart';
 import '../data/models.dart';
+import '../gen/ghostwave.pb.dart' as pb;
 import '../link/contact_card.dart';
+import '../link/session.dart';
 import 'add_contact_screen.dart';
 import 'channel_screens.dart';
 import 'chat_screen.dart';
@@ -34,7 +36,15 @@ class ContactsScreen extends ConsumerWidget {
     }
 
     final contacts = mesh.contacts.values.toList()..sort((a, b) => lastActivity(b).compareTo(lastActivity(a)));
-    final nearby = mesh.neighbors.values.where((n) => !mesh.contacts.containsKey(n.nodeId)).toList()
+    int waiting(int peer) =>
+        (mesh.messages[peer] ?? const <ChatMessage>[]).where((m) => m.outgoing && m.state == MsgState.pending).length;
+    // messages written for a node that has gone quiet stay findable until its key arrives
+    final held = {
+      for (final MapEntry(key: peer, value: msgs) in mesh.messages.entries)
+        if (!mesh.contacts.containsKey(peer) && !mesh.neighbors.containsKey(peer) && waiting(peer) > 0)
+          peer: Neighbor(nodeId: peer, lastSeen: msgs.last.at),
+    };
+    final nearby = [...mesh.neighbors.values.where((n) => !mesh.contacts.containsKey(n.nodeId)), ...held.values]
       ..sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
 
     final peopleUnread = mesh.unread.values.fold(0, (a, b) => a + b);
@@ -66,7 +76,13 @@ class ContactsScreen extends ConsumerWidget {
                   ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.cell_tower)),
                     title: Text(nodeIdHex(n.nodeId), style: GwText.mono),
-                    subtitle: Text([timeAgo(n.lastSeen), if (n.pos != null) n.pos.toString()].join(' · ')),
+                    subtitle: Text(
+                      [
+                        timeAgo(n.lastSeen),
+                        if (n.pos != null) n.pos.toString(),
+                        if (waiting(n.nodeId) > 0) '${waiting(n.nodeId)} waiting for key',
+                      ].join(' · '),
+                    ),
                     trailing: const Icon(Icons.info_outline),
                     onTap: () => _showHeardNode(context, ref, n),
                   ),
@@ -270,6 +286,26 @@ class _ContactTile extends ConsumerWidget {
   }
 }
 
+/// Asks the node for [peer]'s key and says what happened. A reply only means
+/// the request went out.
+Future<void> _askForKey(MeshController ctl, ScaffoldMessengerState messenger, int peer) async {
+  if (!ctl.nodeCanRequestKey) {
+    await ctl.refreshContacts();
+    return;
+  }
+  String note;
+  try {
+    await ctl.requestKey(peer);
+    await ctl.refreshContacts();
+    note = 'Asked. The node moves to your contacts if it answers.';
+  } on NodeError catch (e) {
+    note = e.code == pb.Error_Code.RATE_LIMITED ? 'Already asked moments ago. Try again in 30 seconds.' : e.message;
+  } on Object {
+    note = 'Could not reach your node.';
+  }
+  messenger.showSnackBar(SnackBar(content: Text(note)));
+}
+
 /// Explains a heard node the app cannot message yet, and what to do.
 void _showHeardNode(BuildContext context, WidgetRef ref, Neighbor n) {
   final id = nodeIdHex(n.nodeId);
@@ -287,25 +323,37 @@ void _showHeardNode(BuildContext context, WidgetRef ref, Neighbor n) {
               Text(id, style: Theme.of(sheet).textTheme.titleLarge?.merge(GwText.mono)),
               const SizedBox(height: 8),
               Text(
-                'This node is in radio range, but your node does not have its key yet, so it cannot '
-                'be messaged. Your node asks for the key on its own (an IDENT request). When it '
-                'arrives, the node moves to your contacts, usually within a minute.\n\n'
+                'Your node has heard this node but does not have its key yet. Messages you write now '
+                'stay on this phone and are sent, encrypted, once the key arrives. Your node asks '
+                'for the key on its own (an IDENT request), and the node then moves to your contacts, '
+                'usually within a minute. A node that has left radio range cannot answer.\n\n'
                 'To add it right away, scan its QR code or paste its contact card text '
                 '(ghostwave:$id:…). The virtual mesh script prints the card key for each node.',
                 style: Theme.of(sheet).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
                 children: [
                   TextButton(
                     onPressed: () {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final ctl = ref.read(meshProvider.notifier);
                       Navigator.of(sheet).pop();
-                      unawaited(ref.read(meshProvider.notifier).refreshContacts());
+                      unawaited(_askForKey(ctl, messenger, n.nodeId));
                     },
-                    child: const Text('Check again'),
+                    child: Text(ref.read(meshProvider.notifier).nodeCanRequestKey ? 'Ask for key' : 'Check again'),
                   ),
-                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(sheet).pop();
+                      unawaited(
+                        Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: n.nodeId))),
+                      );
+                    },
+                    child: const Text('Write message'),
+                  ),
                   FilledButton.icon(
                     onPressed: () {
                       Navigator.of(sheet).pop();

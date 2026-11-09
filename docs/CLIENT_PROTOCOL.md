@@ -137,6 +137,13 @@ Notes on the requests:
   `ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>`. Anyone with it can read and write the
   channel. An `AddChannel` with a name already in use under another key, or a key already joined
   under another name, gets `BAD_ARGUMENT`.
+- **RequestKey (1.4)** asks a node in radio range for its signed IDENT now, instead of waiting for
+  the node's own request (DESIGN §4.5). Beacons carry no key and a node ID is only a hash, so a node
+  that was only heard can't be sent a sealed DM: an app should hold a message for it until
+  `PeerIdent` arrives. The reply is `Ok`, which means asked, not answered. The peer may be out of
+  range or never reply. `Ok` also means the key is already held (see `ListContacts`). Asking the
+  same node again within 30 s gets `RATE_LIMITED`, and `NO_IDENTITY` means this node has no signing
+  key to ask with.
 - **SetName** changes the IDENT name (`ghostwaved` keeps it across restarts). Nodes without an
   Ed25519 identity, such as the MCU firmware today, answer `NO_IDENTITY`. Peers see it as
   `PeerIdent{is_new = false}`. A new `Hello` returns it in `NodeInfo.name`.
@@ -158,7 +165,7 @@ Notes on the requests:
 | 20 | `ContactsEnd` | `count` | ends `ListContacts` |
 | 21 | `SendQueued` | `dest`, `msg_id`, `client_msg_id` | reply to `SendText` |
 | 22 | `Ok` | none | success with no data |
-| 23 | `PeerIdent` | `node_id`, `name`, `is_new` | a verified IDENT taught a new key, or a new name |
+| 23 | `PeerIdent` | `node_id`, `name`, `is_new`, `ed25519_pub` (1.4) | a verified IDENT taught a new key, or a new name |
 | 24 | `KeyChange` | `node_id`, `ed25519_pub`, `name` | a signed IDENT carries a different key (DESIGN §9.2). Warn the user. The node keeps the old key. |
 | 25 | `ChannelMessage` (1.1) | `channel` (name), `src`, `msg_id`, `text` | a group channel message arrived (queued like `TextMessage`) |
 | 26 | `Channel` (1.1) | `name`, `psk` | reply to `ListChannels` (the key lets the app share the channel) |
@@ -177,8 +184,8 @@ Notes on the events:
 - **Only opened messages reach the app.** A DM sealed with a key the node cannot match (no
   key for the sender yet, and no shared channel key) is dropped on the node. So the app only
   ever sees plaintext the node could decrypt.
-- **Contact.ed25519_pub** is only filled for keys pinned from an Ed25519 key since the daemon
-  started. Keys learned over IDENT give only `x25519_pub`.
+- **Contact.ed25519_pub** is filled for keys pinned from an Ed25519 key since the daemon started
+  and, from 1.4, for keys learned from a signed IDENT since then. Otherwise only `x25519_pub` is set.
 
 ### Error codes
 

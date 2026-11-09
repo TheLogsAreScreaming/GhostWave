@@ -376,6 +376,51 @@ void main() {
     });
   });
 
+  group('heard nodes', () {
+    ChannelNode keyNode({int minor = 4}) {
+      final n = ChannelNode();
+      n.node.protocolMinor = minor;
+      n.node.onRequest.listen((e) {
+        final (c, r) = e;
+        if (r.hasRequestKey()) c.send(pb.FromRadio(reqId: r.reqId, ok: pb.Ok()));
+      });
+      return n;
+    }
+
+    test('a message waits on the phone, then goes out when the key arrives', () async {
+      final n = keyNode();
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      await ctl().sendText(bob, 'early');
+      await settle();
+      expect(n.node.requests.where((r) => r.hasSendText()), isEmpty, reason: 'no key: must not reach the node');
+      expect(n.node.requests.where((r) => r.hasRequestKey()).single.requestKey.nodeId, bob);
+      expect(mesh().messages[bob]!.single.state, MsgState.pending);
+
+      n.node.last.send(
+        pb.FromRadio(
+          peerIdent: pb.PeerIdent(nodeId: bob, name: 'bob'.codeUnits, isNew: true, ed25519Pub: key(3)),
+        ),
+      );
+      await settle();
+      expect(n.node.requests.where((r) => r.hasSendText()).length, 1);
+      expect(mesh().messages[bob]!.single.state, MsgState.sent);
+      expect(mesh().contacts[bob]!.ed25519Hex, hexEncode(key(3)));
+    });
+
+    test('a node older than 1.4 is not asked, and the message still waits', () async {
+      final n = keyNode(minor: 3);
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      expect(ctl().nodeCanRequestKey, isFalse);
+      await ctl().sendText(bob, 'early');
+      await settle();
+      expect(n.node.requests.where((r) => r.hasRequestKey()), isEmpty);
+      expect(n.node.requests.where((r) => r.hasSendText()), isEmpty);
+      expect(mesh().messages[bob]!.single.state, MsgState.pending);
+    });
+  });
+
   group('node name', () {
     test('SetName, then the new name shows in NodeInfo', () async {
       final n = ChannelNode();
