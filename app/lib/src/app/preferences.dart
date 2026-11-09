@@ -252,3 +252,15 @@ class MapFocusNotifier extends Notifier<MapFocus?> {
 
 /// The latest map focus request.
 final mapFocusProvider = NotifierProvider<MapFocusNotifier, MapFocus?>(MapFocusNotifier.new);
+
+/// The conversation open beside the chat list on wide windows; null = none.
+class OpenChatNotifier extends Notifier<int?> {
+  @override
+  int? build() => null;
+
+  /// Opens the chat with [peer] in the side pane.
+  void open(int peer) => state = peer;
+}
+
+/// The peer whose chat shows in the two-pane Chats layout.
+final openChatProvider = NotifierProvider<OpenChatNotifier, int?>(OpenChatNotifier.new);

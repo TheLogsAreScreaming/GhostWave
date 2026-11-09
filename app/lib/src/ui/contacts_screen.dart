@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/mesh_controller.dart';
+import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../data/mesh_store.dart';
 import '../data/models.dart';
@@ -14,7 +15,6 @@ import 'add_contact_screen.dart';
 import 'channel_screens.dart';
 import 'chat_screen.dart';
 import 'format.dart';
-import 'widgets.dart';
 import 'theme.dart';
 
 /// Contacts (with unread counts and last-seen) and nodes heard nearby.
@@ -68,9 +68,12 @@ class ContactsScreen extends ConsumerWidget {
             children: [
               for (final c in contacts) _ContactTile(c, unread: mesh.unread[c.nodeId] ?? 0, mesh: mesh),
               if (nearby.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-                  child: Text('Heard nearby, waiting for their key'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(GwSpace.lg + GwSpace.sm, GwSpace.xl, GwSpace.lg, GwSpace.xs),
+                  child: Text(
+                    'Heard nearby, waiting for their key',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(color: GwColors.mutedText),
+                  ),
                 ),
                 for (final n in nearby)
                   ListTile(
@@ -90,7 +93,7 @@ class ContactsScreen extends ConsumerWidget {
             ],
           );
 
-    return DefaultTabController(
+    final list = DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
@@ -106,9 +109,9 @@ class ContactsScreen extends ConsumerWidget {
                   : null,
               icon: const Icon(Icons.refresh),
             ),
-            const LinkChip(),
           ],
           bottom: TabBar(
+            padding: const EdgeInsets.fromLTRB(GwSpace.lg, 0, GwSpace.lg, GwSpace.sm),
             tabs: [
               Tab(child: _TabLabel('People', peopleUnread)),
               Tab(child: _TabLabel('Channels', channelUnread)),
@@ -126,6 +129,59 @@ class ContactsScreen extends ConsumerWidget {
             Expanded(child: TabBarView(children: [people, const ChannelsList()])),
           ],
         ),
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, box) {
+        // side by side once the chat itself still gets a comfortable width
+        if (box.maxWidth < 840) return list;
+        final open = ref.watch(openChatProvider);
+        return Row(
+          children: [
+            SizedBox(
+              width: (box.maxWidth * 0.36).clamp(320, 420),
+              child: _TwoPane(child: list),
+            ),
+            const VerticalDivider(width: 1, thickness: 1),
+            Expanded(
+              child: open == null ? const _NoChatOpen() : ChatScreen(key: ValueKey(open), peer: open),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Marks the chat list as shown beside the open chat, so a tap selects
+/// instead of pushing a page.
+class _TwoPane extends InheritedWidget {
+  const _TwoPane({required super.child});
+
+  @override
+  bool updateShouldNotify(_TwoPane oldWidget) => false;
+}
+
+/// The empty right pane before a chat is picked.
+class _NoChatOpen extends StatelessWidget {
+  const _NoChatOpen();
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.forum_outlined, size: 48, color: GwColors.outline),
+          const SizedBox(height: GwSpace.md),
+          Text('Pick a conversation', style: text.titleMedium),
+          const SizedBox(height: GwSpace.xs),
+          Text(
+            'Messages go out over the mesh, end to end encrypted.',
+            style: text.bodyMedium?.copyWith(color: GwColors.mutedText),
+          ),
+        ],
       ),
     );
   }
@@ -243,45 +299,100 @@ class _ContactTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final msgs = mesh.messages[c.nodeId];
     final last = msgs == null || msgs.isEmpty ? null : msgs.last;
-    final lines = <String>[
-      if (last != null) '${last.outgoing ? 'You: ' : ''}${last.text}',
-      [
-        nodeIdHex(c.nodeId),
-        if (c.lastSeen != null) 'seen ${timeAgo(c.lastSeen!)}',
-        if (c.pos != null) c.pos.toString(),
-      ].join(' · '),
-    ];
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     final name = mesh.nameOf(c.nodeId);
-    return ListTile(
-      leading: CircleAvatar(child: Text(name.characters.first.toUpperCase())),
-      title: Row(
-        children: [
-          Flexible(child: Text(name, overflow: TextOverflow.ellipsis)),
-          if (c.keyChanged) ...[
-            // the warning icon below says it
-          ] else if (c.pinned) ...[
-            const SizedBox(width: 4),
-            const Tooltip(message: 'Key pinned from a contact card', child: Icon(Icons.verified, size: 16)),
-          ] else ...[
-            const SizedBox(width: 4),
-            const Tooltip(
-              message: 'Key learned over the air (not checked against a QR code)',
-              child: Icon(Icons.wifi_tethering, size: 16),
-            ),
-          ],
-          if (c.keyChanged) ...[
-            const SizedBox(width: 4),
+    final details = [
+      nodeIdHex(c.nodeId),
+      if (c.lastSeen != null) 'seen ${timeAgo(c.lastSeen!)}',
+      if (c.pos != null) c.pos.toString(),
+    ].join(' · ');
+    final (IconData trustIcon, String trust, Color trustColor) = c.keyChanged
+        ? (Icons.warning_amber, 'This node announced a different key', scheme.error)
+        : c.pinned
+        ? (Icons.verified, 'Key pinned from a contact card', GwColors.spectralCyan)
+        : (Icons.wifi_tethering, 'Key learned over the air (not checked against a QR code)', GwColors.mutedText);
+    final twoPane = context.dependOnInheritedWidgetOfExactType<_TwoPane>() != null;
+    void open() {
+      if (twoPane) {
+        ref.read(openChatProvider.notifier).open(c.nodeId);
+      } else {
+        unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: c.nodeId))));
+      }
+    }
+
+    final selected = twoPane && ref.watch(openChatProvider) == c.nodeId;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: GwSpace.sm),
+      child: ListTile(
+        selected: selected,
+        selectedTileColor: GwColors.surface2,
+        selectedColor: GwColors.mistWhite,
+        leading: _Avatar(name: name, id: c.nodeId),
+        title: Row(
+          children: [
+            Flexible(child: Text(name, overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: GwSpace.xs + 2),
             Tooltip(
-              message: 'This node announced a different key',
-              child: Icon(Icons.warning_amber, size: 18, color: Theme.of(context).colorScheme.error),
+              message: trust,
+              child: Icon(trustIcon, size: 16, color: trustColor, semanticLabel: trust),
             ),
           ],
-        ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (last != null)
+              Text(
+                '${last.outgoing ? 'You: ' : ''}${last.text}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.mistWhite) : null,
+              ),
+            Text(details, style: GwText.mono.copyWith(fontSize: 11.5, color: GwColors.outline)),
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (last != null) Text(clockTime(last.at), style: text.labelSmall?.copyWith(color: GwColors.mutedText)),
+            if (unread > 0) ...[
+              const SizedBox(height: GwSpace.xs),
+              Semantics(
+                label: '$unread unread',
+                excludeSemantics: true,
+                child: Badge(label: Text('$unread')),
+              ),
+            ],
+          ],
+        ),
+        onTap: open,
       ),
-      subtitle: Text(lines.join('\n'), maxLines: 2, overflow: TextOverflow.ellipsis),
-      isThreeLine: last != null,
-      trailing: unread > 0 ? Badge(label: Text('$unread')) : null,
-      onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatScreen(peer: c.nodeId))),
+    );
+  }
+}
+
+/// A round avatar with the name's first letter, tinted per node.
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.name, required this.id});
+
+  final String name;
+  final int id;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = id.isEven ? GwColors.spectralCyan : GwColors.violetLight;
+    return ExcludeSemantics(
+      child: CircleAvatar(
+        radius: 22,
+        backgroundColor: tint.withValues(alpha: 0.16),
+        foregroundColor: tint,
+        child: Text(
+          name.characters.first.toUpperCase(),
+          style: const TextStyle(fontFamily: GwFonts.headline, fontWeight: FontWeight.w700, fontSize: 18),
+        ),
+      ),
     );
   }
 }

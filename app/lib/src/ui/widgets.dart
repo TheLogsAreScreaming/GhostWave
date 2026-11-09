@@ -7,35 +7,8 @@ import '../link/node_link.dart';
 import 'connect_screen.dart';
 import 'theme.dart';
 
-/// App-bar chip showing the link state; tap opens the Connect screen.
-class LinkChip extends ConsumerWidget {
-  /// Creates the chip.
-  const LinkChip({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(linkStateProvider).value ?? const LinkIdle();
-    final (IconData icon, String label) = switch (state) {
-      LinkUp() => (Icons.link, 'Online'),
-      LinkConnecting() => (Icons.sync, 'Connecting'),
-      LinkWaiting() => (Icons.schedule, 'Retrying'),
-      LinkFailed() => (Icons.error_outline, 'Stopped'),
-      LinkNeedsPin() => (Icons.lock_outline, 'PIN'),
-      LinkIdle() => (Icons.link_off, 'Offline'),
-    };
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ActionChip(
-        avatar: Icon(icon, size: 18, color: state is LinkUp ? GwColors.success : null),
-        label: Text(label),
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ConnectScreen())),
-      ),
-    );
-  }
-}
-
-/// Slim header above the tabs: which node the app is talking to. Tap opens
-/// the Connect screen.
+/// The app header above the tabs: the brand, which node the app is talking
+/// to, and the link state as a word in a pill. Tap opens the Connect screen.
 class ConnectionBar extends ConsumerWidget {
   /// Creates the bar. [safeTop] pads for the status bar (false when another
   /// banner above already does).
@@ -49,49 +22,85 @@ class ConnectionBar extends ConsumerWidget {
     final state = ref.watch(linkStateProvider).value ?? const LinkIdle();
     final address = ref.watch(nodeAddressProvider);
     final scheme = Theme.of(context).colorScheme;
-    final (IconData icon, Color color, String text) = switch (state) {
+    final text = Theme.of(context).textTheme;
+    // word: the state at a glance; detail: which node, or what to do
+    final (IconData icon, Color color, String word, String detail) = switch (state) {
       LinkUp(:final info) => (
-        Icons.link,
+        Icons.circle,
         GwColors.success,
-        'Connected to ${_nodeLabel(decodeLenient(info.name), info.nodeId)}',
+        'Online',
+        _nodeLabel(decodeLenient(info.name), info.nodeId),
       ),
-      LinkConnecting(:final target) => (Icons.sync, scheme.tertiary, 'Connecting to $target…'),
+      LinkConnecting(:final target) => (Icons.sync, scheme.tertiary, 'Connecting', target),
       LinkWaiting(:final target, :final retryIn) => (
         Icons.schedule,
         scheme.tertiary,
-        'Reconnecting to $target in ${retryIn.inSeconds} s',
+        'Retrying',
+        '$target in ${retryIn.inSeconds} s',
       ),
-      LinkFailed(:final reason) => (Icons.error_outline, scheme.error, 'Stopped: $reason'),
+      LinkFailed(:final reason) => (Icons.error_outline, scheme.error, 'Stopped', reason),
       LinkNeedsPin(:final wrong) => (
         Icons.lock_outline,
         scheme.error,
+        'PIN',
         wrong ? 'Wrong PIN · tap to enter it again' : 'This node needs a PIN · tap to enter it',
       ),
-      LinkIdle() => (Icons.link_off, scheme.outline, address == null ? 'Not connected' : 'Offline · tap to connect'),
+      LinkIdle() => (Icons.link_off, scheme.outline, 'Offline', address == null ? 'Not connected' : 'Tap to connect'),
     };
     return Material(
-      color: GwColors.surface1,
+      color: GwColors.ghostBlack,
       child: SafeArea(
         top: safeTop,
         bottom: false,
-        child: InkWell(
-          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ConnectScreen())),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Icon(icon, size: 16, color: color),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    text,
-                    style: Theme.of(context).textTheme.labelLarge,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+        child: Semantics(
+          button: true,
+          label: '$word. $detail',
+          hint: 'Opens the connection screen',
+          excludeSemantics: true,
+          child: InkWell(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ConnectScreen())),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 52),
+              padding: const EdgeInsets.fromLTRB(GwSpace.lg + GwSpace.xs, GwSpace.sm, GwSpace.md, GwSpace.sm),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: GwColors.outlineVariant)),
+              ),
+              child: Row(
+                children: [
+                  Image.asset('assets/brand/logo.png', width: 26, height: 26),
+                  const SizedBox(width: GwSpace.sm),
+                  Text(
+                    'GhostWave',
+                    style: text.titleMedium?.copyWith(fontFamily: GwFonts.headline, fontWeight: FontWeight.w700),
                   ),
-                ),
-                const Icon(Icons.chevron_right, size: 18),
-              ],
+                  const SizedBox(width: GwSpace.md),
+                  Expanded(
+                    child: Text(
+                      detail,
+                      textAlign: TextAlign.end,
+                      maxLines: 2,
+                      style: text.bodySmall?.copyWith(color: GwColors.mutedText),
+                    ),
+                  ),
+                  const SizedBox(width: GwSpace.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: GwSpace.md, vertical: GwSpace.xs + 2),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(GwRadius.pill),
+                      border: Border.all(color: color.withValues(alpha: 0.45)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, size: icon == Icons.circle ? 9 : 15, color: color),
+                        const SizedBox(width: GwSpace.xs + 2),
+                        Text(word, style: text.labelLarge?.copyWith(color: GwColors.mistWhite)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
