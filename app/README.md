@@ -20,7 +20,7 @@ any other mesh app.
 | **Messaging:** unread badges for DMs and channels, tap or long-press to retry a failed message, long-press to copy or delete a message, delete a conversation or clear a channel | done |
 | **Key change:** a contact whose node announced a different key is marked unverified with a prominent warning until you accept the new key (pinned on the node) or keep the old one | done |
 | **Settings** (Me tab, gear): rename the node (`SetName`), reset the app's data, version, licenses (including the bundled fonts) | done |
-| **Chat:** per-contact DM threads, queued → sent → delivered (`SendQueued` / `Delivered`), live UTF-8 byte counter against the node's 73-byte limit, saved on the phone, offline outbox sent on reconnect, failed messages retry on tap | done |
+| **Chat:** per-contact DM threads, queued → sent → delivered (`SendQueued` / `Delivered`), live UTF-8 byte counter, longer messages split into up to 8 labelled parts over the node's 73-byte limit (each part shows its own state and retries on its own), saved on the phone, offline outbox sent on reconnect, failed messages retry on tap | done |
 | **Map:** own node, contacts, nearby nodes and SOS alerts on OpenStreetMap tiles (online) | done |
 | **SOS:** hold 3 s to raise, "SOS active" with acks received, stop; incoming SOS banner on every tab with Ack | done |
 | **Status:** every `Status` field, refreshed every 10 s | done |
@@ -192,6 +192,8 @@ happens. Not tried on a phone yet.
   and "Keep sharing in the background" on the Me tab, which is off by default. It uses a foreground service, so it needs
   only the "while using the app" permission, and the notification says "sharing your location". Android only allows this
   when it's turned on with the app open. **It hasn't been tried on a real phone.**
+- **Long messages arrive as separate labelled messages.** "(1/3) …" is plain text in each part, so older apps read them too. The
+  receiving app doesn't join them, and parts can arrive out of order or not at all.
 - **Contacts come from the node.** A node in radio range becomes a contact on its own once your node
   hears its identity (IDENT; trust on first use, marked with a radio icon). Until then it shows under
   "Heard nearby, waiting for their key". Beacons carry no key, so a heard node can't get a sealed DM yet.

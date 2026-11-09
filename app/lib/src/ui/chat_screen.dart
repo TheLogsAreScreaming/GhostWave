@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/mesh_controller.dart';
 import '../app/providers.dart';
+import '../data/message_split.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
@@ -53,9 +54,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _send() async {
     final t = _text.text.trim();
-    if (t.isEmpty || utf8Length(t) > _max) return;
+    final max = _max;
+    if (t.isEmpty || splitMessage(t, max).length > kMaxMessageParts) return;
     _text.clear();
-    await ref.read(meshProvider.notifier).sendText(widget.peer, t);
+    await ref.read(meshProvider.notifier).sendMessage(widget.peer, t, max);
   }
 
   @override
@@ -69,7 +71,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final msgs = mesh.messages[widget.peer] ?? const <ChatMessage>[];
     final bytes = utf8Length(_text.text.trim());
     final max = _max;
-    final over = bytes > max;
+    final parts = bytes == 0 ? 1 : splitMessage(_text.text.trim(), max).length;
+    final over = parts > kMaxMessageParts;
     final scheme = Theme.of(context).colorScheme;
 
     final ctl = ref.read(meshProvider.notifier);
@@ -166,9 +169,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       decoration: InputDecoration(
                         hintText: 'Message',
                         border: const OutlineInputBorder(),
-                        counterText: '$bytes / $max bytes',
+                        counterText: parts > 1 ? '$bytes bytes · $parts messages' : '$bytes / $max bytes',
                         counterStyle: TextStyle(color: over ? scheme.error : null),
-                        errorText: over ? 'Too long: ${bytes - max} bytes over' : null,
+                        errorText: over ? 'Too long: at most $kMaxMessageParts messages' : null,
                       ),
                     ),
                   ),
