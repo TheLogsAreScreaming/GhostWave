@@ -10,6 +10,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/mesh_store.dart';
+import '../data/message_split.dart';
 import '../data/models.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import '../link/contact_card.dart';
@@ -547,6 +548,14 @@ class MeshController extends Notifier<MeshState> {
       for (final m in state.messages[peer] ?? const <ChatMessage>[]) {
         if (m.outgoing && m.state == MsgState.pending) unawaited(_deliver(session, m));
       }
+    }
+  }
+
+  /// Sends [text], in labelled parts if it is too long for one radio message.
+  /// Each part is its own message, with its own delivery state and retry.
+  Future<void> sendMessage(int peer, String text, int maxBytes) async {
+    for (final part in splitMessage(text, maxBytes)) {
+      await sendText(peer, part);
     }
   }
 

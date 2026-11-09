@@ -376,6 +376,32 @@ void main() {
     });
   });
 
+  group('long messages', () {
+    test('parts are separate messages, each with its own delivery state', () async {
+      final n = ChannelNode();
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      await ctl().addContact(ContactCard(nodeId: bob, ed25519Pub: key(1), name: 'bob'));
+      await ctl().sendMessage(bob, 'word ' * 30, 73);
+      await settle();
+      final sent = n.node.requests.where((r) => r.hasSendText()).map((r) => r.sendText).toList();
+      expect(sent.length, greaterThan(1));
+      expect(sent.every((s) => s.text.length <= 73), isTrue);
+      expect(utf8.decode(sent.first.text), startsWith('(1/${sent.length}) '));
+      final msgs = mesh().messages[bob]!;
+      expect(msgs.map((m) => m.state).toSet(), {MsgState.sent});
+      n.node.last.send(
+        pb.FromRadio(
+          delivered: pb.Delivered(dest: bob, msgId: msgs.first.msgId, clientMsgId: msgs.first.clientMsgId),
+        ),
+      );
+      await settle();
+      final after = mesh().messages[bob]!;
+      expect(after.first.state, MsgState.delivered);
+      expect(after.skip(1).map((m) => m.state).toSet(), {MsgState.sent});
+    });
+  });
+
   group('heard nodes', () {
     ChannelNode keyNode({int minor = 4}) {
       final n = ChannelNode();
