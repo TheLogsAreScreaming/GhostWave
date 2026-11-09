@@ -855,7 +855,7 @@ void gwSetup() {
   if (g_set.freqMHz < region.minMHz || g_set.freqMHz > region.maxMHz) g_set.freqMHz = region.defaultMHz;
   g_radio.setTxGate(txOpen);
 #if GW_HAS_OLED
-  Serial.println(gw::mcu::oled::begin() ? "display: RAK1921 found" : "display: none found");
+  Serial.println(gw::mcu::oled::begin(GW_FW_VERSION) ? "display: RAK1921 found" : "display: none found");
 #endif
   int16_t st = g_radio.begin(g_cfg.phy, g_set.freqMHz, g_set.outputDbm, region.dutyPermille);
   g_radioOk = st == 0;
