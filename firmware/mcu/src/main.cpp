@@ -23,6 +23,7 @@
 #include "platform.h"
 #include "radio.h"
 #include "settings.h"
+#include "oled.h"
 #include "ui.h"
 #if GW_HAS_BLE
 #include "ble_link.h"
@@ -153,6 +154,9 @@ uint8_t ownBattery() {
 class SerialApp : public gw::AppPort {
  public:
   void onMessage(uint32_t src, uint32_t msgId, const std::vector<uint8_t>& p) override {
+#if GW_HAS_OLED
+    gw::mcu::oled::noteMessage(src, p.data(), p.size());
+#endif
     Serial.printf("MSG from %08x id %08x: %.*s\n", src, msgId, static_cast<int>(p.size()),
                   reinterpret_cast<const char*>(p.data()));
     GW_SOUND(Message);
@@ -753,6 +757,9 @@ void gwSetup() {
   const gw::mcu::RegionInfo& region = gw::mcu::regionInfo(g_set.region);
   if (g_set.freqMHz < region.minMHz || g_set.freqMHz > region.maxMHz) g_set.freqMHz = region.defaultMHz;
   g_radio.setTxGate(txOpen);
+#if GW_HAS_OLED
+  Serial.println(gw::mcu::oled::begin() ? "display: RAK1921 found" : "display: none found");
+#endif
   int16_t st = g_radio.begin(g_cfg.phy, g_set.freqMHz, g_set.outputDbm, region.dutyPermille);
   g_radioOk = st == 0;
   if (!g_radioOk) Serial.printf("radio init failed: %d\n", st);
@@ -881,6 +888,15 @@ void gwLoop() {
 #endif
 #if GW_HAS_UI
   pollUi(now);
+#endif
+#if GW_HAS_OLED
+  {
+    auto& st = g_router->stats();
+    gw::mcu::oled::poll(static_cast<uint32_t>(now),
+                        {g_set.name.c_str(), g_cfg.nodeId, g_radioOk, g_set.txOn, g_router->sosActive(),
+                         static_cast<uint32_t>(g_router->sosCount()), g_radio.outputDbm(),
+                         static_cast<uint32_t>(g_router->neighborCount(now)), st.tx, st.rx});
+  }
 #endif
   if (now - lastTick >= 2) {
     lastTick = now;
