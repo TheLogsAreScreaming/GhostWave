@@ -43,12 +43,12 @@ const Module::RfSwitchMode_t kRfSwitchTable[] = {
 #else
 constexpr int kMinDriveDbm = -9;      // SX1262 high-power PA range
 constexpr int kMaxDriveDbm = 22;
-SX1262 g_sx(new Module(kPinLoraCs, kPinLoraDio1, kPinLoraRst, kPinLoraBusy, SPI));
+SX1262 g_sx(new Module(kPinLoraCs, kPinLoraDio1, kPinLoraRst, kPinLoraBusy, GW_LORA_SPI));
 #endif
 
 // SX1262 drive for `out` dBm at the antenna port.
 int driveFor(int out) {
-#if GW_HAS_KCT8103L
+#if GW_HAS_KCT8103L || GW_HAS_PA_CURVE
   // Highest drive whose drive + FEM gain does not exceed the target; same
   // search as Meshtastic's LoRaFEMInterface::powerConversion.
   for (int d = static_cast<int>(sizeof kPaGainDb) - 1; d >= 0; --d)
@@ -84,7 +84,7 @@ int16_t McuRadio::begin(const Phy& phy, float freqMHz, int outputDbm, uint16_t d
   delay(1);
 #endif
 #if GW_NRF52
-  SPI.begin();   // the variant's default SPI is the SX1262 bus
+  GW_LORA_SPI.begin();   // the SX1262 bus: the variant's default SPI, except on the 1 W module
 #else
   SPI.begin(kPinLoraSck, kPinLoraMiso, kPinLoraMosi, kPinLoraCs);
 #endif
