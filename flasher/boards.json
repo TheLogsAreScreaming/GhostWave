@@ -1,0 +1,46 @@
+{
+  "boards": [
+    {
+      "id": "rak3401_1w",
+      "name": "RAK3401 + RAK13302 (1 W)",
+      "detail": "WisMesh High Power Booster kit",
+      "softdevice": "S140 6.1.1",
+      "sdFwid": 182,
+      "appStart": 155648,
+      "enter": "Double-tap the reset button if the automatic step doesn't work.",
+      "guide": "RAK3401_1W.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "The battery is connected. The 1 W amplifier needs it.",
+        "This is a RAK3401 with a RAK13302, not a RAK4631."
+      ]
+    },
+    {
+      "id": "rak4631",
+      "name": "RAK4631",
+      "detail": "WisBlock core on a RAK19007 or RAK19003 base",
+      "softdevice": "S140 6.1.1",
+      "sdFwid": 182,
+      "appStart": 155648,
+      "enter": "Double-tap the reset button if the automatic step doesn't work.",
+      "guide": "RAK4631_FLASHING.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is a RAK4631, not a 1 W RAK3401 kit."
+      ]
+    },
+    {
+      "id": "t1000e",
+      "name": "Seeed T1000-E",
+      "detail": "SenseCAP card tracker",
+      "softdevice": "S140 7.3.0",
+      "sdFwid": 291,
+      "appStart": 159744,
+      "enter": "If the automatic step doesn't work: unplug it, hold the button, plug in the USB cable, then let go.",
+      "guide": "T1000E_FLASHING.md",
+      "checks": [
+        "This is a T1000-E."
+      ]
+    }
+  ]
+}
