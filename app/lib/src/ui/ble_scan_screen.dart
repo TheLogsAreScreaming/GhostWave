@@ -123,13 +123,16 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
               title: Text('Looking for GhostWave nodes…'),
             )
           else if (nodes.isEmpty)
-            const Text('No nodes found. Check that the node is on and close by.'),
+            const Text('No nodes found. Bring the radio nearby, disconnect any other phone using it, then scan again.'),
           for (final a in nodes)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.bluetooth),
               title: Text(a.name),
-              subtitle: Text('${_signal(a.rssi)} signal · ${a.rssi} dBm', style: GwText.mono.copyWith(fontSize: 12)),
+              subtitle: Text(
+                a.rssi == -127 ? 'Signal unavailable' : '${_signal(a.rssi)} signal · ${a.rssi} dBm',
+                style: GwText.mono.copyWith(fontSize: 12),
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => unawaited(_connect(a)),
             ),
