@@ -18,6 +18,9 @@ function result(text, cls = "") {
 
 function updateButtons() {
   const ready = version() && [...document.querySelectorAll("#confirm input")].every((c) => c.checked);
+  $("board").disabled = busy;
+  $("version").disabled = busy || !board()?.versions.length;
+  $("connect").disabled = busy || !ready;
   $("start").disabled = busy || !ready;
   $("already").disabled = busy || !ready;
 }
@@ -51,6 +54,7 @@ function renderVersions() {
 }
 
 function renderVersion() {
+  $("secondStep").hidden = true;
   const v = version();
   $("preNote").hidden = !v?.prerelease;
   if (v) {
@@ -83,8 +87,6 @@ async function touchToBootloader(port) {
 
 async function runFlash() {
   const port = await navigator.serial.requestPort();
-  busy = true;
-  updateButtons();
   $("secondStep").hidden = true;
   $("progressWrap").hidden = false;
   $("bar").value = 0;
@@ -107,8 +109,6 @@ async function runFlash() {
   } finally {
     if (io) await io.close();
     else await port.close().catch(() => {});
-    busy = false;
-    updateButtons();
   }
 }
 
@@ -126,7 +126,19 @@ async function start() {
   }
 }
 
-const guarded = (fn) => () => fn().catch((err) => { busy = false; updateButtons(); result(explain(err), "bad"); });
+const guarded = (fn) => async () => {
+  if (busy) return;
+  busy = true;
+  updateButtons();
+  try {
+    await fn();
+  } catch (err) {
+    result(explain(err), "bad");
+  } finally {
+    busy = false;
+    updateButtons();
+  }
+};
 
 async function init() {
   if (!("serial" in navigator)) {
