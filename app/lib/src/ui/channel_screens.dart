@@ -6,11 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../app/mesh_controller.dart';
+import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
+import 'format.dart';
 import 'message_bubble.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 /// Channel text limit if the node has not said (`NodeInfo.max_channel_text_bytes`).
@@ -55,18 +58,55 @@ class ChannelsList extends ConsumerWidget {
               final msgs = mesh.channelMessages[name];
               final m = msgs == null || msgs.isEmpty ? null : msgs.last;
               final unread = mesh.channelUnread[name] ?? 0;
-              return ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.tag)),
-                title: Text(name),
-                subtitle: Text(
-                  m == null ? 'No messages yet' : '${m.outgoing ? 'You' : mesh.nameOf(m.src)}: ${m.text}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              final twoPane = ChatPaneScope.isTwoPane(context);
+              final text = Theme.of(context).textTheme;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: GwSpace.sm),
+                child: ListTile(
+                  selected: twoPane && ref.watch(openChatProvider) == OpenChannel(name),
+                  selectedTileColor: GwColors.surface2,
+                  selectedColor: GwColors.mistWhite,
+                  leading: ExcludeSemantics(
+                    child: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: GwColors.phantomViolet.withValues(alpha: 0.22),
+                      foregroundColor: GwColors.violetLight,
+                      child: const Icon(Icons.tag),
+                    ),
+                  ),
+                  title: Text('#$name'),
+                  subtitle: Text(
+                    m == null ? 'No messages yet' : '${m.outgoing ? 'You' : mesh.nameOf(m.src)}: ${m.text}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.mistWhite) : null,
+                  ),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (m != null) Text(clockTime(m.at), style: text.labelSmall?.copyWith(color: GwColors.mutedText)),
+                      if (unread > 0) ...[
+                        const SizedBox(height: GwSpace.xs),
+                        Semantics(
+                          label: '$unread unread',
+                          excludeSemantics: true,
+                          child: Badge(label: Text('$unread')),
+                        ),
+                      ],
+                    ],
+                  ),
+                  onTap: () {
+                    if (twoPane) {
+                      ref.read(openChatProvider.notifier).open(OpenChannel(name));
+                    } else {
+                      unawaited(
+                        Navigator.of(context)
+                            .push(MaterialPageRoute<void>(builder: (_) => ChannelChatScreen(channel: name))),
+                      );
+                    }
+                  },
                 ),
-                trailing: unread > 0 ? Badge(label: Text('$unread')) : null,
-                onTap: () =>
-                    Navigator.of(context)
-                        .push(MaterialPageRoute<void>(builder: (_) => ChannelChatScreen(channel: name))),
               );
             },
           ),
@@ -246,7 +286,7 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
         }
         try {
           await ctl.leaveChannel(widget.channel);
-          if (mounted) Navigator.of(context).pop();
+          if (mounted) closeChat(context, ref);
         } on NodeError catch (e) {
           if (mounted) showSnack(context, e.message);
         } on Object catch (e) {
@@ -317,7 +357,7 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
                 ? const Center(child: Text('No messages yet.'))
                 : ListView.builder(
                     reverse: true,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md),
                     itemCount: msgs.length,
                     itemBuilder: (context, i) {
                       final m = msgs[msgs.length - 1 - i];
@@ -339,7 +379,7 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
+              padding: const EdgeInsets.fromLTRB(GwSpace.md, GwSpace.sm, GwSpace.md, GwSpace.sm),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -353,7 +393,14 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
                       onSubmitted: (_) => unawaited(_send()),
                       decoration: InputDecoration(
                         hintText: joined ? 'Message #${widget.channel}' : 'Not joined',
-                        border: const OutlineInputBorder(),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(GwRadius.lg),
+                          borderSide: const BorderSide(color: GwColors.outlineVariant),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(GwRadius.lg),
+                          borderSide: const BorderSide(color: GwColors.spectralCyan, width: 1.5),
+                        ),
                         counterText: '$bytes / $max bytes',
                         counterStyle: TextStyle(color: over ? scheme.error : null),
                         errorText: over ? 'Too long: ${bytes - max} bytes over' : null,
@@ -364,6 +411,7 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 22),
                     child: IconButton.filled(
+                      style: IconButton.styleFrom(minimumSize: const Size(52, 52)),
                       tooltip: 'Send',
                       onPressed: !joined || bytes == 0 || over ? null : () => unawaited(_send()),
                       icon: const Icon(Icons.send),
