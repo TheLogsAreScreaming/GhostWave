@@ -98,8 +98,26 @@ def releases():
 
 def build(out):
     out = pathlib.Path(out)
-    shutil.rmtree(out, ignore_errors=True)
-    out.mkdir(parents=True)
+    if out.is_symlink() or (out.exists() and not out.is_dir()):
+        raise ValueError("Expected an output directory")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=out.parent) as staging:
+        staged = pathlib.Path(staging) / "new"
+        staged.mkdir()
+        boards = build_into(staged)
+        previous = pathlib.Path(staging) / "previous"
+        if out.exists():
+            out.rename(previous)
+        try:
+            staged.rename(out)
+        except OSError:
+            if previous.exists():
+                previous.rename(out)
+            raise
+        return boards
+
+
+def build_into(out):
     for name in ("index.html", "flasher.js", "dfu.js"):
         shutil.copy(HERE / name, out / name)
     boards = json.loads((HERE / "boards.json").read_text())["boards"]
