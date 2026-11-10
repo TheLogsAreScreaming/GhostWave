@@ -144,10 +144,10 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
           const SizedBox(height: 12),
           if (_problem != null)
             Text(_problem!, style: TextStyle(color: Theme.of(context).colorScheme.error))
-          else if (_scanning && nodes.isEmpty)
-            const ListTile(
-              leading: SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 3)),
-              title: Text('Looking for GhostWave nodes…'),
+          else if (_scanning)
+            ListTile(
+              leading: const SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 3)),
+              title: Text(nodes.isEmpty ? 'Looking for GhostWave nodes…' : 'Still scanning · ${nodes.length} found'),
             )
           else if (nodes.isEmpty)
             const Text('No nodes found. Bring the radio nearby, disconnect any other phone using it, then scan again.'),
