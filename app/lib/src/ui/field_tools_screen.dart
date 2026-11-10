@@ -41,6 +41,7 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
     });
     try {
       final reply = await session.request(pb.ToRadio(getStatus: pb.GetStatus()));
+      if (!reply.hasStatus()) throw StateError('The radio did not return status counters.');
       final status = reply.status;
       if (!mounted) return;
       if (ref.read(sessionProvider) != session) {
@@ -48,13 +49,19 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
         return;
       }
       final mesh = ref.read(meshProvider);
+      final info = ref.read(nodeInfoProvider);
       setState(
         () => _samples.add({
           'at': DateTime.now().toUtc().toIso8601String(),
           'node': mesh.nodeId,
+          'firmware': info?.firmware,
+          'uptimeSeconds': status.uptimeS,
           'tx': status.tx.toString(),
           'rx': status.rx.toString(),
           'delivered': status.delivered.toString(),
+          'rxBad': status.rxBad.toString(),
+          'rxAuthFail': status.rxAuthFail.toString(),
+          'airtimeMs': status.airMs.toString(),
           'neighbors': <Map<String, Object?>>[
             for (final n in mesh.neighbors.values)
               {
@@ -101,9 +108,8 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
             onPressed: _samples.isEmpty
                 ? null
                 : () async {
-                    final report = const JsonEncoder.withIndent(
-                      '  ',
-                    ).convert({'version': 1, 'notes': _notes.text, 'samples': _samples});
+                    final report = const JsonEncoder.withIndent('  ')
+                        .convert({'version': 1, 'notes': _notes.text, 'samples': _samples});
                     await Clipboard.setData(ClipboardData(text: report));
                     if (context.mounted) {
                       ScaffoldMessenger.of(
@@ -131,7 +137,8 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
                       _ => 'No position',
                     }),
                   ),
-                if ((sample['neighbors']! as List).isEmpty) const ListTile(title: Text('No neighbors heard')),
+                if ((sample['neighbors']! as List<Map<String, Object?>>).isEmpty)
+                  const ListTile(title: Text('No neighbors heard')),
               ],
             ),
         ],

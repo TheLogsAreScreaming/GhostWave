@@ -21,6 +21,8 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
   StreamSubscription<BleAdvert>? _sub;
   Timer? _stop;
   bool _scanning = false;
+  bool _starting = false;
+  bool _connecting = false;
   String? _problem;
 
   @override
@@ -37,6 +39,16 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
   }
 
   Future<void> _start() async {
+    if (!mounted || _starting || _scanning || _connecting) return;
+    _starting = true;
+    try {
+      await _beginScan();
+    } finally {
+      _starting = false;
+    }
+  }
+
+  Future<void> _beginScan() async {
     final radio = ref.read(bleRadioProvider);
     setState(() {
       _problem = null;
@@ -61,6 +73,7 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
       return;
     }
     await _sub?.cancel();
+    if (!mounted) return;
     setState(() => _scanning = true);
     _sub = radio.scan().listen(
       (a) {
@@ -84,10 +97,16 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
   }
 
   Future<void> _connect(BleAdvert a) async {
-    final navigator = Navigator.of(context);
-    await _end();
-    await ref.read(nodeAddressProvider.notifier).connectAddress(BleNodeRef(a.id, a.name).encode());
-    navigator.popUntil((r) => r.isFirst);
+    if (_connecting) return;
+    _connecting = true;
+    try {
+      await _end();
+      if (!mounted) return;
+      await ref.read(nodeAddressProvider.notifier).connectAddress(BleNodeRef(a.id, a.name).encode());
+      if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+    } finally {
+      _connecting = false;
+    }
   }
 
   static String _signal(int rssi) => switch (rssi) {
@@ -123,13 +142,16 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
               title: Text('Looking for GhostWave nodes…'),
             )
           else if (nodes.isEmpty)
-            const Text('No nodes found. Check that the node is on and close by.'),
+            const Text('No nodes found. Bring the radio nearby, disconnect any other phone using it, then scan again.'),
           for (final a in nodes)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.bluetooth),
               title: Text(a.name),
-              subtitle: Text('${_signal(a.rssi)} signal · ${a.rssi} dBm', style: GwText.mono.copyWith(fontSize: 12)),
+              subtitle: Text(
+                a.rssi == -127 ? 'Signal unavailable' : '${_signal(a.rssi)} signal · ${a.rssi} dBm',
+                style: GwText.mono.copyWith(fontSize: 12),
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => unawaited(_connect(a)),
             ),

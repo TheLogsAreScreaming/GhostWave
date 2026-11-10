@@ -18,6 +18,9 @@ function result(text, cls = "") {
 
 function updateButtons() {
   const ready = version() && [...document.querySelectorAll("#confirm input")].every((c) => c.checked);
+  $("board").disabled = busy;
+  $("version").disabled = busy || !board()?.versions.length;
+  $("connect").disabled = busy || !ready;
   $("start").disabled = busy || !ready;
   $("already").disabled = busy || !ready;
 }
@@ -51,7 +54,18 @@ function renderVersions() {
 }
 
 function renderVersion() {
+  $("secondStep").hidden = true;
   const v = version();
+  let checksum = $("uf2Checksum");
+  if (!checksum) {
+    checksum = document.createElement("p");
+    checksum.id = "uf2Checksum";
+    checksum.className = "small";
+    checksum.style.overflowWrap = "anywhere";
+    $("uf2").parentElement.after(checksum);
+  }
+  checksum.hidden = !v?.sha256;
+  checksum.textContent = v?.sha256 ? `UF2 SHA-256: ${v.sha256}` : "";
   $("preNote").hidden = !v?.prerelease;
   if (v) {
     $("uf2").href = `${dir()}/firmware.uf2`;
@@ -76,15 +90,16 @@ function explain(err) {
 // Opening at 1200 baud and dropping DTR asks a running board to restart in update mode.
 async function touchToBootloader(port) {
   await port.open({ baudRate: 1200 });
-  await port.setSignals({ dataTerminalReady: false });
-  await sleep(100);
-  await port.close();
+  try {
+    await port.setSignals({ dataTerminalReady: false });
+    await sleep(100);
+  } finally {
+    await port.close();
+  }
 }
 
 async function runFlash() {
   const port = await navigator.serial.requestPort();
-  busy = true;
-  updateButtons();
   $("secondStep").hidden = true;
   $("progressWrap").hidden = false;
   $("bar").value = 0;
@@ -107,8 +122,6 @@ async function runFlash() {
   } finally {
     if (io) await io.close();
     else await port.close().catch(() => {});
-    busy = false;
-    updateButtons();
   }
 }
 
@@ -126,7 +139,19 @@ async function start() {
   }
 }
 
-const guarded = (fn) => () => fn().catch((err) => { busy = false; updateButtons(); result(explain(err), "bad"); });
+const guarded = (fn) => async () => {
+  if (busy) return;
+  busy = true;
+  updateButtons();
+  try {
+    await fn();
+  } catch (err) {
+    result(explain(err), "bad");
+  } finally {
+    busy = false;
+    updateButtons();
+  }
+};
 
 async function init() {
   if (!("serial" in navigator)) {

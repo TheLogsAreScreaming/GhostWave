@@ -44,6 +44,12 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   }
 
   Future<void> _connect() async {
+    final saved = ref.read(nodeAddressProvider);
+    if (_address.text.trim().isEmpty && saved != null && BleNodeRef.tryParse(saved) != null) {
+      setState(() => _error = null);
+      await ref.read(nodeAddressProvider.notifier).connectAddress(saved);
+      return;
+    }
     final a = TcpAddress.tryParse(_address.text);
     if (a == null) {
       setState(() => _error = 'Use host:port, e.g. 192.168.1.20:47800');
@@ -124,7 +130,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              const _Help(),
+              const ExpansionTile(
+                leading: Icon(Icons.help_outline),
+                title: Text('Network setup help'),
+                children: [_Help()],
+              ),
             ],
           ),
         ),
@@ -143,6 +153,8 @@ class LinkStateCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(nodeAddressProvider);
+    final bluetooth = saved != null && BleNodeRef.tryParse(saved) != null;
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, Color color, String title, String detail) = switch (state) {
       LinkIdle() => (Icons.link_off, scheme.outline, 'Not connected', 'Enter the node address above.'),
@@ -179,6 +191,9 @@ class LinkStateCard extends ConsumerWidget {
         subtitle: Text(
           '$detail\n${switch (state) {
             LinkUp(:final session) => session.lastReceivedAt == null ? 'Waiting for radio data' : 'Last radio data: ${timeAgo(session.lastReceivedAt!)}',
+            LinkWaiting() when !bluetooth => 'Check Wi-Fi and the node address. Reconnection is automatic.',
+            LinkFailed() when !bluetooth => 'Check the host and port, then retry on the same network.',
+            LinkNeedsPin() => 'Use the PIN printed by the node at startup.',
             LinkWaiting() => 'Keep the radio nearby and Bluetooth enabled. Reconnection is automatic.',
             LinkFailed() => 'Check Nearby devices permission and the pairing code. If the radio pairing was cleared, forget it in Android Bluetooth settings and pair again.',
             _ => 'For Bluetooth, power the radio and disconnect any other phone using it.',

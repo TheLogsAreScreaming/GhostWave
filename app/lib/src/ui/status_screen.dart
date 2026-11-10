@@ -57,7 +57,22 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
       body: switch (status) {
         AsyncData(value: null) => const NotConnected(),
         AsyncData(:final value?) => _StatusList(value),
-        AsyncError(:final error) => Center(child: Text('Could not read status: $error')),
+        AsyncError(:final error) => Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Could not read status: $error', textAlign: TextAlign.center),
+                TextButton.icon(
+                  onPressed: () => ref.invalidate(nodeStatusProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry status request'),
+                ),
+              ],
+            ),
+          ),
+        ),
         _ => const Center(child: CircularProgressIndicator()),
       },
     );
