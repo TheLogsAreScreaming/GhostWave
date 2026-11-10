@@ -32,7 +32,8 @@ function renderVersions() {
   $("version").disabled = !b.versions.length;
   $("noFirmware").textContent = b.catalogOnly ? "Browser installation is unavailable for this model." : "No firmware has been published for this board yet.";
   $("noFirmware").hidden = !!b.versions.length;
-  $("confirm").hidden = $("flash").hidden = !b.versions.length;
+  $("manualDownload").hidden = !b.versions.length;
+  $("confirm").hidden = $("flash").hidden = !b.versions.length || !("serial" in navigator);
   $("checks").replaceChildren(...b.checks.map((text, i) => {
     const row = document.createElement("div");
     row.className = "check";
@@ -156,7 +157,6 @@ const guarded = (fn) => async () => {
 async function init() {
   if (!("serial" in navigator)) {
     $("unsupported").hidden = false;
-    return;
   }
   try {
     const r = await fetch("manifest.json");
