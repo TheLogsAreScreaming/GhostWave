@@ -29,6 +29,22 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
     super.dispose();
   }
 
+  Future<void> _removeSample(Map<String, Object?> sample) async {
+    final remove = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Remove this sample?'),
+        content: const Text('It will be excluded from future exports of this report.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (!mounted || remove != true) return;
+    setState(() => _samples.remove(sample));
+  }
+
   Future<void> _capture() async {
     final sampleNote = _notes.text.trim();
     final session = ref.read(sessionProvider);
@@ -164,6 +180,11 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
                   ),
                 if ((sample['neighbors']! as List<Map<String, Object?>>).isEmpty)
                   const ListTile(title: Text('No neighbors heard')),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('Remove sample'),
+                  onTap: () => _removeSample(sample),
+                ),
               ],
             ),
         ],
