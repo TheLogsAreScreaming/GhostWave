@@ -72,7 +72,16 @@ class _StatusScreenState extends ConsumerState<StatusScreen> with WidgetsBinding
       ),
       body: switch (status) {
         AsyncData(value: null) => const NotConnected(),
-        AsyncData(:final value?) => _StatusList(value),
+        AsyncData(:final value?) => RefreshIndicator(
+          onRefresh: () async {
+            try {
+              await ref.refresh(nodeStatusProvider.future);
+            } on Object {
+              // The status provider exposes the error to the screen.
+            }
+          },
+          child: _StatusList(value),
+        ),
         AsyncError(:final error) => Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -135,6 +144,7 @@ class _StatusList extends StatelessWidget {
       ('Airtime', '${(s.airMs.toInt() / 1000).toStringAsFixed(1)} s'),
     ];
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(GwSpace.lg, GwSpace.sm, GwSpace.lg, GwSpace.xl),
       children: [
         ReadableWidth(
