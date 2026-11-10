@@ -17,20 +17,20 @@ abstract final class GwColors {
   static const Color phantomViolet = Color(0xFF872BFF);
 
   /// Ghost Black: the app background.
-  static const Color ghostBlack = Color(0xFF070B16);
+  static const Color ghostBlack = Color(0xFF191D25);
 
   /// Mist White: body text.
   static const Color mistWhite = Color(0xFFF2F7FF);
 
   // Surfaces, stepped up from Ghost Black.
   /// Cards and sheets.
-  static const Color surface1 = Color(0xFF0E1424);
+  static const Color surface1 = Color(0xFF222731);
 
   /// Raised containers (chat bubbles from others, banners).
-  static const Color surface2 = Color(0xFF141C31);
+  static const Color surface2 = Color(0xFF2A303C);
 
   /// Highest containers.
-  static const Color surface3 = Color(0xFF1B2540);
+  static const Color surface3 = Color(0xFF333B49);
 
   /// Secondary text on surfaces (8.9:1 on Ghost Black).
   static const Color mutedText = Color(0xFFA9B4CC);
@@ -39,7 +39,7 @@ abstract final class GwColors {
   static const Color outline = Color(0xFF5E6A85);
 
   /// Hairlines.
-  static const Color outlineVariant = Color(0xFF29324A);
+  static const Color outlineVariant = Color(0xFF3C4555);
 
   /// Lighter violet for text and icons on dark (Phantom Violet itself is too
   /// dark for small text on Ghost Black).
@@ -198,7 +198,7 @@ ThemeData buildGhostWaveTheme() {
     headlineLarge: head(t.headlineLarge, FontWeight.w700),
     headlineMedium: head(t.headlineMedium, FontWeight.w700),
     headlineSmall: head(t.headlineSmall, FontWeight.w700),
-    titleLarge: head(t.titleLarge, FontWeight.w700)?.copyWith(fontSize: 24, letterSpacing: -0.2),
+    titleLarge: head(t.titleLarge, FontWeight.w700)?.copyWith(fontSize: 20, letterSpacing: -0.2),
     titleMedium: t.titleMedium?.copyWith(fontWeight: FontWeight.w600),
     labelLarge: t.labelLarge?.copyWith(fontWeight: FontWeight.w600),
   );
@@ -221,7 +221,7 @@ ThemeData buildGhostWaveTheme() {
       backgroundColor: GwColors.surface1,
       indicatorColor: GwColors.spectralCyan.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
-      height: 68,
+      height: 72,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => text.labelMedium?.copyWith(
           fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
@@ -252,7 +252,7 @@ ThemeData buildGhostWaveTheme() {
     ),
     listTileTheme: ListTileThemeData(
       contentPadding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.xs),
-      minVerticalPadding: GwSpace.sm,
+      minVerticalPadding: GwSpace.xs,
       horizontalTitleGap: GwSpace.md,
       titleTextStyle: text.titleMedium?.copyWith(color: GwColors.mistWhite),
       subtitleTextStyle: text.bodyMedium?.copyWith(color: GwColors.mutedText),
