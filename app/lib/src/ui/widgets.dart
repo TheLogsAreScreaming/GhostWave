@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../link/contact_card.dart';
 import '../link/node_link.dart';
@@ -172,11 +173,7 @@ Future<void> askForPin(BuildContext context, WidgetRef ref, LinkNeedsPin s) asyn
                 keyboardType: TextInputType.number,
                 autocorrect: false,
                 enableSuggestions: false,
-                decoration: InputDecoration(
-                  labelText: 'PIN',
-                  border: const OutlineInputBorder(),
-                  errorText: s.wrong ? 'That PIN was wrong.' : null,
-                ),
+                decoration: InputDecoration(labelText: 'PIN', errorText: s.wrong ? 'That PIN was wrong.' : null),
                 onChanged: (_) => setState(() {}),
                 onSubmitted: (_) => ok ? Navigator.pop(dialog, ctl.text.trim()) : null,
               ),
@@ -205,4 +202,66 @@ void showSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message)));
+}
+
+/// Marks the chat lists as shown beside the open conversation (wide windows),
+/// so a tap opens it in the side pane instead of pushing a page.
+class ChatPaneScope extends InheritedWidget {
+  /// Wraps the chat lists.
+  const ChatPaneScope({required super.child, super.key});
+
+  /// Whether [context] is a chat list with a side pane next to it.
+  static bool isTwoPane(BuildContext context) => context.dependOnInheritedWidgetOfExactType<ChatPaneScope>() != null;
+
+  @override
+  bool updateShouldNotify(ChatPaneScope oldWidget) => false;
+}
+
+/// Closes a chat: pops its page, or empties the side pane it sits in.
+void closeChat(BuildContext context, WidgetRef ref) {
+  final nav = Navigator.of(context);
+  if (nav.canPop()) {
+    nav.pop();
+  } else {
+    ref.read(openChatProvider.notifier).close();
+  }
+}
+
+/// Centres page content and caps it at a readable width on wide windows.
+class ReadableWidth extends StatelessWidget {
+  /// Caps [child] at [maxWidth].
+  const ReadableWidth({required this.child, this.maxWidth = 680, super.key});
+
+  /// The content.
+  final Widget child;
+
+  /// The widest it gets, in logical px.
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: child,
+    ),
+  );
+}
+
+/// A small muted heading above a group of cards or rows.
+class SectionLabel extends StatelessWidget {
+  /// Creates the heading.
+  const SectionLabel(this.text, {super.key});
+
+  /// The heading text.
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(GwSpace.xs, GwSpace.xl, GwSpace.xs, GwSpace.sm),
+    child: Semantics(
+      header: true,
+      child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: GwColors.mutedText)),
+    ),
+  );
 }

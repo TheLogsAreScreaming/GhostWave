@@ -24,83 +24,88 @@ class OfflineMapsScreen extends ConsumerWidget {
     final job = off.job;
     return Scaffold(
       appBar: AppBar(title: const Text('Offline maps')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.layers_outlined),
-              title: const Text('Map tiles'),
-              subtitle: Text(source.isDefault ? 'OpenStreetMap (online only)' : source.urlTemplate, style: GwText.mono),
-              trailing: const Icon(Icons.edit_outlined),
-              onTap: () => unawaited(_editSource(context, ref, source)),
-            ),
-          ),
-          if (source.isDefault || isForbiddenBulkSource(source.urlTemplate))
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text(
-                'OpenStreetMap\'s tile servers do not allow downloading areas for offline use, so GhostWave '
-                'will not do that with them. Places you have already viewed stay cached for a while. To save '
-                'regions, set a tile URL from a provider whose terms allow offline use, or your own tile server.',
+      body: ReadableWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.layers_outlined),
+                title: const Text('Map tiles'),
+                subtitle: Text(
+                  source.isDefault ? 'OpenStreetMap (online only)' : source.urlTemplate,
+                  style: GwText.mono,
+                ),
+                trailing: const Icon(Icons.edit_outlined),
+                onTap: () => unawaited(_editSource(context, ref, source)),
               ),
             ),
-          if (job != null)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Downloading ${off.jobName}'),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: job.total == 0 ? null : job.done / job.total,
-                      semanticsLabel: 'Download progress',
-                      semanticsValue: '${job.done} of ${job.total} tiles',
-                    ),
-                    const SizedBox(height: 4),
-                    Text('${job.done} of ${job.total} tiles · ${_size(job.bytes)}. Keep the app open.'),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(onPressed: ctl.cancel, child: const Text('Cancel')),
-                    ),
-                  ],
+            if (source.isDefault || isForbiddenBulkSource(source.urlTemplate))
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text(
+                  'OpenStreetMap\'s tile servers do not allow downloading areas for offline use, so GhostWave '
+                  'will not do that with them. Places you have already viewed stay cached for a while. To save '
+                  'regions, set a tile URL from a provider whose terms allow offline use, or your own tile server.',
                 ),
               ),
-            ),
-          if (off.error != null)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(off.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            ),
-          const SizedBox(height: 16),
-          Text(
-            'Saved regions · ${_size(off.usedBytes)} of ${kMaxOfflineBytes ~/ (1024 * 1024)} MB',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          if (off.regions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text('None yet. Move the Map to an area and tap its download button.'),
-            ),
-          for (final r in off.regions)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.map_outlined),
-              title: Text(r.name),
-              subtitle: Text(
-                '${r.tiles} tiles · ${_size(r.bytes)} · zoom ${r.bounds.minZoom}-${r.bounds.maxZoom}'
-                '${r.failed > 0 ? ' · ${r.failed} missing' : ''}'
-                '${r.urlTemplate != source.urlTemplate ? ' · from another tile source, not in use' : ''}',
+            if (job != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Downloading ${off.jobName}'),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: job.total == 0 ? null : job.done / job.total,
+                        semanticsLabel: 'Download progress',
+                        semanticsValue: '${job.done} of ${job.total} tiles',
+                      ),
+                      const SizedBox(height: 4),
+                      Text('${job.done} of ${job.total} tiles · ${_size(job.bytes)}. Keep the app open.'),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(onPressed: ctl.cancel, child: const Text('Cancel')),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              trailing: IconButton(
-                tooltip: 'Delete ${r.name}',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => unawaited(ctl.delete(r)),
+            if (off.error != null)
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(off.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ),
+            const SizedBox(height: 16),
+            Text(
+              'Saved regions · ${_size(off.usedBytes)} of ${kMaxOfflineBytes ~/ (1024 * 1024)} MB',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-        ],
+            if (off.regions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text('None yet. Move the Map to an area and tap its download button.'),
+              ),
+            for (final r in off.regions)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.map_outlined),
+                title: Text(r.name),
+                subtitle: Text(
+                  '${r.tiles} tiles · ${_size(r.bytes)} · zoom ${r.bounds.minZoom}-${r.bounds.maxZoom}'
+                  '${r.failed > 0 ? ' · ${r.failed} missing' : ''}'
+                  '${r.urlTemplate != source.urlTemplate ? ' · from another tile source, not in use' : ''}',
+                ),
+                trailing: IconButton(
+                  tooltip: 'Delete ${r.name}',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => unawaited(ctl.delete(r)),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -122,11 +127,7 @@ class OfflineMapsScreen extends ConsumerWidget {
                 controller: url,
                 autocorrect: false,
                 keyboardType: TextInputType.url,
-                decoration: const InputDecoration(
-                  labelText: 'Tile URL',
-                  hintText: 'https://host/{z}/{x}/{y}.png',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Tile URL', hintText: 'https://host/{z}/{x}/{y}.png'),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -134,7 +135,6 @@ class OfflineMapsScreen extends ConsumerWidget {
                 decoration: const InputDecoration(
                   labelText: 'Attribution shown on the map',
                   hintText: '© the map\'s data and tile providers',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
@@ -187,7 +187,7 @@ Future<void> showDownloadRegionDialog(
               children: [
                 TextField(
                   controller: name,
-                  decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'Name'),
                 ),
                 const SizedBox(height: 12),
                 Text('Most detail: zoom $maxZoom'),

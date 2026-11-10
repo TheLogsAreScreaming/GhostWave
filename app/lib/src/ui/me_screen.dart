@@ -37,33 +37,49 @@ class MeScreen extends ConsumerWidget {
       body: info == null
           ? const NotConnected(what: 'your node and contact card')
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(GwSpace.lg, GwSpace.sm, GwSpace.lg, GwSpace.xl),
               children: [
-                if (info.legacy || info.ed25519Pub.length != 32)
-                  const Card(
-                    child: ListTile(
-                      leading: Icon(Icons.warning_amber),
-                      title: Text('Legacy node: no Ed25519 identity'),
-                      subtitle: Text('This node has no contact card. Others cannot add it by QR code.'),
-                    ),
-                  )
-                else
-                  _CardQr(
-                    ContactCard(
-                      nodeId: info.nodeId,
-                      ed25519Pub: Uint8List.fromList(info.ed25519Pub),
-                      name: truncateUtf8(decodeLenient(info.name), kMaxContactNameBytes),
-                    ),
+                ReadableWidth(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (info.legacy || info.ed25519Pub.length != 32)
+                        const Card(
+                          child: ListTile(
+                            leading: Icon(Icons.warning_amber),
+                            title: Text('Legacy node: no Ed25519 identity'),
+                            subtitle: Text('This node has no contact card. Others cannot add it by QR code.'),
+                          ),
+                        )
+                      else
+                        _CardQr(
+                          ContactCard(
+                            nodeId: info.nodeId,
+                            ed25519Pub: Uint8List.fromList(info.ed25519Pub),
+                            name: truncateUtf8(decodeLenient(info.name), kMaxContactNameBytes),
+                          ),
+                        ),
+                      const SectionLabel('Location'),
+                      const _LocationShareCard(),
+                      const SectionLabel('This node'),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: GwSpace.xs),
+                          child: Column(
+                            children: [
+                              _Field('Name', decodeLenient(info.name)),
+                              _Field('Node ID', nodeIdHex(info.nodeId), copy: true),
+                              _Field('Ed25519 public key (identity)', hexEncode(info.ed25519Pub), copy: true),
+                              _Field('X25519 public key (DMs)', hexEncode(info.x25519Pub), copy: true),
+                              _Field('Firmware', info.firmware),
+                              _Field('Protocol', 'v${info.protocolVersion}, DM text up to ${info.maxTextBytes} bytes'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                const SizedBox(height: 16),
-                const _LocationShareCard(),
-                const SizedBox(height: 8),
-                _Field('Name', decodeLenient(info.name)),
-                _Field('Node ID', nodeIdHex(info.nodeId)),
-                _Field('Ed25519 public key (identity)', hexEncode(info.ed25519Pub)),
-                _Field('X25519 public key (DMs)', hexEncode(info.x25519Pub)),
-                _Field('Firmware', info.firmware),
-                _Field('Protocol', 'v${info.protocolVersion}, DM text up to ${info.maxTextBytes} bytes'),
+                ),
               ],
             ),
     );
@@ -78,44 +94,72 @@ class _CardQr extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = card.encode();
-    return Column(
-      children: [
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.all(12),
-          child: QrImageView(
-            data: text,
-            size: 240,
-            backgroundColor: Colors.white,
-            semanticsLabel: 'Contact card QR code',
-          ),
+    final theme = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(GwSpace.lg),
+        child: Column(
+          children: [
+            Text(card.name.isEmpty ? nodeIdHex(card.nodeId) : card.name, style: theme.headlineSmall),
+            const SizedBox(height: GwSpace.xs),
+            Text(nodeIdHex(card.nodeId), style: GwText.mono.copyWith(color: GwColors.mutedText)),
+            const SizedBox(height: GwSpace.lg),
+            Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(GwRadius.md)),
+              padding: const EdgeInsets.all(GwSpace.md),
+              child: QrImageView(
+                data: text,
+                size: 200,
+                backgroundColor: Colors.white,
+                semanticsLabel: 'Contact card QR code',
+              ),
+            ),
+            const SizedBox(height: GwSpace.md),
+            Text(
+              'Let another GhostWave user scan this to add you.',
+              textAlign: TextAlign.center,
+              style: theme.bodyMedium?.copyWith(color: GwColors.mutedText),
+            ),
+            const SizedBox(height: GwSpace.sm),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: text));
+                if (context.mounted) showSnack(context, 'Contact card copied');
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('Copy card text'),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text('Let another GhostWave user scan this to add you.', style: Theme.of(context).textTheme.bodySmall),
-        TextButton.icon(
-          onPressed: () async {
-            await Clipboard.setData(ClipboardData(text: text));
-            if (context.mounted) showSnack(context, 'Contact card copied');
-          },
-          icon: const Icon(Icons.copy),
-          label: const Text('Copy card text'),
-        ),
-      ],
+      ),
     );
   }
 }
 
 class _Field extends StatelessWidget {
-  const _Field(this.label, this.value);
+  const _Field(this.label, this.value, {this.copy = false});
 
   final String label;
   final String value;
+  final bool copy;
 
   @override
   Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    title: Text(label, style: Theme.of(context).textTheme.labelMedium),
-    subtitle: SelectableText(value.isEmpty ? '—' : value, style: GwText.mono),
+    title: Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: GwColors.mutedText)),
+    subtitle: SelectableText(
+      value.isEmpty ? '—' : value,
+      style: GwText.mono.copyWith(color: GwColors.mistWhite, fontSize: 13),
+    ),
+    trailing: copy && value.isNotEmpty
+        ? IconButton(
+            tooltip: 'Copy $label',
+            icon: const Icon(Icons.copy, size: 20),
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: value));
+              if (context.mounted) showSnack(context, '$label copied');
+            },
+          )
+        : null,
   );
 }
 

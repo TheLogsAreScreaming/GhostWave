@@ -63,63 +63,68 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     final active = state is! LinkIdle && state is! LinkFailed && state is! LinkNeedsPin;
     return Scaffold(
       appBar: AppBar(title: const Text('Connect to a node')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const _Logo(),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _address,
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            decoration: InputDecoration(
-              labelText: 'Node address (host:port)',
-              hintText: '192.168.1.20:47800',
-              errorText: _error,
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.lan_outlined),
-            ),
-            onSubmitted: (_) => _connect(),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _connect,
-                  icon: const Icon(Icons.link),
-                  label: Text(active ? 'Reconnect' : 'Connect'),
-                ),
+      body: ReadableWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const _Logo(),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _address,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: 'Node address (host:port)',
+                hintText: '192.168.1.20:47800',
+                errorText: _error,
+                prefixIcon: const Icon(Icons.lan_outlined),
               ),
-              if (active) ...[
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: () => ref.read(nodeAddressProvider.notifier).disconnect(),
-                  icon: const Icon(Icons.link_off),
-                  label: const Text('Disconnect'),
+              onSubmitted: (_) => _connect(),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _connect,
+                    icon: const Icon(Icons.link),
+                    label: Text(active ? 'Reconnect' : 'Connect'),
+                  ),
                 ),
+                if (active) ...[
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => ref.read(nodeAddressProvider.notifier).disconnect(),
+                    icon: const Icon(Icons.link_off),
+                    label: const Text('Disconnect'),
+                  ),
+                ],
               ],
-            ],
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BleScanScreen())),
-            icon: const Icon(Icons.bluetooth_searching),
-            label: const Text('Find Bluetooth nodes'),
-          ),
-          const SizedBox(height: 24),
-          LinkStateCard(state: state),
-          _RecentNodes(
-            current: ref.watch(nodeAddressProvider),
-            onConnect: (address) {
-              if (TcpAddress.tryParse(address) != null && BleNodeRef.tryParse(address) == null) _address.text = address;
-              setState(() => _error = null);
-              unawaited(ref.read(nodeAddressProvider.notifier).connectAddress(address));
-            },
-          ),
-          const SizedBox(height: 24),
-          const _Help(),
-        ],
+            ),
+            const SizedBox(height: 8),
+            const SizedBox(height: GwSpace.xs),
+            OutlinedButton.icon(
+              onPressed: () =>
+                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BleScanScreen())),
+              icon: const Icon(Icons.bluetooth_searching),
+              label: const Text('Find Bluetooth nodes'),
+            ),
+            const SizedBox(height: 24),
+            LinkStateCard(state: state),
+            _RecentNodes(
+              current: ref.watch(nodeAddressProvider),
+              onConnect: (address) {
+                if (TcpAddress.tryParse(address) != null && BleNodeRef.tryParse(address) == null) {
+                  _address.text = address;
+                }
+                setState(() => _error = null);
+                unawaited(ref.read(nodeAddressProvider.notifier).connectAddress(address));
+              },
+            ),
+            const SizedBox(height: 24),
+            const _Help(),
+          ],
+        ),
       ),
     );
   }
@@ -200,15 +205,13 @@ class _RecentNodes extends ConsumerWidget {
     final recent = ref.watch(recentNodesProvider);
     if (recent.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 24),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Recent nodes', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
+          const SectionLabel('Recent nodes'),
           for (final r in recent)
             ListTile(
-              contentPadding: EdgeInsets.zero,
               leading: Icon(
                 r.address == current
                     ? Icons.radio_button_checked
@@ -243,16 +246,16 @@ class _Help extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.bodySmall;
-    return Card.outlined(
+    return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(GwSpace.lg),
         child: Text(
           'Testing without radios: on a computer on the same Wi-Fi, run\n'
           '  firmware/pi/tools/vmesh_lan.sh -n 4 --lan\n'
           'from the GhostWave repo. It prints one address per virtual node '
           '(ports 47800 and up). Enter one here.\n\n'
           'On a network the node asks for a PIN, which it prints at start. The PIN keeps others '
-          'from driving your node, but the traffic is not encrypted. Use a Wi-Fi you trust.',
+          'from driving your node, and the link is encrypted with keys agreed from it.',
           style: style,
         ),
       ),

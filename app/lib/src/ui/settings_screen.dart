@@ -58,101 +58,104 @@ class SettingsScreen extends ConsumerWidget {
         : '${pkg.version} (build ${pkg.buildNumber}${kBuildCommit.isEmpty ? '' : ', $kBuildCommit'})';
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          const _Header('Node'),
-          if (info == null)
-            const ListTile(leading: Icon(Icons.link_off), title: Text('Connect to a node to change its settings.'))
-          else ...[
-            ListTile(
-              leading: const Icon(Icons.badge_outlined),
-              title: const Text('Node name'),
-              subtitle: Text(decodeLenient(info.name).isEmpty ? '(none)' : decodeLenient(info.name)),
-              trailing: const Icon(Icons.edit_outlined),
-              enabled: info.protocolMinor >= 1 && !info.legacy,
-              onTap: () => unawaited(_rename(context, ref, decodeLenient(info.name))),
-            ),
-            if (info.protocolMinor < 1 || info.legacy)
+      body: ReadableWidth(
+        child: ListView(
+          children: [
+            const _Header('Node'),
+            if (info == null)
+              const ListTile(leading: Icon(Icons.link_off), title: Text('Connect to a node to change its settings.'))
+            else ...[
               ListTile(
-                dense: true,
-                title: Text(
-                  info.legacy
-                      ? 'Not available on this node: its firmware has no name that other nodes can see.'
-                      : 'This node runs an older ghostwaved: update it to rename from the app.',
+                leading: const Icon(Icons.badge_outlined),
+                title: const Text('Node name'),
+                subtitle: Text(decodeLenient(info.name).isEmpty ? '(none)' : decodeLenient(info.name)),
+                trailing: const Icon(Icons.edit_outlined),
+                enabled: info.protocolMinor >= 1 && !info.legacy,
+                onTap: () => unawaited(_rename(context, ref, decodeLenient(info.name))),
+              ),
+              if (info.protocolMinor < 1 || info.legacy)
+                ListTile(
+                  dense: true,
+                  title: Text(
+                    info.legacy
+                        ? 'Not available on this node: its firmware has no name that other nodes can see.'
+                        : 'This node runs an older ghostwaved: update it to rename from the app.',
+                  ),
+                ),
+              ListTile(
+                leading: const Icon(Icons.memory),
+                title: const Text('Node firmware'),
+                subtitle: Text(
+                  '${info.firmware} · client protocol ${info.protocolVersion}.${info.protocolMinor}',
+                  style: GwText.mono,
                 ),
               ),
+            ],
+            const _Header('This phone'),
             ListTile(
-              leading: const Icon(Icons.memory),
-              title: const Text('Node firmware'),
-              subtitle: Text(
-                '${info.firmware} · client protocol ${info.protocolVersion}.${info.protocolMinor}',
-                style: GwText.mono,
+              leading: const Icon(Icons.straighten),
+              title: const Text('Distance units'),
+              trailing: SegmentedButton<Units>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: Units.metric, label: Text('km')),
+                  ButtonSegment(value: Units.imperial, label: Text('mi')),
+                ],
+                selected: {ref.watch(unitsProvider)},
+                onSelectionChanged: (s) => ref.read(unitsProvider.notifier).set(s.first),
+              ),
+            ),
+            if (ref.watch(backgroundLinkProvider).supported) const _BackgroundTiles(),
+            ListTile(
+              leading: const Icon(Icons.download_for_offline_outlined),
+              title: const Text('Offline maps'),
+              subtitle: const Text('Tile source and saved regions'),
+              onTap: () =>
+                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OfflineMapsScreen())),
+            ),
+            if (ref.watch(backupFilesProvider).supported)
+              ListTile(
+                leading: const Icon(Icons.lock_outline),
+                title: const Text('Backup and restore'),
+                subtitle: const Text('Encrypted file of your chats, contacts and channels'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen())),
+              ),
+            ListTile(
+              leading: const Icon(Icons.school_outlined),
+              title: const Text('Show the introduction'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (page) => WalkthroughScreen(onDone: () => Navigator.of(page).pop())),
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_forever_outlined, color: Theme.of(context).colorScheme.error),
+              title: const Text('Reset app data'),
+              subtitle: const Text('Deletes chats, contacts, offline maps and settings on this phone'),
+              onTap: () => unawaited(_reset(context, ref)),
+            ),
+            const _Header('About'),
+            ListTile(
+              leading: Image.asset('assets/brand/logo.png', width: 32, height: 32, excludeFromSemantics: true),
+              title: const Text('GhostWave'),
+              subtitle: Text(version.isEmpty ? 'Phone app for the GhostWave mesh' : 'Version $version'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Licenses'),
+              subtitle: const Text('Open-source software and fonts used by the app'),
+              onTap: () => showLicensePage(
+                context: context,
+                applicationName: 'GhostWave',
+                applicationVersion: version,
+                applicationIcon: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Image.asset('assets/brand/logo.png', width: 64, height: 64),
+                ),
+                applicationLegalese: 'MIT License. Fonts: SIL Open Font License 1.1.',
               ),
             ),
           ],
-          const _Header('This phone'),
-          ListTile(
-            leading: const Icon(Icons.straighten),
-            title: const Text('Distance units'),
-            trailing: SegmentedButton<Units>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: Units.metric, label: Text('km')),
-                ButtonSegment(value: Units.imperial, label: Text('mi')),
-              ],
-              selected: {ref.watch(unitsProvider)},
-              onSelectionChanged: (s) => ref.read(unitsProvider.notifier).set(s.first),
-            ),
-          ),
-          if (ref.watch(backgroundLinkProvider).supported) const _BackgroundTiles(),
-          ListTile(
-            leading: const Icon(Icons.download_for_offline_outlined),
-            title: const Text('Offline maps'),
-            subtitle: const Text('Tile source and saved regions'),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OfflineMapsScreen())),
-          ),
-          if (ref.watch(backupFilesProvider).supported)
-            ListTile(
-              leading: const Icon(Icons.lock_outline),
-              title: const Text('Backup and restore'),
-              subtitle: const Text('Encrypted file of your chats, contacts and channels'),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen())),
-            ),
-          ListTile(
-            leading: const Icon(Icons.school_outlined),
-            title: const Text('Show the introduction'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (page) => WalkthroughScreen(onDone: () => Navigator.of(page).pop())),
-            ),
-          ),
-          ListTile(
-            leading: Icon(Icons.delete_forever_outlined, color: Theme.of(context).colorScheme.error),
-            title: const Text('Reset app data'),
-            subtitle: const Text('Deletes chats, contacts, offline maps and settings on this phone'),
-            onTap: () => unawaited(_reset(context, ref)),
-          ),
-          const _Header('About'),
-          ListTile(
-            leading: Image.asset('assets/brand/logo.png', width: 32, height: 32, excludeFromSemantics: true),
-            title: const Text('GhostWave'),
-            subtitle: Text(version.isEmpty ? 'Phone app for the GhostWave mesh' : 'Version $version'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.description_outlined),
-            title: const Text('Licenses'),
-            subtitle: const Text('Open-source software and fonts used by the app'),
-            onTap: () => showLicensePage(
-              context: context,
-              applicationName: 'GhostWave',
-              applicationVersion: version,
-              applicationIcon: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Image.asset('assets/brand/logo.png', width: 64, height: 64),
-              ),
-              applicationLegalese: 'MIT License. Fonts: SIL Open Font License 1.1.',
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -175,7 +178,6 @@ class SettingsScreen extends ConsumerWidget {
                   controller: ctl,
                   autofocus: true,
                   decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
                     counterText: '${utf8Length(t)} / $kMaxNodeNameBytes bytes',
                     errorText: ok ? null : 'At most $kMaxNodeNameBytes bytes',
                   ),
@@ -289,7 +291,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-    child: Text(text, style: Theme.of(context).textTheme.titleSmall?.copyWith(color: GwColors.spectralCyan)),
+    padding: const EdgeInsets.symmetric(horizontal: GwSpace.md),
+    child: SectionLabel(text),
   );
 }
