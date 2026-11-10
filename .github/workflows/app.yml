@@ -43,14 +43,6 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter pub get
-      - name: Capture formatter output
-        run: |
-          dart format lib/src/ui/field_tools_screen.dart
-          echo FORMAT_SOURCE_BEGIN
-          base64 -w0 lib/src/ui/field_tools_screen.dart
-          echo
-          echo FORMAT_SOURCE_END
-          git diff --exit-code -- lib/src/ui/field_tools_screen.dart
       - name: Format
         run: dart format --output=none --set-exit-if-changed lib/main.dart lib/src/app lib/src/data lib/src/link lib/src/map lib/src/ui test
       - name: Analyze
