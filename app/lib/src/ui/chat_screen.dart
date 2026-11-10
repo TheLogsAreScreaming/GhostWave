@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/mesh_controller.dart';
@@ -95,6 +96,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         actions: [
           PopupMenuButton<String>(
             onSelected: (c) async {
+              if (c == 'copyId') {
+                await Clipboard.setData(ClipboardData(text: nodeIdHex(widget.peer)));
+                if (context.mounted) showSnack(context, 'Node ID copied');
+                return;
+              }
               if (c != 'delete') return;
               final ok = await showDialog<bool>(
                 context: context,
@@ -109,7 +115,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               );
               if (ok == true) ctl.deleteThread(widget.peer);
             },
-            itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete conversation'))],
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'copyId', child: Text('Copy node ID')),
+              PopupMenuItem(value: 'delete', child: Text('Delete conversation')),
+            ],
           ),
         ],
       ),
