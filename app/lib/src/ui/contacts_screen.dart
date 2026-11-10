@@ -27,7 +27,7 @@ class ContactsScreen extends ConsumerStatefulWidget {
   ConsumerState<ContactsScreen> createState() => _ContactsScreenState();
 }
 
-enum _PeopleFilter { all, contacts, nearby }
+enum _PeopleFilter { all, unread, contacts, nearby }
 
 class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   String _query = '';
@@ -68,8 +68,12 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       return matches(id) && (_filter != _PeopleFilter.nearby || mesh.neighbors.containsKey(id));
     }
 
-    final shownContacts = contacts.where((c) => visible(c.nodeId));
-    final shownNearby = nearby.where((n) => _filter != _PeopleFilter.contacts && visible(n.nodeId));
+    final shownContacts = contacts.where(
+      (c) => visible(c.nodeId) && (_filter != _PeopleFilter.unread || (mesh.unread[c.nodeId] ?? 0) > 0),
+    );
+    final shownNearby = nearby.where(
+      (n) => _filter != _PeopleFilter.contacts && _filter != _PeopleFilter.unread && visible(n.nodeId),
+    );
 
     final peopleUnread = mesh.unread.values.fold(0, (a, b) => a + b);
     final channelUnread = mesh.channelUnread.values.fold(0, (a, b) => a + b);
@@ -106,6 +110,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                           ChoiceChip(
                             label: Text(switch (choice) {
                               _PeopleFilter.all => 'All',
+                              _PeopleFilter.unread => 'Unread',
                               _PeopleFilter.contacts => 'Contacts',
                               _PeopleFilter.nearby => 'Nearby',
                             }),
@@ -117,7 +122,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                   ],
                 ),
               ),
-              if (shownContacts.isEmpty && shownNearby.isEmpty) const ListTile(title: Text('No matching nodes')),
+              if (shownContacts.isEmpty && shownNearby.isEmpty)
+                ListTile(title: Text(_filter == _PeopleFilter.unread ? 'No matching unread chats' : 'No matching nodes')),
               for (final c in shownContacts) _ContactTile(c, unread: mesh.unread[c.nodeId] ?? 0, mesh: mesh),
               if (shownNearby.isNotEmpty) ...[
                 Padding(
@@ -372,11 +378,16 @@ class _ContactTile extends ConsumerWidget {
     }
 
     final selected = twoPane && ref.watch(openChatProvider) == OpenPeer(c.nodeId);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: GwSpace.sm),
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: GwSpace.md, vertical: GwSpace.xs),
+      color: selected ? GwColors.surface3 : GwColors.surface1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: selected ? scheme.primary : scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
         selected: selected,
-        selectedTileColor: GwColors.surface2,
         selectedColor: GwColors.mistWhite,
         leading: _Avatar(name: name, id: c.nodeId),
         title: Row(
@@ -399,7 +410,7 @@ class _ContactTile extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
                 style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.mistWhite) : null,
               ),
-            Text(details, style: GwText.mono.copyWith(fontSize: 11.5, color: GwColors.outline)),
+            Text(details, style: GwText.mono.copyWith(fontSize: 11.5, color: GwColors.mutedText)),
           ],
         ),
         trailing: Column(
