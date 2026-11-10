@@ -58,9 +58,17 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final nearby = [...mesh.neighbors.values.where((n) => !mesh.contacts.containsKey(n.nodeId)), ...held.values]
       ..sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
 
-    bool matches(int id) => nodeIdHex(id).toLowerCase().contains(_query) || mesh.nameOf(id).toLowerCase().contains(_query);
-    final shownContacts = contacts.where((c) => matches(c.nodeId) && (_filter != _PeopleFilter.nearby || mesh.neighbors.containsKey(c.nodeId)));
-    final shownNearby = nearby.where((n) => matches(n.nodeId) && _filter != _PeopleFilter.contacts && (_filter != _PeopleFilter.nearby || mesh.neighbors.containsKey(n.nodeId)));
+    bool matches(int id) =>
+        nodeIdHex(id).toLowerCase().contains(_query) || mesh.nameOf(id).toLowerCase().contains(_query);
+    final shownContacts = contacts.where(
+      (c) => matches(c.nodeId) && (_filter != _PeopleFilter.nearby || mesh.neighbors.containsKey(c.nodeId)),
+    );
+    final shownNearby = nearby.where(
+      (n) =>
+          matches(n.nodeId) &&
+          _filter != _PeopleFilter.contacts &&
+          (_filter != _PeopleFilter.nearby || mesh.neighbors.containsKey(n.nodeId)),
+    );
 
     final peopleUnread = mesh.unread.values.fold(0, (a, b) => a + b);
     final channelUnread = mesh.channelUnread.values.fold(0, (a, b) => a + b);
@@ -108,8 +116,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                   ],
                 ),
               ),
-              if (shownContacts.isEmpty && shownNearby.isEmpty)
-                const ListTile(title: Text('No matching nodes')),
+              if (shownContacts.isEmpty && shownNearby.isEmpty) const ListTile(title: Text('No matching nodes')),
               for (final c in shownContacts) _ContactTile(c, unread: mesh.unread[c.nodeId] ?? 0, mesh: mesh),
               if (shownNearby.isNotEmpty) ...[
                 Padding(
@@ -318,8 +325,9 @@ void _showAddSheet(BuildContext context) {
               onTap: () {
                 Navigator.of(sheet).pop();
                 unawaited(
-                  Navigator.of(context)
-                      .push(MaterialPageRoute<void>(builder: (_) => const AddContactScreen(channelsFirst: true))),
+                  Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute<void>(builder: (_) => const AddContactScreen(channelsFirst: true))),
                 );
               },
             ),
