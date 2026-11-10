@@ -58,17 +58,18 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final nearby = [...mesh.neighbors.values.where((n) => !mesh.contacts.containsKey(n.nodeId)), ...held.values]
       ..sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
 
-    bool matches(int id) =>
-        nodeIdHex(id).toLowerCase().contains(_query) || mesh.nameOf(id).toLowerCase().contains(_query);
-    final shownContacts = contacts.where(
-      (c) => matches(c.nodeId) && (_filter != _PeopleFilter.nearby || mesh.neighbors.containsKey(c.nodeId)),
-    );
-    final shownNearby = nearby.where(
-      (n) =>
-          matches(n.nodeId) &&
-          _filter != _PeopleFilter.contacts &&
-          (_filter != _PeopleFilter.nearby || mesh.neighbors.containsKey(n.nodeId)),
-    );
+    bool matches(int id) {
+      final name = mesh.nameOf(id).toLowerCase();
+      final hex = nodeIdHex(id).toLowerCase();
+      return name.contains(_query) || hex.contains(_query);
+    }
+
+    bool visible(int id) {
+      return matches(id) && (_filter != _PeopleFilter.nearby || mesh.neighbors.containsKey(id));
+    }
+
+    final shownContacts = contacts.where((c) => visible(c.nodeId));
+    final shownNearby = nearby.where((n) => _filter != _PeopleFilter.contacts && visible(n.nodeId));
 
     final peopleUnread = mesh.unread.values.fold(0, (a, b) => a + b);
     final channelUnread = mesh.channelUnread.values.fold(0, (a, b) => a + b);
@@ -325,9 +326,8 @@ void _showAddSheet(BuildContext context) {
               onTap: () {
                 Navigator.of(sheet).pop();
                 unawaited(
-                  Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute<void>(builder: (_) => const AddContactScreen(channelsFirst: true))),
+                  Navigator.of(context)
+                      .push(MaterialPageRoute<void>(builder: (_) => const AddContactScreen(channelsFirst: true))),
                 );
               },
             ),
