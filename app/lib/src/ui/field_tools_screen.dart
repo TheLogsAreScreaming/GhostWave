@@ -104,10 +104,11 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
                     final report = const JsonEncoder.withIndent('  ')
                         .convert({'version': 1, 'notes': _notes.text, 'samples': _samples});
                     await Clipboard.setData(ClipboardData(text: report));
-                    if (context.mounted)
+                    if (context.mounted) {
                       ScaffoldMessenger.of(
                         context,
                       ).showSnackBar(const SnackBar(content: Text('Report copied. Paste it into a file or message.')));
+                    }
                   },
             child: const Text('Copy test report'),
           ),
