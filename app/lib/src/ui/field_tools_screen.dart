@@ -55,7 +55,7 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
           'tx': status.tx.toString(),
           'rx': status.rx.toString(),
           'delivered': status.delivered.toString(),
-          'neighbors': [
+          'neighbors': <Map<String, Object?>>[
             for (final n in mesh.neighbors.values)
               {
                 'node': n.nodeId,
@@ -116,9 +116,24 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
             'Reports include neighbor identifiers and approximate distances. Notes and samples stay here only until this screen closes. Signal history is unavailable from the current node protocol.',
           ),
           for (final sample in _samples.reversed)
-            ListTile(
+            ExpansionTile(
+              key: ObjectKey(sample),
               title: Text('${sample['at']}'),
               subtitle: Text('TX ${sample['tx']} · RX ${sample['rx']} · delivered ${sample['delivered']}'),
+              children: [
+                for (final neighbor in sample['neighbors']! as List<Map<String, Object?>>)
+                  ListTile(
+                    title: Text((neighbor['node']! as int).toRadixString(16).padLeft(8, '0')),
+                    subtitle: Text('Last heard ${neighbor['lastSeen']}'),
+                    trailing: Text(
+                      switch (neighbor['distanceMetres']) {
+                        final num distance => '${distance.round()} m',
+                        _ => 'No position',
+                      },
+                    ),
+                  ),
+                if ((sample['neighbors']! as List).isEmpty) const ListTile(title: Text('No neighbors heard')),
+              ],
             ),
         ],
       ),
