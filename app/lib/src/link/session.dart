@@ -277,7 +277,11 @@ class LinkSession {
     }
   }
 
+  /// Time of the last decoded reply or event from this radio.
+  DateTime? lastReceivedAt;
+
   void _route(pb.FromRadio m) {
+    lastReceivedAt = DateTime.now();
     final p = m.reqId == 0 ? null : _pending[m.reqId];
     if (p == null) {
       // an event kind from a newer node: nothing this app can show
