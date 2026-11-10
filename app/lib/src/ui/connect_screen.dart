@@ -44,6 +44,12 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   }
 
   Future<void> _connect() async {
+    final saved = ref.read(nodeAddressProvider);
+    if (_address.text.trim().isEmpty && saved != null && BleNodeRef.tryParse(saved) != null) {
+      setState(() => _error = null);
+      await ref.read(nodeAddressProvider.notifier).connectAddress(saved);
+      return;
+    }
     final a = TcpAddress.tryParse(_address.text);
     if (a == null) {
       setState(() => _error = 'Use host:port, e.g. 192.168.1.20:47800');
