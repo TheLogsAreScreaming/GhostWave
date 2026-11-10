@@ -37,6 +37,8 @@ def uf2_to_bin(raw, app_start):
     if not raw or len(raw) % 512:
         raise ValueError("not a UF2 file")
     blocks = {}
+    numbers = set()
+    total_blocks = len(raw) // 512
     for i in range(0, len(raw), 512):
         block = raw[i : i + 512]
         m0, m1, flags, addr, size, _no, _total, family = struct.unpack("<8I", block[:32])
@@ -45,6 +47,15 @@ def uf2_to_bin(raw, app_start):
             raise ValueError("bad UF2 block")
         if not flags & 0x2000 or family != NRF52840_FAMILY:
             raise ValueError("UF2 is not for the nRF52840")
+        if size == 0 or size > 476:
+            raise ValueError("invalid UF2 payload size")
+        if _total != total_blocks or _no >= _total or _no in numbers:
+            raise ValueError("inconsistent or duplicate UF2 block numbering")
+        if addr in blocks:
+            raise ValueError("duplicate UF2 target address")
+        if addr + size > 0x100000:
+            raise ValueError("UF2 payload outside application flash")
+        numbers.add(_no)
         blocks[addr] = block[32 : 32 + size]
     if min(blocks) != app_start:
         raise ValueError(f"UF2 starts at {min(blocks):#x}, this board needs {app_start:#x}")
