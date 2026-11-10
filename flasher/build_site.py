@@ -46,6 +46,8 @@ def uf2_to_bin(raw, app_start):
         end = struct.unpack("<I", block[508:512])[0]
         if (m0, m1, end) != UF2_MAGIC:
             raise ValueError("bad UF2 block")
+        if flags & (0x00000001 | 0x00001000):
+            raise ValueError("UF2 contains a non-application block")
         if not flags & 0x2000 or family != NRF52840_FAMILY:
             raise ValueError("UF2 is not for the nRF52840")
         if size == 0 or size > 476:
