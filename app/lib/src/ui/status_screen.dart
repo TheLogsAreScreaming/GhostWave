@@ -18,17 +18,33 @@ class StatusScreen extends ConsumerStatefulWidget {
   ConsumerState<StatusScreen> createState() => _StatusScreenState();
 }
 
-class _StatusScreenState extends ConsumerState<StatusScreen> {
+class _StatusScreenState extends ConsumerState<StatusScreen> with WidgetsBindingObserver {
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == null || lifecycle == AppLifecycleState.resumed) _startPolling();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _timer?.cancel();
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(nodeStatusProvider);
+      _startPolling();
+    }
+  }
+
+  void _startPolling() {
     _timer = Timer.periodic(const Duration(seconds: 10), (_) => ref.invalidate(nodeStatusProvider));
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }
