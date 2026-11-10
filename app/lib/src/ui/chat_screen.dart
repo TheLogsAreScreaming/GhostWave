@@ -71,7 +71,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final contact = mesh.contacts[widget.peer];
     final msgs = mesh.messages[widget.peer] ?? const <ChatMessage>[];
     final bytes = utf8Length(_text.text.trim());
-    final max = _max;
+    final reportedMax = ref.watch(nodeInfoProvider.select((info) => info?.maxTextBytes ?? 0));
+    final max = reportedMax == 0 ? kDefaultMaxTextBytes : reportedMax;
     final parts = bytes == 0 ? 1 : splitMessage(_text.text.trim(), max).length;
     final over = parts > kMaxMessageParts;
     final scheme = Theme.of(context).colorScheme;
