@@ -30,6 +30,7 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
   }
 
   Future<void> _capture() async {
+    final sampleNote = _notes.text.trim();
     final session = ref.read(sessionProvider);
     if (session == null) {
       setState(() => _error = 'Connect to a radio before recording a sample.');
@@ -54,6 +55,7 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
         () => _samples.add({
           'at': DateTime.now().toUtc().toIso8601String(),
           'node': mesh.nodeId,
+          if (sampleNote.isNotEmpty) 'note': sampleNote,
           'firmware': info?.firmware,
           'uptimeSeconds': status.uptimeS,
           'tx': status.tx.toString(),
