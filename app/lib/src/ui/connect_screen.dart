@@ -143,6 +143,8 @@ class LinkStateCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(nodeAddressProvider);
+    final bluetooth = saved != null && BleNodeRef.tryParse(saved) != null;
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, Color color, String title, String detail) = switch (state) {
       LinkIdle() => (Icons.link_off, scheme.outline, 'Not connected', 'Enter the node address above.'),
@@ -179,6 +181,9 @@ class LinkStateCard extends ConsumerWidget {
         subtitle: Text(
           '$detail\n${switch (state) {
             LinkUp(:final session) => session.lastReceivedAt == null ? 'Waiting for radio data' : 'Last radio data: ${timeAgo(session.lastReceivedAt!)}',
+            LinkWaiting() when !bluetooth => 'Check Wi-Fi and the node address. Reconnection is automatic.',
+            LinkFailed() when !bluetooth => 'Check the host and port, then retry on the same network.',
+            LinkNeedsPin() => 'Use the PIN printed by the node at startup.',
             LinkWaiting() => 'Keep the radio nearby and Bluetooth enabled. Reconnection is automatic.',
             LinkFailed() => 'Check Nearby devices permission and the pairing code. If the radio pairing was cleared, forget it in Android Bluetooth settings and pair again.',
             _ => 'For Bluetooth, power the radio and disconnect any other phone using it.',
