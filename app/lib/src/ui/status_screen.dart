@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app/providers.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import 'theme.dart';
+import 'field_tools_screen.dart';
 import 'widgets.dart';
 
 /// The node's `Status` counters, refreshed every 10 s while visible.
@@ -39,6 +40,11 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
       appBar: AppBar(
         title: const Text('Node status'),
         actions: [
+          IconButton(
+            tooltip: 'Field tools',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FieldToolsScreen())),
+            icon: const Icon(Icons.science_outlined),
+          ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: () => ref.invalidate(nodeStatusProvider),
