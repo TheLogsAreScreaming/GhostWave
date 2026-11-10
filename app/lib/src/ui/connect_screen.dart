@@ -124,7 +124,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              const _Help(),
+              const ExpansionTile(
+                leading: Icon(Icons.help_outline),
+                title: Text('Network setup help'),
+                children: [_Help()],
+              ),
             ],
           ),
         ),
