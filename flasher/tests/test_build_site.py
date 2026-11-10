@@ -43,6 +43,26 @@ class T(unittest.TestCase):
         with self.assertRaises(ValueError):
             b.uf2_to_bin(b"x" * 100, START)
 
+    def test_duplicate_address_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "duplicate UF2 target"):
+            b.uf2_to_bin(uf2([(START, b"A" * 4), (START, b"B" * 4)]), START)
+
+    def test_oversized_payload_is_refused(self):
+        raw = bytearray(uf2([(START, b"A" * 4)]))
+        struct.pack_into("<I", raw, 16, 480)
+        with self.assertRaisesRegex(ValueError, "payload size"):
+            b.uf2_to_bin(raw, START)
+
+    def test_inconsistent_block_count_is_refused(self):
+        raw = bytearray(uf2([(START, b"A" * 4)]))
+        struct.pack_into("<I", raw, 24, 2)
+        with self.assertRaisesRegex(ValueError, "block numbering"):
+            b.uf2_to_bin(raw, START)
+
+    def test_flash_overrun_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "outside application flash"):
+            b.uf2_to_bin(uf2([(0xFFFFC, b"A" * 8)]), 0xFFFFC)
+
     def test_init_packet_matches_nrfutil(self):
         # a firmware.dat written by adafruit-nrfutil, for an image with CRC 0xEDAA
         expected = bytes.fromhex("5200ffffffffffff0100b600aaed")
