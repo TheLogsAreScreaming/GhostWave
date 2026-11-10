@@ -101,8 +101,9 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
             onPressed: _samples.isEmpty
                 ? null
                 : () async {
-                    final report = const JsonEncoder.withIndent('  ')
-                        .convert({'version': 1, 'notes': _notes.text, 'samples': _samples});
+                    final report = const JsonEncoder.withIndent(
+                      '  ',
+                    ).convert({'version': 1, 'notes': _notes.text, 'samples': _samples});
                     await Clipboard.setData(ClipboardData(text: report));
                     if (context.mounted) {
                       ScaffoldMessenger.of(
@@ -125,12 +126,10 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
                   ListTile(
                     title: Text((neighbor['node']! as int).toRadixString(16).padLeft(8, '0')),
                     subtitle: Text('Last heard ${neighbor['lastSeen']}'),
-                    trailing: Text(
-                      switch (neighbor['distanceMetres']) {
-                        final num distance => '${distance.round()} m',
-                        _ => 'No position',
-                      },
-                    ),
+                    trailing: Text(switch (neighbor['distanceMetres']) {
+                      final num distance => '${distance.round()} m',
+                      _ => 'No position',
+                    }),
                   ),
                 if ((sample['neighbors']! as List).isEmpty) const ListTile(title: Text('No neighbors heard')),
               ],
