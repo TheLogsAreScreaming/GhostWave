@@ -82,82 +82,99 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('SOS')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(GwSpace.lg, GwSpace.sm, GwSpace.lg, GwSpace.xl),
         children: [
-          if (own.active) ...[
-            Card(
-              color: scheme.errorContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.sos, color: scheme.onErrorContainer, size: 36),
-                        const SizedBox(width: 12),
-                        Text(
-                          'SOS active',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(color: scheme.onErrorContainer, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+          ReadableWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (own.active) ...[
+                  Card(
+                    color: scheme.errorContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.sos, color: scheme.onErrorContainer, size: 36),
+                              const SizedBox(width: 12),
+                              Text(
+                                'SOS active',
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(color: scheme.onErrorContainer, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (own.text.isNotEmpty) Text('"${own.text}"'),
+                          if (own.startedAt != null) SosClock(startedAt: own.startedAt!),
+                          const Text('Your node repeats it until you stop it.'),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    if (own.text.isNotEmpty) Text('"${own.text}"'),
-                    if (own.startedAt != null) SosClock(startedAt: own.startedAt!),
-                    const Text('Your node repeats it until you stop it.'),
-                  ],
-                ),
-              ),
+                  ),
+                  SectionLabel('Acknowledged by (${own.acks.length})'),
+                  if (own.acks.isEmpty)
+                    const Padding(padding: EdgeInsets.all(8), child: Text('No acks yet. Help may still be coming.'))
+                  else
+                    for (final a in own.acks.reversed)
+                      ListTile(
+                        leading: const Icon(Icons.check_circle, color: GwColors.success),
+                        title: Text(mesh.nameOf(a.responder)),
+                        subtitle: Text('${timeAgo(a.at)} · seq ${a.seq}'),
+                      ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: online && !_busy ? _stop : null,
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label: const Text('Stop SOS'),
+                  ),
+                ] else ...[
+                  TextField(
+                    controller: _text,
+                    maxLength: 120, // characters; the byte limit below is what counts
+                    decoration: InputDecoration(
+                      labelText: 'What is wrong? (optional)',
+                      hintText: 'e.g. twisted ankle, need help',
+                      counterText: '$bytes / $kMaxSosTextBytes bytes${bytes > kMaxSosTextBytes ? ' (cut)' : ''}',
+                    ),
+                  ),
+                  const SizedBox(height: GwSpace.xl),
+                  Center(
+                    child: HoldToConfirmButton(
+                      enabled: online && !_busy,
+                      onConfirmed: () => _run(() => ref.read(meshProvider.notifier).startSos(_text.text)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      online ? 'Press and hold for 3 seconds to send an SOS' : 'Connect to a node to send an SOS',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: GwSpace.lg),
+                SectionLabel('SOS alerts received (${mesh.alerts.length})'),
+                if (mesh.alerts.isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(GwSpace.lg),
+                      child: Text(
+                        'None. Alerts from nodes in range show here and on every tab.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: GwColors.mutedText),
+                      ),
+                    ),
+                  ),
+                for (final a in mesh.alerts) ...[
+                  AlertTile(alert: a, online: online),
+                  const SizedBox(height: GwSpace.sm),
+                ],
+              ],
             ),
-            const SizedBox(height: 8),
-            Text('Acknowledged by (${own.acks.length})', style: Theme.of(context).textTheme.titleMedium),
-            if (own.acks.isEmpty)
-              const Padding(padding: EdgeInsets.all(8), child: Text('No acks yet. Help may still be coming.'))
-            else
-              for (final a in own.acks.reversed)
-                ListTile(
-                  leading: const Icon(Icons.check_circle, color: GwColors.success),
-                  title: Text(mesh.nameOf(a.responder)),
-                  subtitle: Text('${timeAgo(a.at)} · seq ${a.seq}'),
-                ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: online && !_busy ? _stop : null,
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text('Stop SOS'),
-            ),
-          ] else ...[
-            TextField(
-              controller: _text,
-              maxLength: 120, // characters; the byte limit below is what counts
-              decoration: InputDecoration(
-                labelText: 'What is wrong? (optional)',
-                hintText: 'e.g. twisted ankle, need help',
-                border: const OutlineInputBorder(),
-                counterText: '$bytes / $kMaxSosTextBytes bytes${bytes > kMaxSosTextBytes ? ' (cut)' : ''}',
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: HoldToConfirmButton(
-                enabled: online && !_busy,
-                onConfirmed: () => _run(() => ref.read(meshProvider.notifier).startSos(_text.text)),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                online ? 'Press and hold for 3 seconds to send an SOS' : 'Connect to a node to send an SOS',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          ],
-          const Divider(height: 40),
-          Text('SOS alerts received (${mesh.alerts.length})', style: Theme.of(context).textTheme.titleMedium),
-          if (mesh.alerts.isEmpty) const Padding(padding: EdgeInsets.all(8), child: Text('None.')),
-          for (final a in mesh.alerts) AlertTile(alert: a, online: online),
+          ),
         ],
       ),
     );
@@ -198,31 +215,66 @@ class AlertTile extends ConsumerWidget {
         'no position fix',
       if (a.batteryPct != null) 'battery ${a.batteryPct}%',
     ];
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final live = !a.acked && !a.cancelled;
     return Card(
-      child: ListTile(
-        leading: Icon(Icons.sos, color: a.acked ? null : Theme.of(context).colorScheme.error),
-        title: Text('${mesh.nameOf(a.src)} (${nodeIdHex(a.src)})'),
-        subtitle: Column(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(GwRadius.lg),
+        side: BorderSide(color: live ? GwColors.alert : GwColors.outlineVariant, width: live ? 1.5 : 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(GwSpace.lg, GwSpace.md, GwSpace.md, GwSpace.sm),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (a.cancelled)
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: live ? GwColors.alert : GwColors.surface3,
+                  foregroundColor: live ? GwColors.onAlert : GwColors.mutedText,
+                  child: const Icon(Icons.sos, size: 22),
+                ),
+                const SizedBox(width: GwSpace.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(mesh.nameOf(a.src), style: text.titleMedium),
+                      Text(nodeIdHex(a.src), style: GwText.mono.copyWith(color: GwColors.mutedText, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                if (a.acked)
+                  const Chip(avatar: Icon(Icons.check, size: 16), label: Text('Acked'))
+                else
+                  FilledButton(
+                    onPressed: online ? () => ackAlert(context, ref, a.src) : null,
+                    child: const Text('Ack'),
+                  ),
+              ],
+            ),
+            if (a.cancelled) ...[
+              const SizedBox(height: GwSpace.sm),
               Text(
                 a.cancelVerified ? 'Ended by the sender' : 'Sender says resolved (not verified)',
-                style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary),
+                style: TextStyle(fontWeight: FontWeight.w600, color: scheme.primary),
               ),
-            Text(details.join('\n')),
+            ],
+            const SizedBox(height: GwSpace.sm),
+            Text(details.join('\n'), style: text.bodyMedium?.copyWith(color: GwColors.mutedText)),
             if (pos != null)
-              TextButton.icon(
-                onPressed: () => ref.read(mapFocusProvider.notifier).show(pos, 'SOS from ${mesh.nameOf(a.src)}'),
-                icon: const Icon(Icons.map_outlined),
-                label: const Text('Show on map'),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: () => ref.read(mapFocusProvider.notifier).show(pos, 'SOS from ${mesh.nameOf(a.src)}'),
+                  icon: const Icon(Icons.map_outlined),
+                  label: const Text('Show on map'),
+                ),
               ),
           ],
         ),
-        isThreeLine: true,
-        trailing: a.acked
-            ? const Chip(label: Text('Acked'))
-            : FilledButton(onPressed: online ? () => ackAlert(context, ref, a.src) : null, child: const Text('Ack')),
       ),
     );
   }

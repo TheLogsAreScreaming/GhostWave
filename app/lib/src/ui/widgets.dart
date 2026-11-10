@@ -230,3 +230,42 @@ void closeChat(BuildContext context, WidgetRef ref) {
     ref.read(openChatProvider.notifier).close();
   }
 }
+
+/// Centres page content and caps it at a readable width on wide windows.
+class ReadableWidth extends StatelessWidget {
+  /// Caps [child] at [maxWidth].
+  const ReadableWidth({required this.child, this.maxWidth = 680, super.key});
+
+  /// The content.
+  final Widget child;
+
+  /// The widest it gets, in logical px.
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: child,
+    ),
+  );
+}
+
+/// A small muted heading above a group of cards or rows.
+class SectionLabel extends StatelessWidget {
+  /// Creates the heading.
+  const SectionLabel(this.text, {super.key});
+
+  /// The heading text.
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(GwSpace.xs, GwSpace.xl, GwSpace.xs, GwSpace.sm),
+    child: Semantics(
+      header: true,
+      child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: GwColors.mutedText)),
+    ),
+  );
+}
