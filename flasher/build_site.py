@@ -7,6 +7,7 @@ CORS headers), so each release UF2 becomes firmware.bin + firmware.dat here.
   build_site.py --out dist/webflasher
   build_site.py --convert file.uf2 --sd-fwid 182 --app-start 155648 --out dir
 """
+import hashlib
 import argparse
 import json
 import pathlib
@@ -116,9 +117,10 @@ def build(out):
                 uf2s = list(pathlib.Path(tmp).glob("*.uf2"))
                 if len(uf2s) != 1:
                     raise ValueError(f"{tag}: expected one UF2, found {len(uf2s)}")
+                digest = hashlib.sha256(uf2s[0].read_bytes()).hexdigest()
                 convert(uf2s[0], b["sdFwid"], b["appStart"], out / "firmware" / b["id"] / version)
                 shutil.copy(uf2s[0], out / "firmware" / b["id"] / version / "firmware.uf2")
-            b["versions"].append({"version": version, "prerelease": pre})
+            b["versions"].append({"version": version, "prerelease": pre, "sha256": digest})
     catalog = json.loads((HERE / "board-catalog.json").read_text())["boards"]
     enabled = {board["id"]: board for board in boards}
     for item in catalog:

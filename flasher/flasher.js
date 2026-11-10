@@ -56,6 +56,16 @@ function renderVersions() {
 function renderVersion() {
   $("secondStep").hidden = true;
   const v = version();
+  let checksum = $("uf2Checksum");
+  if (!checksum) {
+    checksum = document.createElement("p");
+    checksum.id = "uf2Checksum";
+    checksum.className = "small";
+    checksum.style.overflowWrap = "anywhere";
+    $("uf2").parentElement.after(checksum);
+  }
+  checksum.hidden = !v?.sha256;
+  checksum.textContent = v?.sha256 ? `UF2 SHA-256: ${v.sha256}` : "";
   $("preNote").hidden = !v?.prerelease;
   if (v) {
     $("uf2").href = `${dir()}/firmware.uf2`;
