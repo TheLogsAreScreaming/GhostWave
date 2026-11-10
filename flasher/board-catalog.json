@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "note": "Build catalog only. This does not enable flashing or establish hardware qualification.",
+  "boards": [
+    {
+      "id": "rak4631",
+      "packageFormat": "uf2",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "existing entry; verify compatible release"
+    },
+    {
+      "id": "t1000e",
+      "packageFormat": "uf2",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "existing entry; verify compatible release"
+    },
+    {
+      "id": "heltec_t114",
+      "packageFormat": "uf2",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "not enabled; bootloader or installer validation required"
+    },
+    {
+      "id": "wio_tracker_l1",
+      "packageFormat": "uf2",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "not enabled; bootloader or installer validation required"
+    },
+    {
+      "id": "t_echo",
+      "packageFormat": "uf2",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "not enabled; bootloader or installer validation required"
+    },
+    {
+      "id": "heltec_v4",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "not enabled; bootloader or installer validation required"
+    },
+    {
+      "id": "heltec_v3",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "not enabled; bootloader or installer validation required"
+    },
+    {
+      "id": "t3s3",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "not enabled; bootloader or installer validation required"
+    },
+    {
+      "id": "t_deck",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "not enabled; bootloader or installer validation required"
+    },
+    {
+      "id": "heltec_wireless_tracker_v2",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "not enabled; bootloader or installer validation required"
+    },
+    {
+      "id": "heltec_wsl_v3",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "not enabled; bootloader or installer validation required"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+name: Selected board firmware packages
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['firmware/**', 'scripts/package-board-firmware.py', '.github/workflows/board-packages.yml']
+  push:
+    branches: [main]
+    paths: ['firmware/**', 'scripts/package-board-firmware.py', '.github/workflows/board-packages.yml']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [rak4631, t1000e, heltec_t114, wio_tracker_l1, heltec_v4, heltec_v3, t_echo, t3s3, t_deck, heltec_wireless_tracker_v2, heltec_wsl_v3]
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: '3.12'
+      - run: pip install platformio==6.2.0
+      - uses: actions/cache@v4.2.3
+        with:
+          path: ~/.platformio
+          key: board-pio-${{ runner.os }}-${{ matrix.board }}-${{ hashFiles('firmware/mcu/platformio.ini', 'firmware/mcu/boards.d/**', 'firmware/mcu/boards/**') }}
+      - name: Build exact board target
+        working-directory: firmware/mcu
+        run: pio run -e ${{ matrix.board }}
+      - name: Package images and checksums
+        run: python3 scripts/package-board-firmware.py --board ${{ matrix.board }} --build-dir firmware/mcu/.pio/build/${{ matrix.board }} --out out/${{ matrix.board }} --commit ${{ github.sha }}
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ghostwave-${{ matrix.board }}-${{ github.sha }}
+          path: out/${{ matrix.board }}/
+          retention-days: 30
+          if-no-files-found: error
