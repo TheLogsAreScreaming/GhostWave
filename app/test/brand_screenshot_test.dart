@@ -16,10 +16,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ghostwave_app/main.dart';
+import 'package:ghostwave_app/src/app/mesh_controller.dart';
 import 'package:ghostwave_app/src/app/providers.dart';
+import 'package:ghostwave_app/src/data/mesh_store.dart';
+import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app/mesh_controller_test.dart' show answeringNode;
 import 'link/fake_node.dart';
+import 'support/history_keys.dart';
 
 final String? _outDir = Platform.environment['SCREENSHOT_DIR'];
 
@@ -66,8 +71,13 @@ Future<void> _shot(WidgetTester tester, GlobalKey key, String name) async {
   });
 }
 
-Future<void> _pumpApp(WidgetTester tester, GlobalKey key, List<Override> overrides) async {
-  tester.view.physicalSize = const Size(412 * 2, 892 * 2);
+Future<void> _pumpApp(
+  WidgetTester tester,
+  GlobalKey key,
+  List<Override> overrides, {
+  Size size = const Size(412, 892),
+}) async {
+  tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -124,5 +134,74 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await _shot(tester, key, 'me');
+  });
+
+  // A connected node with contacts, a nearby node, chats and an SOS, for the screens people use most.
+  Future<FakeNode> populated(WidgetTester tester, GlobalKey key, {Size size = const Size(412, 892)}) async {
+    SharedPreferences.setMockInitialValues({'node_address': '192.168.1.20:47800', 'walkthrough_done': true});
+    final prefs = await SharedPreferences.getInstance();
+    final dir = Directory.systemTemp.createTempSync('gw_shots_store');
+    final node = answeringNode(
+      contacts: [
+        pb.Contact(nodeId: 0x1A2B3C4D, name: 'Ridge'.codeUnits, pinned: true),
+        pb.Contact(nodeId: 0x0B0B0B0B, name: 'Basecamp'.codeUnits),
+        pb.Contact(nodeId: 0x7E57C0DE, name: 'Kestrel'.codeUnits, pinned: true),
+      ],
+    );
+    await _pumpApp(tester, key, [
+      sharedPrefsProvider.overrideWithValue(prefs),
+      meshStoreProvider.overrideWithValue(MeshStore(dir, testHistoryKeys)),
+      transportFactoryProvider.overrideWithValue((_) => node),
+    ], size: size);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pump();
+    void text(int src, int id, String t) => node.last.send(
+      pb.FromRadio(
+        text: pb.TextMessage(src: src, msgId: id, text: t.codeUnits),
+      ),
+    );
+    text(0x1A2B3C4D, 1, 'At the saddle, wind picking up. Heading down the east ridge.');
+    text(0x0B0B0B0B, 2, 'Copy. Weather window closes around 3.');
+    text(0x1A2B3C4D, 3, 'Water at the lake is fine.');
+    node.last.send(pb.FromRadio(neighbor: pb.Neighbor(nodeId: 0x5EED1234, isNew: true)));
+    final ctl = ProviderScope.containerOf(tester.element(find.byType(GhostWaveApp))).read(meshProvider.notifier);
+    await tester.runAsync(() async {
+      await ctl.sendText(0x1A2B3C4D, 'Nice. Meet at the trailhead at 4?');
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    return node;
+  }
+
+  testWidgets('chats, a chat, map and status', skip: skip != false, (tester) async {
+    final key = GlobalKey();
+    await populated(tester, key);
+    await _shot(tester, key, 'chats');
+    await tester.tap(find.text('Ridge').first);
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 2),
+    );
+    await _shot(tester, key, 'chat');
+    await tester.pageBack();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Status').last);
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+    await _shot(tester, key, 'status');
+  });
+
+  testWidgets('desktop width', skip: skip != false, (tester) async {
+    final key = GlobalKey();
+    await populated(tester, key, size: const Size(1280, 800));
+    await _shot(tester, key, 'desktop_chats');
+    await tester.tap(find.text('Ridge').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await _shot(tester, key, 'desktop_chat_open');
   });
 }

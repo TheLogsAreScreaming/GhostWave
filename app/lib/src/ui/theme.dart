@@ -76,6 +76,62 @@ abstract final class GwColors {
   static const Color mapNearby = Color(0xFF546E7A);
 }
 
+/// Spacing steps (logical px). Layout uses these, not ad-hoc numbers.
+abstract final class GwSpace {
+  /// Hairline gaps.
+  static const double xs = 4;
+
+  /// Between related items.
+  static const double sm = 8;
+
+  /// Default inner padding.
+  static const double md = 12;
+
+  /// Page gutters.
+  static const double lg = 16;
+
+  /// Between sections.
+  static const double xl = 24;
+}
+
+/// Corner radii.
+abstract final class GwRadius {
+  /// Chips, small controls.
+  static const double sm = 10;
+
+  /// Inputs, tiles.
+  static const double md = 14;
+
+  /// Cards, bubbles, sheets.
+  static const double lg = 20;
+
+  /// Fully rounded pills.
+  static const double pill = 999;
+}
+
+/// Window size classes (Material 3), the only breakpoints the app uses.
+enum WindowSizeClass {
+  /// Phones in portrait, under 600.
+  compact,
+
+  /// Small tablets, foldables, 600 to 840.
+  medium,
+
+  /// Tablets and small desktop windows, 840 to 1200.
+  expanded,
+
+  /// Desktop windows, 1200 and up.
+  large;
+
+  /// The class for a window [width] in logical px.
+  static WindowSizeClass of(double width) => switch (width) {
+    < 600 => compact,
+    < 840 => medium,
+    < 1200 => expanded,
+    _ => large,
+  };
+}
+
 /// Font families bundled under assets/fonts (all SIL OFL 1.1).
 abstract final class GwFonts {
   /// Headlines.
@@ -141,9 +197,13 @@ ThemeData buildGhostWaveTheme() {
     displaySmall: head(t.displaySmall, FontWeight.w700),
     headlineLarge: head(t.headlineLarge, FontWeight.w700),
     headlineMedium: head(t.headlineMedium, FontWeight.w700),
-    headlineSmall: head(t.headlineSmall, FontWeight.w500),
-    titleLarge: head(t.titleLarge, FontWeight.w500),
+    headlineSmall: head(t.headlineSmall, FontWeight.w700),
+    titleLarge: head(t.titleLarge, FontWeight.w700)?.copyWith(fontSize: 24, letterSpacing: -0.2),
+    titleMedium: t.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+    labelLarge: t.labelLarge?.copyWith(fontWeight: FontWeight.w600),
   );
+  const pill = StadiumBorder();
+  final rounded = RoundedRectangleBorder(borderRadius: BorderRadius.circular(GwRadius.md));
 
   return base.copyWith(
     textTheme: text,
@@ -153,14 +213,119 @@ ThemeData buildGhostWaveTheme() {
       foregroundColor: GwColors.mistWhite,
       surfaceTintColor: Colors.transparent,
       titleTextStyle: text.titleLarge?.copyWith(color: GwColors.mistWhite),
+      titleSpacing: GwSpace.lg + GwSpace.xs,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
     ),
-    navigationBarTheme: const NavigationBarThemeData(
+    navigationBarTheme: NavigationBarThemeData(
       backgroundColor: GwColors.surface1,
-      indicatorColor: Color(0xFF003A40),
+      indicatorColor: GwColors.spectralCyan.withValues(alpha: 0.16),
       surfaceTintColor: Colors.transparent,
+      height: 68,
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (s) => text.labelMedium?.copyWith(
+          fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+          color: s.contains(WidgetState.selected) ? GwColors.mistWhite : GwColors.mutedText,
+        ),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (s) => IconThemeData(color: s.contains(WidgetState.selected) ? GwColors.spectralCyan : GwColors.mutedText),
+      ),
     ),
-    cardTheme: const CardThemeData(color: GwColors.surface1, surfaceTintColor: Colors.transparent),
-    dividerTheme: const DividerThemeData(color: GwColors.outlineVariant),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: GwColors.surface1,
+      indicatorColor: GwColors.spectralCyan.withValues(alpha: 0.16),
+      selectedIconTheme: const IconThemeData(color: GwColors.spectralCyan),
+      unselectedIconTheme: const IconThemeData(color: GwColors.mutedText),
+      selectedLabelTextStyle: text.labelLarge?.copyWith(color: GwColors.mistWhite, fontWeight: FontWeight.w700),
+      unselectedLabelTextStyle: text.labelLarge?.copyWith(color: GwColors.mutedText),
+    ),
+    tabBarTheme: TabBarThemeData(
+      dividerColor: Colors.transparent,
+      indicatorSize: TabBarIndicatorSize.tab,
+      indicator: BoxDecoration(color: GwColors.surface3, borderRadius: BorderRadius.circular(GwRadius.pill)),
+      labelColor: GwColors.mistWhite,
+      unselectedLabelColor: GwColors.mutedText,
+      labelStyle: text.labelLarge,
+      unselectedLabelStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+      splashBorderRadius: BorderRadius.circular(GwRadius.pill),
+    ),
+    listTileTheme: ListTileThemeData(
+      contentPadding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.xs),
+      minVerticalPadding: GwSpace.sm,
+      horizontalTitleGap: GwSpace.md,
+      titleTextStyle: text.titleMedium?.copyWith(color: GwColors.mistWhite),
+      subtitleTextStyle: text.bodyMedium?.copyWith(color: GwColors.mutedText),
+      iconColor: GwColors.mutedText,
+      shape: rounded,
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: GwColors.spectralCyan,
+      foregroundColor: GwColors.ghostBlack,
+      elevation: 0,
+      focusElevation: 0,
+      hoverElevation: 0,
+      highlightElevation: 0,
+      extendedTextStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      shape: pill,
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(minimumSize: const Size(48, 48), shape: pill, textStyle: text.labelLarge),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        shape: pill,
+        side: const BorderSide(color: GwColors.outline),
+        textStyle: text.labelLarge,
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(minimumSize: const Size(48, 44), shape: pill, textStyle: text.labelLarge),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: GwColors.surface2,
+      contentPadding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md + 2),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(GwRadius.md), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(GwRadius.md),
+        borderSide: const BorderSide(color: GwColors.outlineVariant),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(GwRadius.md),
+        borderSide: const BorderSide(color: GwColors.spectralCyan, width: 1.5),
+      ),
+      hintStyle: text.bodyLarge?.copyWith(color: GwColors.mutedText),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: GwColors.surface2,
+      side: const BorderSide(color: GwColors.outlineVariant),
+      shape: pill,
+      labelStyle: text.labelLarge?.copyWith(color: GwColors.mistWhite),
+    ),
+    badgeTheme: const BadgeThemeData(backgroundColor: GwColors.spectralCyan, textColor: GwColors.ghostBlack),
+    cardTheme: CardThemeData(
+      color: GwColors.surface1,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(GwRadius.lg),
+        side: const BorderSide(color: GwColors.outlineVariant),
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: GwColors.surface1,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(GwRadius.lg))),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: GwColors.surface1,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GwRadius.lg)),
+    ),
+    dividerTheme: const DividerThemeData(color: GwColors.outlineVariant, space: 1),
     snackBarTheme: const SnackBarThemeData(
       backgroundColor: GwColors.surface3,
       contentTextStyle: TextStyle(color: GwColors.mistWhite, fontFamily: GwFonts.body),

@@ -80,7 +80,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     final bytes = utf8Length(_text.text.trim());
 
     return Scaffold(
-      appBar: AppBar(title: const Text('SOS'), actions: const [LinkChip()]),
+      appBar: AppBar(title: const Text('SOS')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

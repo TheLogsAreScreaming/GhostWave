@@ -14,7 +14,6 @@ import 'add_contact_screen.dart';
 import 'channel_screens.dart';
 import 'chat_screen.dart';
 import 'format.dart';
-import 'widgets.dart';
 import 'theme.dart';
 
 /// Contacts (with unread counts and last-seen) and nodes heard nearby.
@@ -106,9 +105,11 @@ class ContactsScreen extends ConsumerWidget {
                   : null,
               icon: const Icon(Icons.refresh),
             ),
-            const LinkChip(),
           ],
           bottom: TabBar(
+            // large text: tabs size to their labels and scroll instead of overflowing
+            isScrollable: MediaQuery.textScalerOf(context).scale(1) > 1.3,
+            tabAlignment: MediaQuery.textScalerOf(context).scale(1) > 1.3 ? TabAlignment.start : null,
             tabs: [
               Tab(child: _TabLabel('People', peopleUnread)),
               Tab(child: _TabLabel('Channels', channelUnread)),

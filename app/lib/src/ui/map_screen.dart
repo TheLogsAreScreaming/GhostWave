@@ -161,7 +161,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             icon: const Icon(Icons.download_for_offline_outlined),
           ),
           IconButton(tooltip: 'Show all', onPressed: () => _fit(pins), icon: const Icon(Icons.fit_screen)),
-          const LinkChip(),
         ],
       ),
       body: Stack(
