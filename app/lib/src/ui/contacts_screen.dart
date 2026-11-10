@@ -123,7 +123,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 ),
               ),
               if (shownContacts.isEmpty && shownNearby.isEmpty)
-                ListTile(title: Text(_filter == _PeopleFilter.unread ? 'No matching unread chats' : 'No matching nodes')),
+                ListTile(
+                  title: Text(_filter == _PeopleFilter.unread ? 'No matching unread chats' : 'No matching nodes'),
+                ),
               for (final c in shownContacts) _ContactTile(c, unread: mesh.unread[c.nodeId] ?? 0, mesh: mesh),
               if (shownNearby.isNotEmpty) ...[
                 Padding(
