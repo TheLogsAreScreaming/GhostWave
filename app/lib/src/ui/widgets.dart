@@ -173,11 +173,7 @@ Future<void> askForPin(BuildContext context, WidgetRef ref, LinkNeedsPin s) asyn
                 keyboardType: TextInputType.number,
                 autocorrect: false,
                 enableSuggestions: false,
-                decoration: InputDecoration(
-                  labelText: 'PIN',
-                  border: const OutlineInputBorder(),
-                  errorText: s.wrong ? 'That PIN was wrong.' : null,
-                ),
+                decoration: InputDecoration(labelText: 'PIN', errorText: s.wrong ? 'That PIN was wrong.' : null),
                 onChanged: (_) => setState(() {}),
                 onSubmitted: (_) => ok ? Navigator.pop(dialog, ctl.text.trim()) : null,
               ),
