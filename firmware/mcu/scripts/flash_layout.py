@@ -7,12 +7,12 @@ Import('env')  # noqa: F821
 
 def export_layout(source, target, env):
     images = [
-        {'offset': int(str(offset), 0), 'source': env.subst(str(path))}
+        {'offset': int(str(offset), 0), 'source': str(Path(env.subst(str(path))).resolve())}
         for offset, path in env.get('FLASH_EXTRA_IMAGES', [])
     ]
     images.append({
         'offset': int(env.subst('$ESP32_APP_OFFSET'), 0),
-        'source': str(target[0]),
+        'source': str(Path(str(target[0])).resolve()),
     })
     board = env.BoardConfig()
     if not images or any(not Path(image['source']).is_file() for image in images):
