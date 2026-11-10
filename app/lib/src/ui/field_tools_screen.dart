@@ -110,7 +110,13 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
                 : () async {
                     final report = const JsonEncoder.withIndent('  ')
                         .convert({'version': 1, 'notes': _notes.text, 'samples': _samples});
-                    await Clipboard.setData(ClipboardData(text: report));
+                    try {
+                      await Clipboard.setData(ClipboardData(text: report));
+                    } on PlatformException catch (error) {
+                      if (mounted) setState(() => _error = 'Could not copy report: ${error.message ?? error.code}');
+                      return;
+                    }
+                    if (mounted && _error != null) setState(() => _error = null);
                     if (context.mounted) {
                       ScaffoldMessenger.of(
                         context,
