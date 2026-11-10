@@ -148,8 +148,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md),
                     itemCount: msgs.length,
                     itemBuilder: (context, i) {
-                      final m = msgs[msgs.length - 1 - i];
-                      return MessageBubble(
+                      final index = msgs.length - 1 - i;
+                      final m = msgs[index];
+                      final day = m.at.toLocal();
+                      final previous = index == 0 ? null : msgs[index - 1].at.toLocal();
+                      final bubble = MessageBubble(
                         outgoing: m.outgoing,
                         text: m.text,
                         at: m.at,
@@ -158,6 +161,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         error: m.error,
                         onRetry: m.outgoing && m.state == MsgState.failed ? () => unawaited(ctl.retry(m)) : null,
                         onDelete: () => ctl.deleteMessage(m),
+                      );
+                      if (previous != null && DateUtils.isSameDay(day, previous)) return bubble;
+                      final label = MaterialLocalizations.of(context).formatMediumDate(day);
+                      return Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: GwSpace.sm),
+                            child: Semantics(
+                              header: true,
+                              child: Text(label, style: Theme.of(context).textTheme.labelMedium),
+                            ),
+                          ),
+                          bubble,
+                        ],
                       );
                     },
                   ),
