@@ -101,8 +101,8 @@ class MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, String label) = switch (state) {
-      MsgState.pending => (Icons.schedule, 'queued'),
-      MsgState.sent => (Icons.done, receipts ? 'sent' : 'sent to the mesh'),
+      MsgState.pending => (Icons.schedule, 'saved on phone'),
+      MsgState.sent => (Icons.done, receipts ? 'accepted by radio' : 'sent to the mesh'),
       MsgState.delivered => (Icons.done_all, 'delivered'),
       MsgState.failed => (Icons.error_outline, 'failed'),
     };
@@ -150,8 +150,10 @@ class MessageBubble extends StatelessWidget {
                   ),
                 Align(alignment: Alignment.centerLeft, child: Text(text)),
                 const SizedBox(height: 2),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 2,
                   children: [
                     if (replayed) Text('held · ', style: meta),
                     Text(clockTime(at), style: meta),
