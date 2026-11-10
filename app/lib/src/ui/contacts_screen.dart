@@ -19,12 +19,22 @@ import 'theme.dart';
 import 'widgets.dart';
 
 /// Contacts (with unread counts and last-seen) and nodes heard nearby.
-class ContactsScreen extends ConsumerWidget {
+class ContactsScreen extends ConsumerStatefulWidget {
   /// Creates the screen.
   const ContactsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ContactsScreen> createState() => _ContactsScreenState();
+}
+
+enum _PeopleFilter { all, contacts, nearby }
+
+class _ContactsScreenState extends ConsumerState<ContactsScreen> {
+  String _query = '';
+  _PeopleFilter _filter = _PeopleFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
     final mesh = ref.watch(meshProvider);
     final online = ref.watch(sessionProvider) != null;
     DateTime lastActivity(Contact c) {
@@ -48,6 +58,19 @@ class ContactsScreen extends ConsumerWidget {
     final nearby = [...mesh.neighbors.values.where((n) => !mesh.contacts.containsKey(n.nodeId)), ...held.values]
       ..sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
 
+    bool matches(int id) {
+      final name = mesh.nameOf(id).toLowerCase();
+      final hex = nodeIdHex(id).toLowerCase();
+      return name.contains(_query) || hex.contains(_query);
+    }
+
+    bool visible(int id) {
+      return matches(id) && (_filter != _PeopleFilter.nearby || mesh.neighbors.containsKey(id));
+    }
+
+    final shownContacts = contacts.where((c) => visible(c.nodeId));
+    final shownNearby = nearby.where((n) => _filter != _PeopleFilter.contacts && visible(n.nodeId));
+
     final peopleUnread = mesh.unread.values.fold(0, (a, b) => a + b);
     final channelUnread = mesh.channelUnread.values.fold(0, (a, b) => a + b);
     final people = contacts.isEmpty && nearby.isEmpty
@@ -67,8 +90,36 @@ class ContactsScreen extends ConsumerWidget {
         : ListView(
             padding: const EdgeInsets.only(bottom: 88),
             children: [
-              for (final c in contacts) _ContactTile(c, unread: mesh.unread[c.nodeId] ?? 0, mesh: mesh),
-              if (nearby.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.all(GwSpace.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(labelText: 'Find a node', prefixIcon: Icon(Icons.search)),
+                      onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
+                    ),
+                    Wrap(
+                      spacing: GwSpace.xs,
+                      children: [
+                        for (final choice in _PeopleFilter.values)
+                          ChoiceChip(
+                            label: Text(switch (choice) {
+                              _PeopleFilter.all => 'All',
+                              _PeopleFilter.contacts => 'Contacts',
+                              _PeopleFilter.nearby => 'Nearby',
+                            }),
+                            selected: _filter == choice,
+                            onSelected: (_) => setState(() => _filter = choice),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (shownContacts.isEmpty && shownNearby.isEmpty) const ListTile(title: Text('No matching nodes')),
+              for (final c in shownContacts) _ContactTile(c, unread: mesh.unread[c.nodeId] ?? 0, mesh: mesh),
+              if (shownNearby.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(GwSpace.lg + GwSpace.sm, GwSpace.xl, GwSpace.lg, GwSpace.xs),
                   child: Text(
@@ -76,7 +127,7 @@ class ContactsScreen extends ConsumerWidget {
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(color: GwColors.mutedText),
                   ),
                 ),
-                for (final n in nearby)
+                for (final n in shownNearby)
                   ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.cell_tower)),
                     title: Text(nodeIdHex(n.nodeId), style: GwText.mono),

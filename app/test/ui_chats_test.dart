@@ -56,6 +56,20 @@ void main() {
     );
   });
 
+  testWidgets('search finds a peer by partial ID and respects the nearby filter', (tester) async {
+    await _pumpAt(tester, const Size(412, 892));
+    final search = find.widgetWithText(TextField, 'Find a node');
+    await tester.enterText(search, 'missing');
+    await tester.pump();
+    expect(find.text('Ridge'), findsNothing);
+    await tester.enterText(search, '2B3C');
+    await tester.pump();
+    expect(find.text('Ridge'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Nearby'));
+    await tester.pump();
+    expect(find.text('No matching nodes'), findsOneWidget);
+  });
+
   testWidgets('a phone opens a chat as its own page', (tester) async {
     await _pumpAt(tester, const Size(412, 892));
     expect(find.text('Pick a conversation'), findsNothing);
