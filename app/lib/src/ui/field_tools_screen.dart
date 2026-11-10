@@ -41,6 +41,7 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
     });
     try {
       final reply = await session.request(pb.ToRadio(getStatus: pb.GetStatus()));
+      if (!reply.hasStatus()) throw StateError('The radio did not return status counters.');
       final status = reply.status;
       if (!mounted) return;
       if (ref.read(sessionProvider) != session) {
@@ -58,6 +59,9 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
           'tx': status.tx.toString(),
           'rx': status.rx.toString(),
           'delivered': status.delivered.toString(),
+          'rxBad': status.rxBad.toString(),
+          'rxAuthFail': status.rxAuthFail.toString(),
+          'airtimeMs': status.airMs.toString(),
           'neighbors': [
             for (final n in mesh.neighbors.values)
               {
