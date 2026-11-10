@@ -44,6 +44,7 @@ def package(layout_path, out, commit):
         'builds': [{'chipFamily': 'ESP32-S3', 'parts': parts}],
     }
     (out / 'install.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    checksums['install.json'] = hashlib.sha256((out / 'install.json').read_bytes()).hexdigest()
     (out / 'provenance.json').write_text(json.dumps({
         'board': board, 'commit': commit, 'sha256': checksums,
         'hardwareQualification': 'not established by build',
