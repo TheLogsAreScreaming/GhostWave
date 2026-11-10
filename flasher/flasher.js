@@ -24,9 +24,10 @@ function updateButtons() {
 
 function renderVersions() {
   const b = board();
-  $("boardDetail").textContent = `${b.detail}. Needs the ${b.softdevice} bootloader.`;
+  $("boardDetail").textContent = b.catalogOnly ? `${b.name} · experimental build target` : `${b.detail}. Needs the ${b.softdevice} bootloader.`;
   $("version").replaceChildren(...b.versions.map((v) => new Option(`${v.version}${v.prerelease ? " (test build)" : ""}`, v.version)));
   $("version").disabled = !b.versions.length;
+  $("noFirmware").textContent = b.catalogOnly ? "Browser installation is unavailable for this model." : "No firmware has been published for this board yet.";
   $("noFirmware").hidden = !!b.versions.length;
   $("confirm").hidden = $("flash").hidden = !b.versions.length;
   $("checks").replaceChildren(...b.checks.map((text, i) => {
@@ -43,8 +44,9 @@ function renderVersions() {
     return row;
   }));
   $("replace").checked = false;
-  $("enterHint").textContent = b.enter;
-  $("guide").href = GUIDES + b.guide;
+  $("enterHint").textContent = b.enter || "";
+  if (b.guide) $("guide").href = GUIDES + b.guide;
+  else $("guide").removeAttribute("href");
   renderVersion();
 }
 
