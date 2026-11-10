@@ -12,16 +12,15 @@ Artifacts are development candidates, not published or hardware-qualified releas
 3. Confirm the physical board revision, radio band, pin evidence and bootloader.
 4. Run the existing board bench checks and record results before publishing.
 
-UF2 packages contain an application image, requiring a matching existing bootloader.
-ESP32 packages contain separate application, bootloader and partition images;
-they are not complete factory-flash bundles. Until offsets and auxiliary images
-are verified, use PlatformIO upload from the exact source commit.
+UF2 packages contain an application image requiring a matching existing bootloader.
+ESP32 installer artifacts contain a merged image with the pinned PlatformIO uploader's
+resolved flash mode, frequency, size and offsets. The ordinary ESP32 build artifact
+still contains separate diagnostic images; use the artifact ending in `-installer-SHA`
+for browser installation.
 
 ## Flasher rollout
 
-The existing browser installer speaks nRF52840 serial DFU only. Its enabled
-board list remains `flasher/boards.json`. The separate catalog lists build
-candidates without exposing an incompatible flash action. New nRF entries need
-verified SoftDevice IDs and application offsets. ESP32 entries need an ESP32
-installer and board-specific complete flash manifests before enabling a button.
-No deployment, release publication, or hardware test is performed by this PR.
+See [the release procedure](WEB_FLASHER_RELEASE.md). The flasher routes Nordic DFU
+and ESP32 installation separately. Board entries have no installable versions until
+compatible releases are published and the generated website is deployed. Additional
+boards remain experimental until physical-board checks are recorded.

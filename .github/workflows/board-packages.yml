@@ -33,7 +33,7 @@ jobs:
         run: python3 scripts/test-esp32-bundle.py
       - name: Package complete ESP32 upload layout
         if: contains(fromJSON('["heltec_v4", "heltec_v3", "t3s3", "t_deck", "heltec_wireless_tracker_v2", "heltec_wsl_v3"]'), matrix.board)
-        run: python3 scripts/package-esp32-bundle.py --layout firmware/mcu/.pio/build/${{ matrix.board }}/flash-layout.json --out out/${{ matrix.board }}-installer --commit ${{ github.sha }}
+        run: python3 scripts/package-esp32-bundle.py --layout firmware/mcu/.pio/build/${{ matrix.board }}/flash-layout.json --out out/${{ matrix.board }}-installer --commit ${{ github.sha }} --esptool "$HOME/.platformio/packages/tool-esptoolpy/esptool.py"
       - uses: actions/upload-artifact@v4.6.2
         if: contains(fromJSON('["heltec_v4", "heltec_v3", "t3s3", "t_deck", "heltec_wireless_tracker_v2", "heltec_wsl_v3"]'), matrix.board)
         with:

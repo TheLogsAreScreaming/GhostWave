@@ -33,3 +33,7 @@ python3 flasher/tests/test_build_site.py
 
 The bootloader refuses firmware built for a different SoftDevice. It can't tell two boards with the same
 bootloader apart, such as a RAK4631 and a RAK3401, which is why the page asks.
+
+## Selected-board releases
+
+See [the release procedure](../docs/hardware/WEB_FLASHER_RELEASE.md) for all 11 selected targets, ESP32 merged-image packaging, experimental publication and deployment.

@@ -22,6 +22,9 @@ def export_layout(source, target, env):
         'board': env.subst('$PIOENV'),
         'chip': board.get('build.mcu'),
         'flashSize': board.get('upload.flash_size'),
+        # Match the pinned PlatformIO uploader rather than guessing in the browser.
+        'flashMode': env.subst('${__get_board_flash_mode(__env__)}'),
+        'flashFreq': env.subst('${__get_board_f_image(__env__)}'),
         'images': images,
     }
     Path(env.subst('$BUILD_DIR/flash-layout.json')).write_text(json.dumps(data, indent=2) + '\n')

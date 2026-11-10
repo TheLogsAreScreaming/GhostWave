@@ -17,6 +17,8 @@ import struct
 import subprocess
 import tempfile
 
+from bundles import unpack_bundle, verify_esp
+
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = "TheLogsAreScreaming/GhostWave-Releases"
 UF2_MAGIC = (0x0A324655, 0x9E5D5157, 0x0AB16F30)
@@ -120,7 +122,7 @@ def build(out):
 
 
 def build_into(out):
-    for name in ("index.html", "flasher.js", "dfu.js"):
+    for name in ("index.html", "flasher.js", "dfu.js", "installer.js", "esp.html", "esp.js"):
         shutil.copy(HERE / name, out / name)
     boards = json.loads((HERE / "boards.json").read_text())["boards"]
     rels = releases()
@@ -135,6 +137,20 @@ def build_into(out):
         found.sort(key=lambda f: version_key(f[0]), reverse=True)
         b["versions"] = []
         for version, tag, pre in found[:5]:
+            if b.get('transport') == 'esp-web-tools':
+                with tempfile.TemporaryDirectory() as tmp:
+                    subprocess.check_call(['gh', 'release', 'download', tag, '-R', REPO, '-p', '*-installer.zip', '-D', tmp])
+                    archives = list(pathlib.Path(tmp).glob('*.zip'))
+                    if len(archives) != 1:
+                        raise ValueError(f'{tag}: expected exactly one installer ZIP')
+                    dest = out / 'firmware' / b['id'] / version
+                    dest.mkdir(parents=True)
+                    unpack_bundle(archives[0], dest)
+                    provenance = verify_esp(dest, b['id'], b['flashSize'])
+                    shutil.copy(archives[0], dest / 'installer.zip')
+                    digest = hashlib.sha256(archives[0].read_bytes()).hexdigest()
+                    b['versions'].append({'version': version, 'prerelease': pre, 'sha256': digest, 'sourceCommit': provenance['commit']})
+                continue
             with tempfile.TemporaryDirectory() as tmp:
                 subprocess.check_call(
                     ["gh", "release", "download", tag, "-R", REPO, "-p", "*.uf2", "-D", tmp]
