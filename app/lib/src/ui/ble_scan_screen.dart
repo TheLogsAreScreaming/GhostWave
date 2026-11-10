@@ -18,6 +18,7 @@ class BleScanScreen extends ConsumerStatefulWidget {
 
 class _BleScanScreenState extends ConsumerState<BleScanScreen> {
   final Map<String, BleAdvert> _found = {};
+  final _signalRange = <String, (int, int)>{};
   StreamSubscription<BleAdvert>? _sub;
   Timer? _stop;
   bool _scanning = false;
@@ -53,6 +54,7 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
     setState(() {
       _problem = null;
       _found.clear();
+      _signalRange.clear();
     });
     try {
       await radio.ensurePermissions();
@@ -77,7 +79,13 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
     setState(() => _scanning = true);
     _sub = radio.scan().listen(
       (a) {
-        if (mounted) setState(() => _found[a.id] = a);
+        if (!mounted) return;
+        setState(() {
+          _found[a.id] = a;
+          if (a.rssi == -127) return;
+          final (low, high) = _signalRange[a.id] ?? (a.rssi, a.rssi);
+          _signalRange[a.id] = (a.rssi < low ? a.rssi : low, a.rssi > high ? a.rssi : high);
+        });
       },
       onError: (Object e) {
         if (mounted) setState(() => _problem = 'Scan failed: $e');
@@ -149,7 +157,10 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
               leading: const Icon(Icons.bluetooth),
               title: Text(a.name),
               subtitle: Text(
-                a.rssi == -127 ? 'Signal unavailable' : '${_signal(a.rssi)} signal · ${a.rssi} dBm',
+                [
+                  a.rssi == -127 ? 'Signal unavailable' : '${_signal(a.rssi)} signal · ${a.rssi} dBm',
+                  if (_signalRange[a.id] case (final low, final high) when low != high) 'Scan range: $low to $high dBm',
+                ].join('\n'),
                 style: GwText.mono.copyWith(fontSize: 12),
               ),
               trailing: const Icon(Icons.chevron_right),
