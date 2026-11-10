@@ -78,6 +78,7 @@ const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // io: { write(Uint8Array), readAck(timeoutMs) -> Uint8Array of one C0..C0 frame or null }
 export async function flash(io, { bin, dat, onProgress = () => {}, onLog = () => {}, sleep = realSleep }) {
+  if (!bin?.length || !dat?.length) throw new Error("Firmware download is empty. Download the firmware again.");
   let seq = 0;
   let mismatches = 0;
   const send = async (payload, what) => {
