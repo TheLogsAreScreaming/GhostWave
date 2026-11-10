@@ -48,10 +48,13 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
         return;
       }
       final mesh = ref.read(meshProvider);
+      final info = ref.read(nodeInfoProvider);
       setState(
         () => _samples.add({
           'at': DateTime.now().toUtc().toIso8601String(),
           'node': mesh.nodeId,
+          'firmware': info?.firmware,
+          'uptimeSeconds': status.uptimeS,
           'tx': status.tx.toString(),
           'rx': status.rx.toString(),
           'delivered': status.delivered.toString(),
