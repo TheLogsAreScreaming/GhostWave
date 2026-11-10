@@ -67,7 +67,7 @@ class Daemon {
   }) async {
     final lat = (46.87 + km * 0.0089932).toStringAsFixed(7);
     final args = [
-      '--radio', 'udp', '--mcast', '239.77.0.1:$mcast', '--key', '${work.path}/$name.key', //
+      '--radio', 'udp', '--vfade', '0', '--mcast', '239.77.0.1:$mcast', '--key', '${work.path}/$name.key', //
       '--name', name, '--lat', lat, '--lon', '-113.99', '--client-tcp', '127.0.0.1:$port',
       if (pin != null) ...['--client-pin', pin],
       if (Platform.environment['VMESH_IF'] case final vif?) ...['--vif', vif],

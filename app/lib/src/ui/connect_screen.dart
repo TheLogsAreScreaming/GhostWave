@@ -176,7 +176,14 @@ class LinkStateCard extends ConsumerWidget {
       child: ListTile(
         leading: Icon(icon, color: color, size: 32),
         title: Text(title),
-        subtitle: Text(detail),
+        subtitle: Text(
+          '$detail\n${switch (state) {
+            LinkUp(:final session) => session.lastReceivedAt == null ? 'Waiting for radio data' : 'Last radio data: ${timeAgo(session.lastReceivedAt!)}',
+            LinkWaiting() => 'Keep the radio nearby and Bluetooth enabled. Reconnection is automatic.',
+            LinkFailed() => 'Check Nearby devices permission and the pairing code. If the radio pairing was cleared, forget it in Android Bluetooth settings and pair again.',
+            _ => 'For Bluetooth, power the radio and disconnect any other phone using it.',
+          }}',
+        ),
         trailing: switch (state) {
           LinkNeedsPin() => TextButton(
             onPressed: () => unawaited(askForPin(context, ref, state as LinkNeedsPin)),
