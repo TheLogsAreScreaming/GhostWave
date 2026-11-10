@@ -83,7 +83,10 @@ def convert(uf2, sd_fwid, app_start, out):
 
 
 def version_key(v):
-    return [int(x) for x in re.findall(r"\d+", v)]
+    core, separator, suffix = v.split("+", 1)[0].partition("-")
+    numbers = tuple(int(part) for part in re.findall(r"\d+", core))
+    prerelease = tuple((0, int(part)) if part.isdigit() else (1, part) for part in suffix.split("."))
+    return numbers, not bool(separator), prerelease
 
 
 def releases():
