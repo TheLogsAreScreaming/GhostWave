@@ -15,6 +15,7 @@ import 'map_screen.dart';
 import 'me_screen.dart';
 import 'sos_screen.dart';
 import 'status_screen.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 /// Bottom-navigation shell with the app's tabs and the SOS alert banner.
@@ -99,6 +100,41 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final mesh = ref.watch(meshProvider);
     final unread = mesh.totalUnread;
     final alerts = mesh.activeAlerts.length;
+    final sosBadge = alerts > 0 || mesh.ownSos.active;
+    final sosLabel = mesh.ownSos.active ? 'ON' : '$alerts';
+    Widget unreadBadge(Widget icon) => Badge(isLabelVisible: unread > 0, label: Text('$unread'), child: icon);
+    Widget sosIcon(IconData i) => Badge(
+      isLabelVisible: sosBadge,
+      backgroundColor: GwColors.alert,
+      textColor: GwColors.onAlert,
+      label: Text(sosLabel),
+      child: Icon(i),
+    );
+    final destinations = <_Dest>[
+      _Dest('Chats', unreadBadge(const Icon(Icons.forum_outlined)), unreadBadge(const Icon(Icons.forum))),
+      const _Dest('Map', Icon(Icons.map_outlined), Icon(Icons.map)),
+      _Dest('SOS', sosIcon(Icons.sos_outlined), sosIcon(Icons.sos)),
+      const _Dest('Me', Icon(Icons.qr_code_2_outlined), Icon(Icons.qr_code_2)),
+      const _Dest('Status', Icon(Icons.insights_outlined), Icon(Icons.insights)),
+    ];
+    final size = WindowSizeClass.of(MediaQuery.sizeOf(context).width);
+    final tabs = MediaQuery.removePadding(
+      context: context,
+      // the bars above already cover the status bar
+      removeTop: true,
+      child: IndexedStack(
+        index: _tab,
+        children: [
+          const ContactsScreen(),
+          const MapScreen(),
+          const SosScreen(),
+          const MeScreen(),
+          // built only while selected, so the status poll runs only when visible
+          if (_tab == _statusTab) const StatusScreen() else const SizedBox.shrink(),
+        ],
+      ),
+    );
+    void select(int i) => setState(() => _tab = i);
     return Scaffold(
       body: Column(
         children: [
@@ -106,57 +142,56 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           ConnectionBar(safeTop: alerts == 0),
           if (mesh.txOff && ref.watch(linkStateProvider).value is LinkUp) const _TxOffBanner(),
           Expanded(
-            child: MediaQuery.removePadding(
-              context: context,
-              // the bars above already cover the status bar
-              removeTop: true,
-              child: IndexedStack(
-                index: _tab,
-                children: [
-                  const ContactsScreen(),
-                  const MapScreen(),
-                  const SosScreen(),
-                  const MeScreen(),
-                  // built only while selected, so the status poll runs only when visible
-                  if (_tab == _statusTab) const StatusScreen() else const SizedBox.shrink(),
-                ],
-              ),
-            ),
+            child: size == WindowSizeClass.compact
+                ? tabs
+                : Row(
+                    children: [
+                      SafeArea(
+                        top: false,
+                        right: false,
+                        child: NavigationRail(
+                          selectedIndex: _tab,
+                          onDestinationSelected: select,
+                          extended: size == WindowSizeClass.large,
+                          minExtendedWidth: 200,
+                          labelType: size == WindowSizeClass.large
+                              ? NavigationRailLabelType.none
+                              : NavigationRailLabelType.all,
+                          groupAlignment: -0.9,
+                          destinations: [
+                            for (final d in destinations)
+                              NavigationRailDestination(icon: d.icon, selectedIcon: d.selected, label: Text(d.label)),
+                          ],
+                        ),
+                      ),
+                      const VerticalDivider(width: 1, thickness: 1),
+                      Expanded(child: tabs),
+                    ],
+                  ),
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: [
-          NavigationDestination(
-            icon: Badge(isLabelVisible: unread > 0, label: Text('$unread'), child: const Icon(Icons.forum_outlined)),
-            selectedIcon: Badge(isLabelVisible: unread > 0, label: Text('$unread'), child: const Icon(Icons.forum)),
-            label: 'Chats',
-          ),
-          const NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: 'Map'),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: alerts > 0 || mesh.ownSos.active,
-              label: Text(mesh.ownSos.active ? 'ON' : '$alerts'),
-              child: const Icon(Icons.sos_outlined),
+      bottomNavigationBar: size != WindowSizeClass.compact
+          ? null
+          : NavigationBar(
+              selectedIndex: _tab,
+              onDestinationSelected: select,
+              destinations: [
+                for (final d in destinations)
+                  NavigationDestination(icon: d.icon, selectedIcon: d.selected, label: d.label),
+              ],
             ),
-            label: 'SOS',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.qr_code_2_outlined),
-            selectedIcon: Icon(Icons.qr_code_2),
-            label: 'Me',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights),
-            label: 'Status',
-          ),
-        ],
-      ),
     );
   }
+}
+
+/// One tab: its label and icons (with any badge).
+class _Dest {
+  const _Dest(this.label, this.icon, this.selected);
+
+  final String label;
+  final Widget icon;
+  final Widget selected;
 }
 
 /// Says why messages are not going out while the node's transmitter is off.

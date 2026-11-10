@@ -32,7 +32,6 @@ class MeScreen extends ConsumerWidget {
             onPressed: () =>
                 Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
           ),
-          const LinkChip(),
         ],
       ),
       body: info == null

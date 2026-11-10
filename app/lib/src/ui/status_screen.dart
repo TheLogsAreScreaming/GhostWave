@@ -43,7 +43,6 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
             onPressed: () => ref.invalidate(nodeStatusProvider),
             icon: const Icon(Icons.refresh),
           ),
-          const LinkChip(),
         ],
       ),
       body: switch (status) {
