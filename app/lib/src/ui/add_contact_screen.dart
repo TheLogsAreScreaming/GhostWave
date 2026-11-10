@@ -55,7 +55,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: nameCtl,
-              decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Name'),
               inputFormatters: [_Utf8LimitFormatter(kMaxContactNameBytes)],
             ),
           ],
@@ -150,68 +150,69 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.channelsFirst ? 'Join a channel' : 'Add contact or channel')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (_scanning)
-            SizedBox(
-              height: 320,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: MobileScanner(
-                  onDetect: (capture) {
-                    for (final b in capture.barcodes) {
-                      final raw = b.rawValue ?? '';
-                      if (ContactCard.tryParse(raw) != null || ChannelCard.tryParse(raw) != null) {
-                        setState(() => _scanning = false);
-                        _handle(raw);
-                        return;
+      body: ReadableWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (_scanning)
+              SizedBox(
+                height: 320,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: MobileScanner(
+                    onDetect: (capture) {
+                      for (final b in capture.barcodes) {
+                        final raw = b.rawValue ?? '';
+                        if (ContactCard.tryParse(raw) != null || ChannelCard.tryParse(raw) != null) {
+                          setState(() => _scanning = false);
+                          _handle(raw);
+                          return;
+                        }
                       }
-                    }
-                  },
-                  errorBuilder: (context, error) => Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text('Camera unavailable: ${error.errorCode.name}. Paste the card text below.'),
+                    },
+                    errorBuilder: (context, error) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Camera unavailable: ${error.errorCode.name}. Paste the card text below.'),
+                      ),
                     ),
                   ),
                 ),
+              )
+            else if (!Platform.isWindows) // the scanner plugin has no Windows build; paste the card instead
+              FilledButton.icon(
+                onPressed: _busy ? null : () => setState(() => _scanning = true),
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan QR code'),
               ),
-            )
-          else if (!Platform.isWindows) // the scanner plugin has no Windows build; paste the card instead
-            FilledButton.icon(
-              onPressed: _busy ? null : () => setState(() => _scanning = true),
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Scan QR code'),
-            ),
-          if (_scanning)
-            TextButton(onPressed: () => setState(() => _scanning = false), child: const Text('Stop camera')),
-          const SizedBox(height: 24),
-          Text(widget.channelsFirst ? 'Or paste the channel card text:' : 'Or paste the card text:'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _paste,
-            minLines: 2,
-            maxLines: 4,
-            autocorrect: false,
-            decoration: InputDecoration(
-              hintText: widget.channelsFirst ? 'ghostwave-ch:trail%20crew:…' : 'ghostwave:1a2b3c4d:…',
-              errorText: _pasteError,
-              errorMaxLines: 2,
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                tooltip: 'Paste',
-                icon: const Icon(Icons.content_paste),
-                onPressed: () async {
-                  final data = await Clipboard.getData(Clipboard.kTextPlain);
-                  if (data?.text != null) _paste.text = data!.text!;
-                },
+            if (_scanning)
+              TextButton(onPressed: () => setState(() => _scanning = false), child: const Text('Stop camera')),
+            const SizedBox(height: 24),
+            Text(widget.channelsFirst ? 'Or paste the channel card text:' : 'Or paste the card text:'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _paste,
+              minLines: 2,
+              maxLines: 4,
+              autocorrect: false,
+              decoration: InputDecoration(
+                hintText: widget.channelsFirst ? 'ghostwave-ch:trail%20crew:…' : 'ghostwave:1a2b3c4d:…',
+                errorText: _pasteError,
+                errorMaxLines: 2,
+                suffixIcon: IconButton(
+                  tooltip: 'Paste',
+                  icon: const Icon(Icons.content_paste),
+                  onPressed: () async {
+                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                    if (data?.text != null) _paste.text = data!.text!;
+                  },
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(onPressed: _busy ? null : _onPasteSubmit, child: const Text('Use this text')),
-        ],
+            const SizedBox(height: 8),
+            OutlinedButton(onPressed: _busy ? null : _onPasteSubmit, child: const Text('Use this text')),
+          ],
+        ),
       ),
     );
   }

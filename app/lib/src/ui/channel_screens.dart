@@ -150,7 +150,6 @@ Future<void> showNewChannelDialog(BuildContext context) async {
                 decoration: InputDecoration(
                   labelText: 'Name',
                   hintText: 'trail crew',
-                  border: const OutlineInputBorder(),
                   counterText: '${utf8Length(t)} / $kMaxChannelNameBytes bytes',
                 ),
                 onChanged: (_) => setState(() {}),

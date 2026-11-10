@@ -85,34 +85,38 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     final busy = _busy;
     return Scaffold(
       appBar: AppBar(title: const Text('Backup and restore')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('What a backup holds', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          const Text('Contacts and their pinned keys, channels and their keys, chat history, saved PINs and settings.'),
-          const SizedBox(height: 16),
-          Text('It does not include your node\'s identity', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          const Text(
-            'Your node\'s private key stays on the node and is not in this file. If you lose the board, its '
-            'replacement has a new identity and a new node ID, and other people have to add you again.',
-          ),
-          const SizedBox(height: 16),
-          Text('If you forget the passphrase, the backup is gone', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          const Text('The file is encrypted with your passphrase. Nobody can recover it without that passphrase.'),
-          const SizedBox(height: 24),
-          if (busy != null) ...[
-            const Center(child: CircularProgressIndicator()),
-            const SizedBox(height: 12),
-            Text(busy, textAlign: TextAlign.center),
-          ] else ...[
-            FilledButton(onPressed: () => unawaited(_create()), child: const Text('Create backup')),
+      body: ReadableWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text('What a backup holds', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            OutlinedButton(onPressed: () => unawaited(_restore()), child: const Text('Restore from a backup')),
+            const Text(
+              'Contacts and their pinned keys, channels and their keys, chat history, saved PINs and settings.',
+            ),
+            const SizedBox(height: 16),
+            Text('It does not include your node\'s identity', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            const Text(
+              'Your node\'s private key stays on the node and is not in this file. If you lose the board, its '
+              'replacement has a new identity and a new node ID, and other people have to add you again.',
+            ),
+            const SizedBox(height: 16),
+            Text('If you forget the passphrase, the backup is gone', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            const Text('The file is encrypted with your passphrase. Nobody can recover it without that passphrase.'),
+            const SizedBox(height: 24),
+            if (busy != null) ...[
+              const Center(child: CircularProgressIndicator()),
+              const SizedBox(height: 12),
+              Text(busy, textAlign: TextAlign.center),
+            ] else ...[
+              FilledButton(onPressed: () => unawaited(_create()), child: const Text('Create backup')),
+              const SizedBox(height: 8),
+              OutlinedButton(onPressed: () => unawaited(_restore()), child: const Text('Restore from a backup')),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -161,7 +165,7 @@ class _PassphraseDialogState extends State<_PassphraseDialog> {
               controller: _first,
               autofocus: true,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Passphrase', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Passphrase'),
               onChanged: (_) => setState(() {}),
             ),
             if (creating) ...[
@@ -170,12 +174,7 @@ class _PassphraseDialogState extends State<_PassphraseDialog> {
                 key: const Key('passphrase2'),
                 controller: _second,
                 obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Type it again',
-                  border: const OutlineInputBorder(),
-                  helperText: _problem,
-                  helperMaxLines: 2,
-                ),
+                decoration: InputDecoration(labelText: 'Type it again', helperText: _problem, helperMaxLines: 2),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
