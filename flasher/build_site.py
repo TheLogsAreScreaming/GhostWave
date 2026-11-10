@@ -119,6 +119,13 @@ def build(out):
                 convert(uf2s[0], b["sdFwid"], b["appStart"], out / "firmware" / b["id"] / version)
                 shutil.copy(uf2s[0], out / "firmware" / b["id"] / version / "firmware.uf2")
             b["versions"].append({"version": version, "prerelease": pre})
+    catalog = json.loads((HERE / "board-catalog.json").read_text())["boards"]
+    enabled = {board["id"]: board for board in boards}
+    for item in catalog:
+        if item["id"] in enabled:
+            enabled[item["id"]]["name"] = item["name"]
+        else:
+            boards.append({**item, "versions": [], "checks": [], "catalogOnly": True})
     (out / "manifest.json").write_text(json.dumps({"boards": boards}, indent=1))
     return boards
 
