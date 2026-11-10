@@ -90,9 +90,12 @@ function explain(err) {
 // Opening at 1200 baud and dropping DTR asks a running board to restart in update mode.
 async function touchToBootloader(port) {
   await port.open({ baudRate: 1200 });
-  await port.setSignals({ dataTerminalReady: false });
-  await sleep(100);
-  await port.close();
+  try {
+    await port.setSignals({ dataTerminalReady: false });
+    await sleep(100);
+  } finally {
+    await port.close();
+  }
 }
 
 async function runFlash() {
