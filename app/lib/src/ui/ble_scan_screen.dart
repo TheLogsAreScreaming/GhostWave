@@ -168,9 +168,9 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
             ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: _scanning ? null : () => unawaited(_start()),
-            icon: const Icon(Icons.refresh),
-            label: Text(_scanning ? 'Scanning…' : 'Scan again'),
+            onPressed: () => unawaited(_scanning ? _end() : _start()),
+            icon: Icon(_scanning ? Icons.stop : Icons.refresh),
+            label: Text(_scanning ? 'Stop scan' : 'Scan again'),
           ),
         ],
       ),
