@@ -135,7 +135,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ? const Center(child: Text('No messages yet.'))
                 : ListView.builder(
                     reverse: true,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md),
                     itemCount: msgs.length,
                     itemBuilder: (context, i) {
                       final m = msgs[msgs.length - 1 - i];
@@ -155,7 +155,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
+              padding: const EdgeInsets.fromLTRB(GwSpace.md, GwSpace.sm, GwSpace.md, GwSpace.sm),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -168,7 +168,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       onSubmitted: (_) => _send(),
                       decoration: InputDecoration(
                         hintText: 'Message',
-                        border: const OutlineInputBorder(),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(GwRadius.lg),
+                          borderSide: const BorderSide(color: GwColors.outlineVariant),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(GwRadius.lg),
+                          borderSide: const BorderSide(color: GwColors.spectralCyan, width: 1.5),
+                        ),
                         counterText: parts > 1 ? '$bytes bytes · $parts messages' : '$bytes / $max bytes',
                         counterStyle: TextStyle(color: over ? scheme.error : null),
                         errorText: over ? 'Too long: at most $kMaxMessageParts messages' : null,
@@ -179,6 +186,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 22),
                     child: IconButton.filled(
+                      style: IconButton.styleFrom(minimumSize: const Size(52, 52)),
                       tooltip: 'Send',
                       onPressed: bytes == 0 || over ? null : _send,
                       icon: const Icon(Icons.send),
