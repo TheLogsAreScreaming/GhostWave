@@ -87,7 +87,7 @@ def version_key(v):
 
 def releases():
     text = subprocess.check_output(
-        ["gh", "release", "list", "-R", REPO, "--limit", "200", "--json", "tagName,isPrerelease"], text=True
+        ["gh", "release", "list", "-R", REPO, "--limit", "200", "--exclude-drafts", "--json", "tagName,isPrerelease"], text=True
     )
     return json.loads(text)
 
