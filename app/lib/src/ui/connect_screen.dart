@@ -63,67 +63,70 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     final active = state is! LinkIdle && state is! LinkFailed && state is! LinkNeedsPin;
     return Scaffold(
       appBar: AppBar(title: const Text('Connect to a node')),
-      body: ReadableWidth(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const _Logo(),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _address,
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              decoration: InputDecoration(
-                labelText: 'Node address (host:port)',
-                hintText: '192.168.1.20:47800',
-                errorText: _error,
-                prefixIcon: const Icon(Icons.lan_outlined),
-              ),
-              onSubmitted: (_) => _connect(),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _connect,
-                    icon: const Icon(Icons.link),
-                    label: Text(active ? 'Reconnect' : 'Connect'),
-                  ),
+      body: SafeArea(
+        top: false,
+        child: ReadableWidth(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const _Logo(),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _address,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                decoration: InputDecoration(
+                  labelText: 'Node address (host:port)',
+                  hintText: '192.168.1.20:47800',
+                  errorText: _error,
+                  prefixIcon: const Icon(Icons.lan_outlined),
                 ),
-                if (active) ...[
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => ref.read(nodeAddressProvider.notifier).disconnect(),
-                    icon: const Icon(Icons.link_off),
-                    label: const Text('Disconnect'),
+                onSubmitted: (_) => _connect(),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _connect,
+                      icon: const Icon(Icons.link),
+                      label: Text(active ? 'Reconnect' : 'Connect'),
+                    ),
                   ),
+                  if (active) ...[
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: () => ref.read(nodeAddressProvider.notifier).disconnect(),
+                      icon: const Icon(Icons.link_off),
+                      label: const Text('Disconnect'),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-            const SizedBox(height: 8),
-            const SizedBox(height: GwSpace.xs),
-            OutlinedButton.icon(
-              onPressed: () =>
-                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BleScanScreen())),
-              icon: const Icon(Icons.bluetooth_searching),
-              label: const Text('Find Bluetooth nodes'),
-            ),
-            const SizedBox(height: 24),
-            LinkStateCard(state: state),
-            _RecentNodes(
-              current: ref.watch(nodeAddressProvider),
-              onConnect: (address) {
-                if (TcpAddress.tryParse(address) != null && BleNodeRef.tryParse(address) == null) {
-                  _address.text = address;
-                }
-                setState(() => _error = null);
-                unawaited(ref.read(nodeAddressProvider.notifier).connectAddress(address));
-              },
-            ),
-            const SizedBox(height: 24),
-            const _Help(),
-          ],
+              ),
+              const SizedBox(height: 8),
+              const SizedBox(height: GwSpace.xs),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BleScanScreen())),
+                icon: const Icon(Icons.bluetooth_searching),
+                label: const Text('Find Bluetooth nodes'),
+              ),
+              const SizedBox(height: 24),
+              LinkStateCard(state: state),
+              _RecentNodes(
+                current: ref.watch(nodeAddressProvider),
+                onConnect: (address) {
+                  if (TcpAddress.tryParse(address) != null && BleNodeRef.tryParse(address) == null) {
+                    _address.text = address;
+                  }
+                  setState(() => _error = null);
+                  unawaited(ref.read(nodeAddressProvider.notifier).connectAddress(address));
+                },
+              ),
+              const SizedBox(height: 24),
+              const _Help(),
+            ],
+          ),
         ),
       ),
     );
