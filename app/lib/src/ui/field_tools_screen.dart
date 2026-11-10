@@ -79,6 +79,18 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
     }
   }
 
+  Future<void> _copyCounters() async {
+    const columns = ['at', 'node', 'tx', 'rx', 'delivered'];
+    final rows = [columns.join(',')];
+    for (final sample in _samples) {
+      rows.add(columns.map((key) => sample[key] ?? '').join(','));
+    }
+    await Clipboard.setData(ClipboardData(text: rows.join('\r\n')));
+    if (!mounted) return;
+    const notice = SnackBar(content: Text('Counters copied as CSV'));
+    ScaffoldMessenger.of(context).showSnackBar(notice);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Field tools')),
@@ -122,19 +134,7 @@ class _FieldToolsScreenState extends ConsumerState<FieldToolsScreen> {
           OutlinedButton.icon(
             icon: const Icon(Icons.table_chart_outlined),
             label: const Text('Copy counters as CSV'),
-            onPressed: _samples.isEmpty
-                ? null
-                : () async {
-                    const columns = ['at', 'node', 'tx', 'rx', 'delivered'];
-                    final rows = [
-                      columns.join(','),
-                      for (final sample in _samples) columns.map((key) => sample[key] ?? '').join(','),
-                    ];
-                    await Clipboard.setData(ClipboardData(text: rows.join('\r\n')));
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Counters copied as CSV')));
-                    }
-                  },
+            onPressed: _samples.isEmpty ? null : _copyCounters,
           ),
           const Text(
             'Reports include neighbor identifiers and approximate distances. Notes and samples stay here only until this screen closes. Signal history is unavailable from the current node protocol.',
