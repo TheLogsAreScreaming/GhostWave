@@ -173,13 +173,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       ),
       bottomNavigationBar: size != WindowSizeClass.compact
           ? null
-          : NavigationBar(
-              selectedIndex: _tab,
-              onDestinationSelected: select,
-              destinations: [
-                for (final d in destinations)
-                  NavigationDestination(icon: d.icon, selectedIcon: d.selected, label: d.label),
-              ],
+          : DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: GwColors.outlineVariant)),
+              ),
+              child: NavigationBar(
+                selectedIndex: _tab,
+                onDestinationSelected: select,
+                destinations: [
+                  for (final d in destinations)
+                    NavigationDestination(icon: d.icon, selectedIcon: d.selected, label: d.label),
+                ],
+              ),
             ),
     );
   }

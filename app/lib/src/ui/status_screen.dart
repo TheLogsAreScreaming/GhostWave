@@ -142,6 +142,12 @@ class _StatusList extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const SignalPanel(
+                icon: Icons.monitor_heart_outlined,
+                title: 'Radio overview',
+                detail: 'Live activity and delivery counters from your connected node.',
+              ),
+              const SizedBox(height: GwSpace.lg),
               LayoutBuilder(
                 builder: (context, box) {
                   final columns = box.maxWidth >= 560 ? 4 : 2;

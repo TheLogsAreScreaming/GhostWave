@@ -63,14 +63,24 @@ class ConnectionBar extends ConsumerWidget {
           child: InkWell(
             onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ConnectScreen())),
             child: Container(
-              constraints: const BoxConstraints(minHeight: 52),
+              constraints: const BoxConstraints(minHeight: 62),
               padding: const EdgeInsets.fromLTRB(GwSpace.lg + GwSpace.xs, GwSpace.sm, GwSpace.md, GwSpace.sm),
               decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [GwColors.surface2, GwColors.ghostBlack]),
                 border: Border(bottom: BorderSide(color: GwColors.outlineVariant)),
               ),
               child: Row(
                 children: [
-                  Image.asset('assets/brand/logo.png', width: 26, height: 26),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: GwColors.surface3,
+                      borderRadius: BorderRadius.circular(GwRadius.sm),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(GwSpace.sm),
+                      child: Image.asset('assets/brand/logo.png', width: 24, height: 24),
+                    ),
+                  ),
                   const SizedBox(width: GwSpace.sm),
                   Expanded(
                     child: Column(
@@ -264,4 +274,48 @@ class SectionLabel extends StatelessWidget {
       child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: GwColors.mutedText)),
     ),
   );
+}
+
+/// A prominent heading and supporting text for a primary screen.
+class SignalPanel extends StatelessWidget {
+  /// Creates a heading panel with a screen-specific icon.
+  const SignalPanel({required this.icon, required this.title, required this.detail, super.key});
+
+  /// Icon that identifies the screen.
+  final IconData icon;
+
+  /// Main heading.
+  final String title;
+
+  /// Context or action beneath the heading.
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [theme.colorScheme.surfaceContainerHighest, theme.colorScheme.surfaceContainerLow],
+        ),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(GwRadius.lg),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(GwSpace.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: theme.colorScheme.primary),
+            const SizedBox(height: GwSpace.md),
+            Semantics(header: true, child: Text(title, style: theme.textTheme.headlineSmall)),
+            const SizedBox(height: GwSpace.xs),
+            Text(detail, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
+        ),
+      ),
+    );
+  }
 }
