@@ -42,7 +42,9 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
         actions: [
           IconButton(
             tooltip: 'Field tools',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FieldToolsScreen())),
+            onPressed: () {
+              Navigator.push<void>(context, MaterialPageRoute(builder: (_) => const FieldToolsScreen()));
+            },
             icon: const Icon(Icons.science_outlined),
           ),
           IconButton(
