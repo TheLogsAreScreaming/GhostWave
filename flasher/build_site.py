@@ -105,6 +105,8 @@ def build(out):
         for r in rels:
             m = re.fullmatch(rf"fw-{re.escape(b['id'])}-v(.+)", r["tagName"])
             if m:
+                if not re.fullmatch(r"[0-9][A-Za-z0-9._+-]*", m.group(1)):
+                    raise ValueError(f"Invalid firmware version in tag: {r['tagName']}")
                 found.append((m.group(1), r["tagName"], r["isPrerelease"]))
         found.sort(key=lambda f: version_key(f[0]), reverse=True)
         b["versions"] = []
