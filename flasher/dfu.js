@@ -112,6 +112,7 @@ export class SerialIo {
   constructor(port) {
     this.port = port;
     this.buf = [];
+    this.inputClosed = false;
     this.waiter = null;
     this.reader = port.readable.getReader();
     this.writer = port.writable.getWriter();
@@ -129,6 +130,7 @@ export class SerialIo {
     } catch {
       // the port went away: the board rebooted or the cable came out
     }
+    this.inputClosed = true;
     this.waiter?.();
   }
 
@@ -151,6 +153,7 @@ export class SerialIo {
     for (;;) {
       const f = this.#takeFrame();
       if (f) return f;
+      if (this.inputClosed) throw new Error('The bootloader serial connection closed.');
       const left = deadline - Date.now();
       if (left <= 0) return null;
       await new Promise((resolve) => {
