@@ -107,6 +107,10 @@ class MessageBubble extends StatelessWidget {
       MsgState.failed => (Icons.error_outline, 'failed'),
     };
     final meta = Theme.of(context).textTheme.labelSmall;
+    return LayoutBuilder(builder: (context, box) => _bubble(context, box.maxWidth, scheme, meta, icon, label));
+  }
+
+  Widget _bubble(BuildContext context, double pane, ColorScheme scheme, TextStyle? meta, IconData icon, String label) {
     return Align(
       alignment: outgoing ? Alignment.centerRight : Alignment.centerLeft,
       child: Semantics(
@@ -116,12 +120,21 @@ class MessageBubble extends StatelessWidget {
           onTap: state == MsgState.failed && onRetry != null ? onRetry : null,
           onLongPress: () => unawaited(_menu(context)),
           child: Container(
-            constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
-            margin: const EdgeInsets.symmetric(vertical: 3),
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+            // a share of the pane it sits in (a side pane on wide windows), capped for reading
+            constraints: BoxConstraints(maxWidth: (pane * 0.8).clamp(0, 560)),
+            margin: const EdgeInsets.symmetric(vertical: 2),
+            padding: const EdgeInsets.fromLTRB(GwSpace.md + 2, GwSpace.sm + 1, GwSpace.md + 2, GwSpace.sm - 2),
             decoration: BoxDecoration(
-              color: outgoing ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(14),
+              color: outgoing ? GwColors.spectralCyan.withValues(alpha: 0.16) : GwColors.surface2,
+              border: Border.all(
+                color: outgoing ? GwColors.spectralCyan.withValues(alpha: 0.30) : GwColors.outlineVariant,
+              ),
+              borderRadius: BorderRadiusDirectional.only(
+                topStart: const Radius.circular(GwRadius.lg),
+                topEnd: const Radius.circular(GwRadius.lg),
+                bottomStart: Radius.circular(outgoing ? GwRadius.lg : GwSpace.xs),
+                bottomEnd: Radius.circular(outgoing ? GwSpace.xs : GwRadius.lg),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,

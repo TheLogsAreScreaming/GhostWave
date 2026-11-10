@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../link/contact_card.dart';
 import '../link/node_link.dart';
@@ -205,4 +206,27 @@ void showSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message)));
+}
+
+/// Marks the chat lists as shown beside the open conversation (wide windows),
+/// so a tap opens it in the side pane instead of pushing a page.
+class ChatPaneScope extends InheritedWidget {
+  /// Wraps the chat lists.
+  const ChatPaneScope({required super.child, super.key});
+
+  /// Whether [context] is a chat list with a side pane next to it.
+  static bool isTwoPane(BuildContext context) => context.dependOnInheritedWidgetOfExactType<ChatPaneScope>() != null;
+
+  @override
+  bool updateShouldNotify(ChatPaneScope oldWidget) => false;
+}
+
+/// Closes a chat: pops its page, or empties the side pane it sits in.
+void closeChat(BuildContext context, WidgetRef ref) {
+  final nav = Navigator.of(context);
+  if (nav.canPop()) {
+    nav.pop();
+  } else {
+    ref.read(openChatProvider.notifier).close();
+  }
 }

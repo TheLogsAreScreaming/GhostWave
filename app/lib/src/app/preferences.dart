@@ -252,3 +252,53 @@ class MapFocusNotifier extends Notifier<MapFocus?> {
 
 /// The latest map focus request.
 final mapFocusProvider = NotifierProvider<MapFocusNotifier, MapFocus?>(MapFocusNotifier.new);
+
+/// A conversation that can be open beside the chat list.
+sealed class OpenChat {
+  const OpenChat();
+}
+
+/// A direct chat with a node.
+final class OpenPeer extends OpenChat {
+  /// Opens [id].
+  const OpenPeer(this.id);
+
+  /// The node ID.
+  final int id;
+
+  @override
+  bool operator ==(Object other) => other is OpenPeer && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+/// A group channel.
+final class OpenChannel extends OpenChat {
+  /// Opens [name].
+  const OpenChannel(this.name);
+
+  /// The channel name.
+  final String name;
+
+  @override
+  bool operator ==(Object other) => other is OpenChannel && other.name == name;
+
+  @override
+  int get hashCode => name.hashCode;
+}
+
+/// The conversation open beside the chat list on wide windows; null = none.
+class OpenChatNotifier extends Notifier<OpenChat?> {
+  @override
+  OpenChat? build() => null;
+
+  /// Opens [chat] in the side pane.
+  void open(OpenChat chat) => state = chat;
+
+  /// Empties the side pane (the chat was left or deleted).
+  void close() => state = null;
+}
+
+/// What shows in the two-pane Chats layout.
+final openChatProvider = NotifierProvider<OpenChatNotifier, OpenChat?>(OpenChatNotifier.new);
