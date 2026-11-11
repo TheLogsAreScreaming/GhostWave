@@ -26,11 +26,10 @@ class MeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Me'),
         actions: [
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
+          TextButton(
             onPressed: () =>
                 Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+            child: const Text('Settings'),
           ),
         ],
       ),

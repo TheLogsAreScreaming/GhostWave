@@ -49,7 +49,16 @@ jobs:
         run: flutter analyze --fatal-infos
       - name: Generated protobuf code matches proto/ghostwave.proto
         run: |
-          sudo apt-get install -y -qq protobuf-compiler >/dev/null
+          # Match Ubuntu's protobuf 3.21.12 without depending on its package mirrors.
+          protoc_dir="$RUNNER_TEMP/protoc-21.12"
+          mkdir -p "$protoc_dir"
+          archive="$protoc_dir/protoc.zip"
+          curl --fail --location --silent --show-error --retry 3 --connect-timeout 15 \
+            https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protoc-21.12-linux-x86_64.zip \
+            --output "$archive"
+          printf '%s  %s\n' '3a4c1e5f2516c639d3079b1586e703fc7bcfa2136d58bda24d1d54f949c315e8' "$archive" | sha256sum --check
+          unzip -q "$archive" -d "$protoc_dir"
+          export PATH="$protoc_dir/bin:$PATH"
           dart pub global activate protoc_plugin 25.1.0 >/dev/null
           ./tool/gen_proto.sh
           git diff --exit-code -- lib/src/gen
