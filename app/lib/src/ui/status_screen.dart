@@ -49,6 +49,15 @@ class _StatusScreenState extends ConsumerState<StatusScreen> with WidgetsBinding
     super.dispose();
   }
 
+  Future<void> _refreshStatus() async {
+    ref.invalidate(nodeStatusProvider);
+    try {
+      await ref.read(nodeStatusProvider.future);
+    } on Object {
+      // The status provider exposes the error to the screen.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(nodeStatusProvider);
@@ -72,15 +81,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> with WidgetsBinding
       ),
       body: switch (status) {
         AsyncData(value: null) => const NotConnected(),
-        AsyncData(:final value?) => RefreshIndicator(
-          onRefresh: () => ref.refresh(nodeStatusProvider.future).then<void>(
-            (_) {},
-            onError: (Object _, StackTrace _) {
-              // The status provider exposes the error to the screen.
-            },
-          ),
-          child: _StatusList(value),
-        ),
+        AsyncData(:final value?) => RefreshIndicator(onRefresh: _refreshStatus, child: _StatusList(value)),
         AsyncError(:final error) => Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
