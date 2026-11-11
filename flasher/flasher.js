@@ -1,4 +1,5 @@
 import { flash, SerialIo } from "./dfu.js";
+import { installerFor } from "./installer.js";
 
 const $ = (id) => document.getElementById(id);
 const GUIDES = "https://github.com/TheLogsAreScreaming/GhostWave/blob/main/docs/hardware/";
@@ -23,11 +24,12 @@ function updateButtons() {
   $("connect").disabled = busy || !ready;
   $("start").disabled = busy || !ready;
   $("already").disabled = busy || !ready;
+  $("espStart").disabled = busy || !ready;
 }
 
 function renderVersions() {
   const b = board();
-  $("boardDetail").textContent = b.catalogOnly ? `${b.name} · experimental build target` : `${b.detail}. Needs the ${b.softdevice} bootloader.`;
+  $("boardDetail").textContent = b.catalogOnly ? `${b.name} · experimental build target` : (b.transport === "esp-web-tools" ? `${b.detail}. ESP32-S3, ${b.flashSize / 1048576} MB flash.` : `${b.detail}. Needs the ${b.softdevice} bootloader.`);
   $("version").replaceChildren(...b.versions.map((v) => new Option(`${v.version}${v.prerelease ? " (test build)" : ""}`, v.version)));
   $("version").disabled = !b.versions.length;
   $("noFirmware").textContent = b.catalogOnly ? "Browser installation is unavailable for this model." : "No firmware has been published for this board yet.";
@@ -48,6 +50,8 @@ function renderVersions() {
     return row;
   }));
   $("replace").checked = false;
+  $("nrfActions").hidden = b.transport === "esp-web-tools";
+  $("espStart").hidden = b.transport !== "esp-web-tools";
   $("enterHint").textContent = b.enter || "";
   if (b.guide) $("guide").href = GUIDES + b.guide;
   else $("guide").removeAttribute("href");
@@ -66,11 +70,13 @@ function renderVersion() {
     $("uf2").parentElement.after(checksum);
   }
   checksum.hidden = !v?.sha256;
-  checksum.textContent = v?.sha256 ? `UF2 SHA-256: ${v.sha256}` : "";
+  checksum.textContent = v?.sha256 ? `Download SHA-256: ${v.sha256}` : "";
   $("preNote").hidden = !v?.prerelease;
   if (v) {
-    $("uf2").href = `${dir()}/firmware.uf2`;
-    $("uf2").download = `ghostwave-${board().id}-${v.version}.uf2`;
+    const install = installerFor(board(), v);
+    $("uf2").href = install.download;
+    $("uf2").textContent = install.extension === 'zip' ? 'Download the ESP32 installer bundle' : 'Download the UF2';
+    $("uf2").download = `ghostwave-${board().id}-${v.version}.${install.extension}`;
   }
   updateButtons();
 }
@@ -100,6 +106,7 @@ async function touchToBootloader(port) {
 }
 
 async function runFlash() {
+  if (installerFor(board(), version())?.transport !== 'nrf-dfu') throw new Error('This board requires the ESP32 installer.');
   const port = await navigator.serial.requestPort();
   $("secondStep").hidden = true;
   $("progressWrap").hidden = false;
@@ -172,6 +179,10 @@ async function init() {
   $("board").addEventListener("change", renderVersions);
   $("version").addEventListener("change", renderVersion);
   $("replace").addEventListener("change", updateButtons);
+  $("espStart").addEventListener('click', () => {
+    const params = new URLSearchParams({ board: board().id, version: version().version });
+    location.href = `esp.html?${params}`;
+  });
   $("start").addEventListener("click", guarded(start));
   $("already").addEventListener("click", guarded(runFlash));
   $("connect").addEventListener("click", guarded(runFlash));

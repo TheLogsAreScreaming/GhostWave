@@ -13,7 +13,8 @@
         "The LoRa antenna is attached.",
         "The battery is connected. The 1 W amplifier needs it.",
         "This is a RAK3401 with a RAK13302, not a RAK4631."
-      ]
+      ],
+      "transport": "nrf-dfu"
     },
     {
       "id": "rak4631",
@@ -27,7 +28,8 @@
       "checks": [
         "The LoRa antenna is attached.",
         "This is a RAK4631, not a 1 W RAK3401 kit."
-      ]
+      ],
+      "transport": "nrf-dfu"
     },
     {
       "id": "rak_wismesh_tag",
@@ -41,7 +43,8 @@
       "checks": [
         "This is a RAK WisMesh Tag.",
         "I understand this build has never run on a Tag."
-      ]
+      ],
+      "transport": "nrf-dfu"
     },
     {
       "id": "t1000e",
@@ -54,7 +57,143 @@
       "guide": "T1000E_FLASHING.md",
       "checks": [
         "This is a T1000-E."
-      ]
+      ],
+      "transport": "nrf-dfu"
+    },
+    {
+      "id": "heltec_t114",
+      "name": "Heltec Mesh Node T114",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact Heltec Mesh Node T114 model.",
+        "I understand this firmware has not been tested on this hardware.",
+        "INFO_UF2.TXT on my board confirms S140 6.1.1."
+      ],
+      "transport": "nrf-dfu",
+      "softdevice": "S140 6.1.1",
+      "sdFwid": 182,
+      "appStart": 155648,
+      "enter": "Enter USB update mode using the board manufacturer\u2019s instructions. Confirm the SoftDevice in INFO_UF2.TXT before installing."
+    },
+    {
+      "id": "wio_tracker_l1",
+      "name": "Seeed Wio Tracker L1",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact Seeed Wio Tracker L1 model.",
+        "I understand this firmware has not been tested on this hardware.",
+        "INFO_UF2.TXT on my board confirms S140 7.3.0."
+      ],
+      "transport": "nrf-dfu",
+      "softdevice": "S140 7.3.0",
+      "sdFwid": 291,
+      "appStart": 159744,
+      "enter": "Enter USB update mode using the board manufacturer\u2019s instructions. Confirm the SoftDevice in INFO_UF2.TXT before installing."
+    },
+    {
+      "id": "t_echo",
+      "name": "LILYGO T-Echo",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact LILYGO T-Echo model.",
+        "I understand this firmware has not been tested on this hardware.",
+        "INFO_UF2.TXT on my board confirms S140 6.1.1."
+      ],
+      "transport": "nrf-dfu",
+      "softdevice": "S140 6.1.1",
+      "sdFwid": 182,
+      "appStart": 155648,
+      "enter": "Enter USB update mode using the board manufacturer\u2019s instructions. Confirm the SoftDevice in INFO_UF2.TXT before installing."
+    },
+    {
+      "id": "heltec_v4",
+      "name": "Heltec WiFi LoRa 32 V4",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact Heltec WiFi LoRa 32 V4 model.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 16777216,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "heltec_v3",
+      "name": "Heltec WiFi LoRa 32 V3",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact Heltec WiFi LoRa 32 V3 model.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 8388608,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "t3s3",
+      "name": "LILYGO T3-S3 (SX1262)",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact LILYGO T3-S3 (SX1262) model.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 4194304,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "t_deck",
+      "name": "LILYGO T-Deck",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact LILYGO T-Deck model.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 16777216,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "heltec_wireless_tracker_v2",
+      "name": "Heltec Wireless Tracker V2",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact Heltec Wireless Tracker V2 model.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 8388608,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "heltec_wsl_v3",
+      "name": "Heltec Wireless Stick Lite V3",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact Heltec Wireless Stick Lite V3 model.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 8388608,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
     }
   ]
 }

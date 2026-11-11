@@ -2,9 +2,9 @@ name: Web flasher
 on:
   push:
     branches: [main]
-    paths: ['flasher/**', '.github/workflows/flasher.yml']
+    paths: ['flasher/**', 'scripts/publish-board-release.py', '.github/workflows/flasher.yml']
   pull_request:
-    paths: ['flasher/**', '.github/workflows/flasher.yml']
+    paths: ['flasher/**', 'scripts/publish-board-release.py', '.github/workflows/flasher.yml']
 permissions:
   contents: read
 jobs:
@@ -15,5 +15,5 @@ jobs:
       - uses: actions/setup-node@v4.4.0
         with:
           node-version: '22'
-      - run: node --test flasher/tests/dfu.test.mjs
-      - run: python3 flasher/tests/test_build_site.py
+      - run: node --test flasher/tests/*.test.mjs
+      - run: python3 -m unittest discover -s flasher/tests -p 'test_*.py'

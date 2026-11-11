@@ -65,10 +65,11 @@ code { font:14px ui-monospace,Menlo,monospace; }
     <h2>3. Flash</h2>
     <p>Plug the board in with a USB data cable. Keep this tab open and don't unplug it while flashing.</p>
     <p class="small" id="enterHint"></p>
-    <div class="row">
+    <div class="row" id="nrfActions">
       <button id="start" disabled>Start</button>
       <button id="already" class="alt" disabled>Board is already in update mode</button>
     </div>
+    <button id="espStart" hidden disabled>Open ESP32 installer</button>
     <div id="secondStep" hidden>
       <p style="margin-top:16px">The board has restarted in update mode. Choose its port once more. The name may have changed.</p>
       <button id="connect">Choose update port</button>
