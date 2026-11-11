@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/providers.dart';
@@ -41,6 +42,22 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   void dispose() {
     _address.dispose();
     super.dispose();
+  }
+
+  Future<void> _pasteAddress() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (!mounted) return;
+      final address = data?.text?.trim() ?? '';
+      if (TcpAddress.tryParse(address) == null) {
+        setState(() => _error = 'Copy a node address in host:port format first.');
+        return;
+      }
+      _address.text = address;
+      setState(() => _error = null);
+    } on PlatformException {
+      if (mounted) setState(() => _error = 'Could not read the clipboard.');
+    }
   }
 
   Future<void> _connect() async {
@@ -86,6 +103,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                   hintText: '192.168.1.20:47800',
                   errorText: _error,
                   prefixIcon: const Icon(Icons.lan_outlined),
+                  suffixIcon: IconButton(
+                    tooltip: 'Paste node address',
+                    icon: const Icon(Icons.content_paste),
+                    onPressed: _pasteAddress,
+                  ),
                 ),
                 onSubmitted: (_) => _connect(),
               ),
