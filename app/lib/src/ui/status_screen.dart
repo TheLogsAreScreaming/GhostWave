@@ -73,13 +73,12 @@ class _StatusScreenState extends ConsumerState<StatusScreen> with WidgetsBinding
       body: switch (status) {
         AsyncData(value: null) => const NotConnected(),
         AsyncData(:final value?) => RefreshIndicator(
-          onRefresh: () async {
-            try {
-              await ref.refresh(nodeStatusProvider.future);
-            } on Object {
+          onRefresh: () => ref.refresh(nodeStatusProvider.future).then<void>(
+            (_) {},
+            onError: (Object _, StackTrace _) {
               // The status provider exposes the error to the screen.
-            }
-          },
+            },
+          ),
           child: _StatusList(value),
         ),
         AsyncError(:final error) => Center(
