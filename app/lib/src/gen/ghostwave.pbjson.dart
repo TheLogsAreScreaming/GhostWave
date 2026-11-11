@@ -972,18 +972,19 @@ const Error_Code$json = {
     {'1': 'NO_IDENTITY', '2': 12},
     {'1': 'CHANNEL_LIMIT', '2': 13},
     {'1': 'BAD_PIN', '2': 14},
+    {'1': 'NO_KEY', '2': 15},
   ],
 };
 
 /// Descriptor for `Error`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List errorDescriptor = $convert.base64Decode(
     'CgVFcnJvchIzCgRjb2RlGAEgASgOMh8uZ2hvc3R3YXZlLmNsaWVudC52MS5FcnJvci5Db2RlUg'
-    'Rjb2RlEhYKBmRldGFpbBgCIAEoCVIGZGV0YWlsIoACCgRDb2RlEggKBE5PTkUQABINCglCQURf'
+    'Rjb2RlEhYKBmRldGFpbBgCIAEoCVIGZGV0YWlsIowCCgRDb2RlEggKBE5PTkUQABINCglCQURf'
     'RlJBTUUQARIPCgtCQURfVkVSU0lPThACEhMKD1VOS05PV05fUkVRVUVTVBADEg4KCk5FRURfSE'
     'VMTE8QBBIQCgxCQURfQVJHVU1FTlQQBRIMCghUT09fTE9ORxAGEhAKDFJBVEVfTElNSVRFRBAH'
     'Eg0KCU5PVF9GT1VORBAIEhAKDEtFWV9SRUpFQ1RFRBAJEg8KC1NFTkRfRkFJTEVEEAoSFAoQVE'
     '9PX01BTllfQ0xJRU5UUxALEg8KC05PX0lERU5USVRZEAwSEQoNQ0hBTk5FTF9MSU1JVBANEgsK'
-    'B0JBRF9QSU4QDg==');
+    'B0JBRF9QSU4QDhIKCgZOT19LRVkQDw==');
 
 @$core.Deprecated('Use contactDescriptor instead')
 const Contact$json = {

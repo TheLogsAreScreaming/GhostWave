@@ -285,6 +285,7 @@ message Error {
     NO_IDENTITY = 12;
     CHANNEL_LIMIT = 13;          // AddChannel: the node holds the most channels it can
     BAD_PIN = 14;                // Hello: wrong pin_proof; ask for a new challenge
+    NO_KEY = 15;                 // SendText: no key for the peer yet; the node asked for it (1.6)
   }
   Code code = 1;
   string detail = 2;

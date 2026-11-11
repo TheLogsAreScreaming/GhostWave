@@ -441,6 +441,11 @@ void handleCommand(const std::string& line, gw::Router& r, HostRadio& radio,
     std::getline(in, text);
     if (!text.empty() && text[0] == ' ') text.erase(0, 1);
     uint32_t dst = std::strtoul(id.c_str(), nullptr, 16);
+    if (!r.canSealTo(dst)) {
+      r.requestIdent(dst, nowMs());
+      std::printf("no key for %08x yet, so nothing was sent (DMs are never sent unencrypted). Asked for its key: try again once \"IDENT\" shows it, or add it with peer.\n", dst);
+      return;
+    }
     uint32_t mid = r.send(dst, std::vector<uint8_t>(text.begin(), text.end()), nowMs());
     std::printf("queued id %08x -> %08x\n", mid, dst);
   } else if (cmd == "known") {

@@ -116,6 +116,9 @@ struct Config {
   double budgetDepthMs = 8000;
   uint64_t rngSeed = 0;
   bool requireEncryption = false;   // drop plaintext DATA addressed to us
+  // Send a DM unencrypted when we hold no key for the peer and no channel key.
+  // Off: send() refuses instead. Host tests of plaintext routing only.
+  bool allowPlaintextDm = false;
   bool requireBeaconMac = false;    // with a channel key: drop beacons without a valid MAC
   bool responder = false;           // auto-reply SOS_ACK to every new SOS seq
   uint64_t sosTtlMs = 24ull * 3600 * 1000;
@@ -181,6 +184,9 @@ class Router {
   // Asks a neighbor for its IDENT (1 hop; the request carries our own IDENT).
   // False without a signing key.
   bool requestIdent(uint32_t id, uint64_t nowMs);
+  // Whether send() can encrypt a DM to `dst` (its key, or a channel key), or
+  // plaintext is allowed. send() returns 0 when this is false.
+  bool canSealTo(uint32_t dst) const { return peers_.count(dst) || haveChanKey_ || cfg_.allowPlaintextDm; }
   // Whether we asked `id` for its IDENT less than `withinMs` ago.
   bool identAskedWithin(uint32_t id, uint64_t nowMs, uint64_t withinMs) const;
   // The Ed25519 key a signed IDENT taught us for `id`. False if we have none.

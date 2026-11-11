@@ -416,6 +416,11 @@ void handleCommand(std::string line) {
       Serial.println("usage: send <hex-id> <text>");
       return;
     }
+    if (!r.canSealTo(dst)) {
+      r.requestIdent(dst, nowMs());
+      Serial.printf("no key for %08x yet, so nothing was sent (DMs are never sent unencrypted). Asked for its key: try again once \"IDENT\" shows it, or add it with peer.\n", dst);
+      return;
+    }
     uint32_t mid = r.send(dst, std::vector<uint8_t>(line.begin(), line.end()), nowMs());
     if (mid) {
       Serial.printf("queued id %08x -> %08x\n", mid, dst);
@@ -437,6 +442,9 @@ void handleCommand(std::string line) {
       Serial.println("usage: rangetest <hex-id> [seconds] | rangetest stop | rangetest");
     } else if (!txOpen()) {
       Serial.println("TX is off: type tx on first");
+    } else if (!r.canSealTo(dst)) {
+      r.requestIdent(dst, nowMs());
+      Serial.printf("no key for %08x yet: asked for it; start the range test once its IDENT arrives\n", dst);
     } else {
       std::string sec = word(line);
       uint32_t ms = sec.empty() ? gw::mcu::RangeTest::kDefaultIntervalMs : static_cast<uint32_t>(std::atoi(sec.c_str())) * 1000u;

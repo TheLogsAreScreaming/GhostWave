@@ -44,6 +44,8 @@ class Error_Code extends $pb.ProtobufEnum {
       Error_Code._(13, _omitEnumNames ? '' : 'CHANNEL_LIMIT');
   static const Error_Code BAD_PIN =
       Error_Code._(14, _omitEnumNames ? '' : 'BAD_PIN');
+  static const Error_Code NO_KEY =
+      Error_Code._(15, _omitEnumNames ? '' : 'NO_KEY');
 
   static const $core.List<Error_Code> values = <Error_Code>[
     NONE,
@@ -61,10 +63,11 @@ class Error_Code extends $pb.ProtobufEnum {
     NO_IDENTITY,
     CHANNEL_LIMIT,
     BAD_PIN,
+    NO_KEY,
   ];
 
   static final $core.List<Error_Code?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 14);
+      $pb.ProtobufEnum.$_initByValueList(values, 15);
   static Error_Code? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

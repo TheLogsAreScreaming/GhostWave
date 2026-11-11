@@ -305,6 +305,15 @@ void testRequests() {
 
   m.text.assign(73, 'y');
   m.clientMsgId = 4242;
+  r.req(c, m);   // no key for 0x22222222 and no channel key: refused, never sent in the clear
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NoKey);
+  uint8_t peerPub[32];
+  for (int i = 0; i < 32; ++i) peerPub[i] = static_cast<uint8_t>(i * 7 + 9);
+  uint8_t ourSecret[32];
+  for (int i = 0; i < 32; ++i) ourSecret[i] = static_cast<uint8_t>(i + 1);
+  r.router.setIdentityKey(ourSecret);
+  CHECK(r.router.addPeerKey(0x22222222, peerPub));
   r.req(c, m);
   v = FakeTransport::drain(c);
   CHECK(v.size() == 1 && v[0].kind == FromKind::SendQueued && v[0].msgId != 0 && v[0].clientMsgId == 4242 &&

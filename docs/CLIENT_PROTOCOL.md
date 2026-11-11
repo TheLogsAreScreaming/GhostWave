@@ -206,6 +206,7 @@ Notes on the events:
 | 12 | `NO_IDENTITY` | the operation needs an Ed25519 identity (`SetName` on a legacy node) |
 | 13 | `CHANNEL_LIMIT` | `AddChannel`: the node already holds the most channels it can (8) |
 | 14 | `BAD_PIN` | `Hello`: the `pin_proof` is wrong, malformed or reused. Ask for a new challenge. |
+| 15 | `NO_KEY` | (1.6) `SendText` to a node we hold no key for, with no channel key: nothing is sent, because a DM is never sent unencrypted. The node asks for the key; retry once it is learned |
 
 ## 5. No client connected: the event queue
 

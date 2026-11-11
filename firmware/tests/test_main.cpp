@@ -308,6 +308,7 @@ struct Medium {
   uint32_t identIntervalMs = 60 * 60 * 1000;
   uint32_t beaconMinS = 0, beaconMaxS = 0;   // ghostwaved --beacon-*-s overrides; 0 = defaults
   bool requireBeaconMac = false;
+  bool allowPlaintextDm = true;   // most routing tests send without keys; see testNoPlaintextDm
   uint64_t now = 0;
   uint32_t txCount = 0;
   std::vector<uint8_t> txTypes;
@@ -325,6 +326,7 @@ struct Medium {
     c.rngSeed = id * 7919ull + 1;
     c.identIntervalMs = identIntervalMs;
     c.requireBeaconMac = requireBeaconMac;
+    c.allowPlaintextDm = allowPlaintextDm;
     applyBeaconTiming(beaconMinS, beaconMaxS, c);
     n->router = std::make_unique<Router>(c, n->radio, n->app);
     n->pos = {45.0 + kmNorth * 0.0089932, -110.0 + kmEast * 0.0127, true};
@@ -1533,6 +1535,31 @@ static void testIdentExchange() {
   CHECK(later >= 2 && later <= 4);
 }
 
+static void testNoPlaintextDm() {
+  std::printf("router: a DM is never sent unencrypted\n");
+  Medium m;
+  m.allowPlaintextDm = false;
+  uint8_t sa[32], sb[32];
+  uint32_t ida = identity(sa, 1), idb = identity(sb, 100);
+  auto& a = m.add(ida, 0);
+  auto& b = m.add(idb, 2);
+  CHECK(a.router->setSigningKey(sa, "a") && b.router->setSigningKey(sb, "b"));
+  CHECK(!a.router->canSealTo(idb));
+  uint32_t before = m.count(PType::Data);
+  CHECK(a.router->send(idb, {'h', 'i'}, m.now) == 0);   // no key, no channel key: refused
+  m.run(2000);
+  CHECK(m.count(PType::Data) == before);               // nothing went on the air
+  m.run(20000);                                         // IDENT exchange teaches the key
+  CHECK(a.router->canSealTo(idb));
+  CHECK(a.router->send(idb, {'h', 'i'}, m.now) != 0);
+  m.run(10000);
+  CHECK(b.app.got.size() == 1);
+  for (auto& f : m.frames) {                            // every DATA frame on the air was sealed
+    Packet p;
+    if (decode(f.data(), f.size(), p) && p.type == PType::Data) CHECK(p.encrypted);
+  }
+}
+
 static void testSosCancel() {
   std::printf("router: a signed SOS cancel clears the alert; a forged one does not\n");
   Medium m;
@@ -2183,6 +2210,7 @@ int main() {
   testSosCarrierRadioFailure();
   testSosAckRepeats();
   testSosCancel();
+  testNoPlaintextDm();
   testSosStopRestart();
   testSosExpiryAndRollover();
   testIdentCrypto();
