@@ -30,8 +30,15 @@ class ContactsScreen extends ConsumerStatefulWidget {
 enum _PeopleFilter { all, unread, contacts, nearby }
 
 class _ContactsScreenState extends ConsumerState<ContactsScreen> {
+  final _search = TextEditingController();
   String _query = '';
   _PeopleFilter _filter = _PeopleFilter.all;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +107,21 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(
-                      decoration: const InputDecoration(labelText: 'Find a node', prefixIcon: Icon(Icons.search)),
+                      controller: _search,
+                      decoration: InputDecoration(
+                        labelText: 'Find a node',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _search.text.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'Clear search',
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _search.clear();
+                                  setState(() => _query = '');
+                                },
+                              ),
+                      ),
                       onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
                     ),
                     Wrap(
