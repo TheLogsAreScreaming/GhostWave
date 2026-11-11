@@ -79,7 +79,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final channelUnread = mesh.channelUnread.values.fold(0, (a, b) => a + b);
     final people = contacts.isEmpty && nearby.isEmpty
         ? Center(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(GwSpace.xl),
               child: SignalPanel(
                 icon: Icons.forum_outlined,
