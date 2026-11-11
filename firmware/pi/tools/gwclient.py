@@ -107,7 +107,7 @@ FROM_EVENTS = {
 
 ERRORS = ["NONE", "BAD_FRAME", "BAD_VERSION", "UNKNOWN_REQUEST", "NEED_HELLO", "BAD_ARGUMENT",
           "TOO_LONG", "RATE_LIMITED", "NOT_FOUND", "KEY_REJECTED", "SEND_FAILED",
-          "TOO_MANY_CLIENTS", "NO_IDENTITY", "CHANNEL_LIMIT", "BAD_PIN"]
+          "TOO_MANY_CLIENTS", "NO_IDENTITY", "CHANNEL_LIMIT", "BAD_PIN", "NO_KEY"]
 
 # ------------------------------------------------------------- protobuf --
 

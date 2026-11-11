@@ -295,6 +295,7 @@ bool Router::neighborVelocity(uint32_t id, Velocity& out) const {
 void Router::addKnownPosition(uint32_t id, const Position& p, uint64_t obsMs) { learn(id, p, obsMs); }
 
 uint32_t Router::send(uint32_t dst, const std::vector<uint8_t>& payload, uint64_t now) {
+  if (!canSealTo(dst)) return 0;   // never put a DM on the air in the clear
   Packet p;
   p.type = PType::Data;
   p.src = cfg_.nodeId;

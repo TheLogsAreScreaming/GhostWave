@@ -27,7 +27,8 @@ constexpr uint8_t kProtocolVersion = 1;
 // 2: the PIN handshake on Hello (PinChallenge, BAD_PIN).
 // 3: that handshake also agrees keys, and the link is encrypted after it.
 // 5: SosCancelled.
-constexpr uint32_t kProtocolMinor = 5;
+// 6: NO_KEY: a DM is never sent unencrypted.
+constexpr uint32_t kProtocolMinor = 6;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -55,6 +56,7 @@ enum class ErrorCode : uint32_t {
   NoIdentity = 12,     // operation needs an Ed25519 identity (legacy node)
   ChannelLimit = 13,   // AddChannel: no room for another channel
   BadPin = 14,         // Hello: wrong pin_proof
+  NoKey = 15,          // SendText: no key for the peer yet; the node asked for it (1.6)
 };
 
 // A fix in 1e-7 degrees. `valid` false = no fix (field absent on the wire).

@@ -178,6 +178,12 @@ void Handler::handle(Conn& c, const ToRadio& m, uint64_t now) {
         error(c, req, ErrorCode::TooLong, "text over " + std::to_string(kMaxTextBytes) + " bytes");
         return;
       }
+      if (!r_.canSealTo(m.dest)) {
+        // never in the clear: ask for its key, and let the app retry once it arrives
+        if (!r_.identAskedWithin(m.dest, now, kRequestKeyGapMs)) r_.requestIdent(m.dest, now);
+        error(c, req, ErrorCode::NoKey, "no key for this node yet; asked for it");
+        return;
+      }
       uint32_t mid = r_.send(m.dest, m.text, now);
       if (!mid) {
         error(c, req, ErrorCode::SendFailed, "router refused the message");
