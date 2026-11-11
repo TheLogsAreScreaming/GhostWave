@@ -11,26 +11,26 @@ import 'package:flutter/material.dart';
 abstract final class GwColors {
   // Brand primitives (README_Brand_Guide.txt).
   /// Spectral Cyan.
-  static const Color spectralCyan = Color(0xFF00E5F5);
+  static const Color spectralCyan = Color(0xFF55F1D8);
 
   /// Phantom Violet.
   static const Color phantomViolet = Color(0xFF872BFF);
 
   /// Ghost Black: the app background.
-  static const Color ghostBlack = Color(0xFF191D25);
+  static const Color ghostBlack = Color(0xFF090D19);
 
   /// Mist White: body text.
   static const Color mistWhite = Color(0xFFF2F7FF);
 
   // Surfaces, stepped up from Ghost Black.
   /// Cards and sheets.
-  static const Color surface1 = Color(0xFF222731);
+  static const Color surface1 = Color(0xFF11192B);
 
   /// Raised containers (chat bubbles from others, banners).
-  static const Color surface2 = Color(0xFF2A303C);
+  static const Color surface2 = Color(0xFF182440);
 
   /// Highest containers.
-  static const Color surface3 = Color(0xFF333B49);
+  static const Color surface3 = Color(0xFF233359);
 
   /// Secondary text on surfaces (8.9:1 on Ghost Black).
   static const Color mutedText = Color(0xFFA9B4CC);
@@ -39,7 +39,7 @@ abstract final class GwColors {
   static const Color outline = Color(0xFF5E6A85);
 
   /// Hairlines.
-  static const Color outlineVariant = Color(0xFF3C4555);
+  static const Color outlineVariant = Color(0xFF34446A);
 
   /// Lighter violet for text and icons on dark (Phantom Violet itself is too
   /// dark for small text on Ghost Black).
@@ -198,11 +198,11 @@ ThemeData buildGhostWaveTheme() {
     headlineLarge: head(t.headlineLarge, FontWeight.w700),
     headlineMedium: head(t.headlineMedium, FontWeight.w700),
     headlineSmall: head(t.headlineSmall, FontWeight.w700),
-    titleLarge: head(t.titleLarge, FontWeight.w700)?.copyWith(fontSize: 20, letterSpacing: -0.2),
+    titleLarge: head(t.titleLarge, FontWeight.w700)?.copyWith(fontSize: 24, letterSpacing: -0.5),
     titleMedium: t.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-    labelLarge: t.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+    labelLarge: t.labelLarge?.copyWith(fontWeight: FontWeight.w700),
   );
-  const pill = StadiumBorder();
+  final pill = RoundedRectangleBorder(borderRadius: BorderRadius.circular(GwRadius.md));
   final rounded = RoundedRectangleBorder(borderRadius: BorderRadius.circular(GwRadius.md));
 
   return base.copyWith(
@@ -219,9 +219,10 @@ ThemeData buildGhostWaveTheme() {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: GwColors.surface1,
-      indicatorColor: GwColors.spectralCyan.withValues(alpha: 0.16),
+      indicatorColor: GwColors.spectralCyan.withValues(alpha: 0.23),
       surfaceTintColor: Colors.transparent,
-      height: 72,
+      height: 76,
+      indicatorShape: rounded,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => text.labelMedium?.copyWith(
           fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,

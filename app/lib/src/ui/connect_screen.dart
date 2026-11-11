@@ -92,8 +92,19 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const _Logo(),
-              const SizedBox(height: 16),
+              const SignalPanel(
+                icon: Icons.settings_input_antenna,
+                title: 'Connect your radio',
+                detail: 'Find a nearby Bluetooth radio or enter a network address.',
+              ),
+              const SizedBox(height: GwSpace.lg),
+              FilledButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BleScanScreen())),
+                icon: const Icon(Icons.bluetooth_searching),
+                label: const Text('Find Bluetooth nodes'),
+              ),
+              const SectionLabel('Network address'),
               TextField(
                 controller: _address,
                 keyboardType: TextInputType.url,
@@ -133,12 +144,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               ),
               const SizedBox(height: 8),
               const SizedBox(height: GwSpace.xs),
-              OutlinedButton.icon(
-                onPressed: () =>
-                    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BleScanScreen())),
-                icon: const Icon(Icons.bluetooth_searching),
-                label: const Text('Find Bluetooth nodes'),
-              ),
               const SizedBox(height: 24),
               LinkStateCard(state: state),
               _RecentNodes(
@@ -308,23 +313,4 @@ class _Help extends StatelessWidget {
       ),
     );
   }
-}
-
-/// The GhostWave mark above the address field, with clear space around it.
-class _Logo extends StatelessWidget {
-  const _Logo();
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        children: [
-          Image.asset('assets/brand/logo.png', width: 96, height: 96, semanticLabel: 'GhostWave logo'),
-          const SizedBox(height: 8),
-          Text('GhostWave', style: Theme.of(context).textTheme.headlineSmall),
-        ],
-      ),
-    ),
-  );
 }

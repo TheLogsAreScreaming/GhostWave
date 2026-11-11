@@ -86,15 +86,16 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final channelUnread = mesh.channelUnread.values.fold(0, (a, b) => a + b);
     final people = contacts.isEmpty && nearby.isEmpty
         ? Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Text(
-                online
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(GwSpace.xl),
+              child: SignalPanel(
+                icon: Icons.forum_outlined,
+                title: 'Your conversations',
+                detail: online
                     ? 'No contacts yet. Nodes in radio range show up here on their own once your node '
                           'has heard their identity (usually within a minute). Or tap "Add" and scan '
                           'another GhostWave user\'s QR code (Me tab).'
                     : 'Connect to a node to load its contacts.',
-                textAlign: TextAlign.center,
               ),
             ),
           )
@@ -106,6 +107,12 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    SignalPanel(
+                      icon: Icons.forum_outlined,
+                      title: 'Your conversations',
+                      detail: peopleUnread == 0 ? 'All caught up' : '$peopleUnread unread messages',
+                    ),
+                    const SizedBox(height: GwSpace.md),
                     TextField(
                       controller: _search,
                       decoration: InputDecoration(
