@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/mesh_controller.dart';
 import '../app/providers.dart';
+import '../data/message_groups.dart';
 import '../data/message_split.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
@@ -69,7 +70,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
     final online = ref.watch(sessionProvider) != null;
     final contact = mesh.contacts[widget.peer];
-    final msgs = mesh.messages[widget.peer] ?? const <ChatMessage>[];
+    final msgs = groupThread(mesh.messages[widget.peer] ?? const <ChatMessage>[]);
     final bytes = utf8Length(_text.text.trim());
     final reportedMax = ref.watch(nodeInfoProvider.select((info) => info?.maxTextBytes ?? 0));
     final max = reportedMax == 0 ? kDefaultMaxTextBytes : reportedMax;
@@ -150,19 +151,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     itemCount: msgs.length,
                     itemBuilder: (context, i) {
                       final index = msgs.length - 1 - i;
-                      final m = msgs[index];
-                      final day = m.at.toLocal();
+                      final item = msgs[index];
+                      final day = item.at.toLocal();
                       final previous = index == 0 ? null : msgs[index - 1].at.toLocal();
-                      final bubble = MessageBubble(
-                        outgoing: m.outgoing,
-                        text: m.text,
-                        at: m.at,
-                        state: m.state,
-                        replayed: m.replayed,
-                        error: m.error,
-                        onRetry: m.outgoing && m.state == MsgState.failed ? () => unawaited(ctl.retry(m)) : null,
-                        onDelete: () => ctl.deleteMessage(m),
-                      );
+                      final bubble = switch (item) {
+                        SingleItem(message: final m) => MessageBubble(
+                          outgoing: m.outgoing,
+                          text: m.text,
+                          at: m.at,
+                          state: m.state,
+                          replayed: m.replayed,
+                          error: m.error,
+                          onRetry: m.outgoing && m.state == MsgState.failed ? () => unawaited(ctl.retry(m)) : null,
+                          onDelete: () => ctl.deleteMessage(m),
+                        ),
+                        LongMessageItem() => MessageBubble(
+                          outgoing: item.outgoing,
+                          text: item.text,
+                          at: item.at,
+                          state: item.state,
+                          replayed: item.replayed,
+                          error: item.error,
+                          // only the parts that failed go again
+                          onRetry: item.outgoing && item.state == MsgState.failed
+                              ? () {
+                                  for (final p in item.parts.values) {
+                                    if (p.state == MsgState.failed) unawaited(ctl.retry(p));
+                                  }
+                                }
+                              : null,
+                          onDelete: () {
+                            for (final p in item.parts.values.toList()) {
+                              ctl.deleteMessage(p);
+                            }
+                          },
+                        ),
+                      };
                       if (previous != null && DateUtils.isSameDay(day, previous)) return bubble;
                       final label = MaterialLocalizations.of(context).formatMediumDate(day);
                       return Column(

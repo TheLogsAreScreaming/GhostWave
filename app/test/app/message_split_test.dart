@@ -5,7 +5,7 @@ import 'package:ghostwave_app/src/data/message_split.dart';
 
 void main() {
   int size(String s) => utf8.encode(s).length;
-  String body(String part) => part.replaceFirst(RegExp(r'^\(\d/\d\) '), '');
+  String body(String part) => part.replaceFirst(RegExp(r'^\(\d/\d#[0-9a-f]{2}\) '), '');
 
   test('a message that fits is left alone', () {
     final t = 'x' * 73;
@@ -15,8 +15,9 @@ void main() {
   test('one byte over becomes two labelled parts', () {
     final parts = splitMessage('x' * 74, 73);
     expect(parts.length, 2);
-    expect(parts[0], startsWith('(1/2) '));
-    expect(parts[1], startsWith('(2/2) '));
+    expect(parts[0], matches(RegExp(r'^\(1/2#[0-9a-f]{2}\) ')));
+    expect(parts[1], matches(RegExp(r'^\(2/2#[0-9a-f]{2}\) ')));
+    expect(parts[0].substring(4, 7), parts[1].substring(4, 7)); // same tag on both
     expect(parts.every((p) => size(p) <= 73), isTrue);
   });
 
