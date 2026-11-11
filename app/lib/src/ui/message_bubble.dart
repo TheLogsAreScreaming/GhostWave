@@ -70,6 +70,11 @@ class MessageBubble extends StatelessWidget {
               title: const Text('Copy text'),
               onTap: () => Navigator.pop(sheet, 'copy'),
             ),
+            ListTile(
+              leading: const Icon(Icons.schedule),
+              title: const Text('Copy timestamp'),
+              onTap: () => Navigator.pop(sheet, 'timestamp'),
+            ),
             if (failed)
               ListTile(
                 leading: const Icon(Icons.refresh),
@@ -90,6 +95,9 @@ class MessageBubble extends StatelessWidget {
       case 'copy':
         await Clipboard.setData(ClipboardData(text: text));
         if (context.mounted) showSnack(context, 'Copied');
+      case 'timestamp':
+        await Clipboard.setData(ClipboardData(text: at.toUtc().toIso8601String()));
+        if (context.mounted) showSnack(context, 'Timestamp copied');
       case 'retry':
         onRetry?.call();
       case 'delete':
