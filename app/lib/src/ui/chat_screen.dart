@@ -144,6 +144,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: msgs.isEmpty
                 ? const Center(child: Text('No messages yet.'))
                 : ListView.builder(
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                     reverse: true,
                     padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md),
                     itemCount: msgs.length,
