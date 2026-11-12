@@ -160,7 +160,7 @@ class FieldReport {
   /// Counters as CSV, one row per sample. Text cells are quoted, and cells that
   /// a spreadsheet would run as a formula are escaped.
   String countersCsv() {
-    const columns = ['at', 'node', 'note', 'tx', 'rx', 'delivered', 'rxBad', 'airtimeMs', 'neighbors'];
+    const columns = ['at', 'node', 'note', 'tx', 'rx', 'delivered', 'rxBad', 'airtimeMs', 'lastRssiDbm', 'neighbors'];
     final rows = [columns.join(',')];
     for (final s in samples) {
       rows.add(

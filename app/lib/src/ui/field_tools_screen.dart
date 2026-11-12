@@ -11,6 +11,7 @@ import '../app/mesh_controller.dart';
 import '../app/providers.dart';
 import '../data/field_reports.dart';
 import '../gen/ghostwave.pb.dart' as pb;
+import 'format.dart';
 import 'settings_screen.dart' show packageInfoProvider;
 
 String _when(DateTime t) {
@@ -268,12 +269,15 @@ class _FieldReportScreenState extends ConsumerState<FieldReportScreen> {
         'rxBad': status.rxBad.toInt(),
         'rxAuthFail': status.rxAuthFail.toInt(),
         'airtimeMs': status.airMs.toInt(),
+        if (status.hasLastRssiDbm()) 'lastRssiDbm': status.lastRssiDbm,
+        if (status.hasLastHeardS()) 'lastHeardSeconds': status.lastHeardS,
         if (mesh.ownPos case final p?) 'position': {'lat': p.lat, 'lon': p.lon},
         'neighbors': <Map<String, Object?>>[
           for (final n in mesh.neighbors.values)
             {
               'node': hex(n.nodeId),
               'lastSeen': n.lastSeen.toUtc().toIso8601String(),
+              'rssiDbm': ?n.rssiDbm,
               'distanceMetres': mesh.ownPos != null && n.pos != null ? mesh.ownPos!.distanceTo(n.pos!).round() : null,
             },
         ],
@@ -440,8 +444,8 @@ class _FieldReportScreenState extends ConsumerState<FieldReportScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Exports include node IDs, your position at each sample and approximate distances to neighbors. '
-              'Signal strength is not available from the radio yet.',
+              'Exports include node IDs, your position at each sample, approximate distances to neighbors and '
+              'the signal each was last heard at. Signal needs firmware dev.9 or later.',
             ),
             const SizedBox(height: 8),
             for (var i = r.samples.length - 1; i >= 0; i--) _sampleTile(r, i),
@@ -459,7 +463,13 @@ class _FieldReportScreenState extends ConsumerState<FieldReportScreen> {
     return ExpansionTile(
       key: ValueKey('${r.id}-$i-${s['at']}'),
       title: Text('${i + 1}. ${at == null ? s['at'] : _when(at)}${note is String ? ' · $note' : ''}'),
-      subtitle: Text('TX ${s['tx']} · RX ${s['rx']} · delivered ${s['delivered']} · ${neighbors.length} heard'),
+      subtitle: Text(
+        'TX ${s['tx']} · RX ${s['rx']} · delivered ${s['delivered']} · ${neighbors.length} heard'
+        '${switch (s['lastRssiDbm']) {
+          final int d => ' · last ${signalText(d)}',
+          _ => '',
+        }}',
+      ),
       children: [
         for (final n in neighbors)
           ListTile(
@@ -471,6 +481,9 @@ class _FieldReportScreenState extends ConsumerState<FieldReportScreen> {
               'Last heard ${switch (DateTime.tryParse('${n['lastSeen']}')) {
                 final DateTime t => _when(t),
                 null => '${n['lastSeen']}',
+              }}${switch (n['rssiDbm']) {
+                final int d => ' · ${signalText(d)}',
+                _ => '',
               }}',
             ),
             trailing: Text(switch (n['distanceMetres']) {
