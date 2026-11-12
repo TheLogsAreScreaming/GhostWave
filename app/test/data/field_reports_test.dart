@@ -15,6 +15,7 @@ Map<String, Object?> _sample(int n, {String? note}) => {
   'tx': n,
   'rx': n * 2,
   'delivered': n,
+  'lastRssiDbm': -100 - n,
   'neighbors': [
     {'node': '9f219dbb', 'lastSeen': '2026-11-11T12:00:00.000Z', 'distanceMetres': 805},
   ],
@@ -105,10 +106,10 @@ void main() {
         .withSample(_sample(1, note: '=HYPERLINK("x")'))
         .withSample(_sample(2, note: 'ridge, north side'));
     final lines = r.countersCsv().split('\r\n');
-    expect(lines.first, 'at,node,note,tx,rx,delivered,rxBad,airtimeMs,neighbors');
+    expect(lines.first, 'at,node,note,tx,rx,delivered,rxBad,airtimeMs,lastRssiDbm,neighbors');
     expect(lines[1], contains('"\'=HYPERLINK(""x"")"'));
     expect(lines[2], contains('"ridge, north side"'));
-    expect(lines[2], endsWith(',1'));
+    expect(lines[2], endsWith(',-102,1'));
   });
 
   test('controller starts, edits, imports and deletes, and keeps a limit', () async {

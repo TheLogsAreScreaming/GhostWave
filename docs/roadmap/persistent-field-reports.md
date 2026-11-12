@@ -22,8 +22,8 @@ Status: built in the app (Status → Field tests). Not yet tried on a phone in t
 
 ## Limits
 
-- Signal strength (RSSI/SNR) is not exposed by the client protocol yet, so it is not recorded. A range test's signal
-  readings are still only on the board's console and screen.
+- Signal (RSSI, whole dBm) is recorded from firmware dev.9 on (client protocol 1.7): the last frame the node heard,
+  and each neighbor's last beacon. It is the last hop only. SNR is not reported.
 - Counters are cumulative and reset when the radio restarts.
 
 ## Acceptance checks

@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
   s.rangeRssi = -97;
   View v;
   v.pages = 3;
-  v.version = "0.1.0-dev.8";
+  v.version = "0.1.0-dev.9";
   v.passkey = "654321";
   v.msgFrom = 0x9f219dbb;
   v.msg = "At the north trailhead, heading up the ridge. Back by 6.";
