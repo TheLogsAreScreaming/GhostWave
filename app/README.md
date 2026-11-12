@@ -22,6 +22,7 @@ any other mesh app.
 | **Settings** (Me tab, gear): rename the node (`SetName`), reset the app's data, version, licenses (including the bundled fonts) | done |
 | **Chat:** per-contact DM threads, queued → sent → delivered (`SendQueued` / `Delivered`), live UTF-8 byte counter, longer messages split into up to 8 labelled parts over the node's 73-byte limit (each part shows its own state and retries on its own), saved on the phone, offline outbox sent on reconnect, failed messages retry on tap | done |
 | **Map:** own node, contacts, nearby nodes and SOS alerts on OpenStreetMap tiles (online) | done |
+| **Trip & check-ins** (SOS tab): up to 6 trip contacts; one tap sends I'm OK / At camp / Delayed / Heading back with your position as an encrypted DM (`[Check-in] …`, readable on older apps); delivery per person with send-again; team view with each contact's last check-in, distance and direction, last heard; reminders to check in and overdue warnings as phone notifications while a trip is on | built, not tried on a phone |
 | **SOS:** hold 3 s to raise, "SOS active" with acks received, stop; incoming SOS banner on every tab with Ack | done |
 | **Status:** every `Status` field, refreshed every 10 s | done |
 | **Recent nodes:** one-tap reconnect on the Connect screen; "Connected to N1 (9d66916b)" bar above the tabs | done |
