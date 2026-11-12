@@ -22,6 +22,9 @@ abstract interface class MeshAlerts {
 
   /// The background connection ended and needs the user. [reason] says why.
   Future<void> backgroundLinkStopped(String reason);
+
+  /// A trip reminder or overdue warning. The same [id] replaces the last one.
+  Future<void> tripAlert({required int id, required String title, required String body});
 }
 
 /// [MeshAlerts] that shows nothing (tests, unsupported platforms).
@@ -40,6 +43,9 @@ class NoMeshAlerts implements MeshAlerts {
 
   @override
   Future<void> backgroundLinkStopped(String reason) async {}
+
+  @override
+  Future<void> tripAlert({required int id, required String title, required String body}) async {}
 }
 
 /// The notifier the mesh controller calls; overridden in `main`.
@@ -124,6 +130,24 @@ class LocalMeshAlerts implements MeshAlerts {
     title: from,
     body: text,
     notificationDetails: const NotificationDetails(android: _messages, iOS: DarwinNotificationDetails()),
+  );
+
+  static const _trip = AndroidNotificationDetails(
+    'trip',
+    'Trip check-ins',
+    channelDescription: 'Check-in reminders and overdue trip contacts',
+    importance: Importance.high,
+    priority: Priority.high,
+    category: AndroidNotificationCategory.reminder,
+  );
+
+  @override
+  Future<void> tripAlert({required int id, required String title, required String body}) => _plugin.show(
+    // negative: DM, channel and SOS notifications all use ids >= 0
+    id: -1 - (id & 0x3FFFFFFF),
+    title: title,
+    body: body,
+    notificationDetails: const NotificationDetails(android: _trip, iOS: DarwinNotificationDetails()),
   );
 
   @override

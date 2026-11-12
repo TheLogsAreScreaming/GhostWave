@@ -13,6 +13,7 @@ import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'format.dart';
 import 'widgets.dart';
+import 'trip_screen.dart';
 import 'theme.dart';
 
 /// How long the SOS button must be held.
@@ -88,6 +89,8 @@ class _SosScreenState extends ConsumerState<SosScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const TripCard(),
+                const SizedBox(height: GwSpace.sm),
                 if (own.active) ...[
                   Card(
                     color: scheme.errorContainer,

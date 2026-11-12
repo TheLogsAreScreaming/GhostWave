@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/mesh_store.dart';
 import '../data/message_split.dart';
 import '../data/models.dart';
+import '../data/trip.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import '../link/contact_card.dart';
 import '../link/geo.dart';
@@ -531,8 +532,8 @@ class MeshController extends Notifier<MeshState> {
   }
 
   /// Queues a DM to [peer]. It is sent now if the link is up, else on the next
-  /// connect.
-  Future<void> sendText(int peer, String text) async {
+  /// connect. Returns its client message ID, to follow its delivery.
+  Future<int> sendText(int peer, String text) async {
     final cmid = 1 + _rng.nextInt(0x7FFFFFFE);
     final msg = ChatMessage(
       peer: peer,
@@ -550,13 +551,14 @@ class MeshController extends Notifier<MeshState> {
     );
     _save();
     final session = _link.session;
-    if (session == null) return;
+    if (session == null) return cmid;
     if (!_hasKey(peer)) {
       // never hand it to the node: with no key it would not be sealed for this peer
       unawaited(requestKey(peer).then<void>((_) {}, onError: (Object _) {}));
-      return;
+      return cmid;
     }
     await _deliver(session, msg);
+    return cmid;
   }
 
   bool _hasKey(int peer) => state.contacts.containsKey(peer);
@@ -586,6 +588,7 @@ class MeshController extends Notifier<MeshState> {
 
   /// A received part's text without its "(2/3#a7) " label, for a notification.
   static String _notificationText(String text) {
+    if (parseCheckIn(text) case final c?) return 'Check-in: ${c.kind.label}';
     final p = parsePart(text);
     return p == null ? text : 'Part ${p.index} of ${p.total}: ${p.body}';
   }
