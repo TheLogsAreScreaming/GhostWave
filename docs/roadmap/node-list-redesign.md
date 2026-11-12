@@ -1,6 +1,6 @@
 # Searchable node cards and filters
 
-Status: implementation proposal; not implemented or verified by this document.
+Status: built in the app (Chats → People: node cards with measured chips, filter counts). Host-tested; not yet tried on a phone.
 
 ## Requirements
 

@@ -136,12 +136,20 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                       children: [
                         for (final choice in _PeopleFilter.values)
                           ChoiceChip(
-                            label: Text(switch (choice) {
-                              _PeopleFilter.all => 'All',
-                              _PeopleFilter.unread => 'Unread',
-                              _PeopleFilter.contacts => 'Contacts',
-                              _PeopleFilter.nearby => 'Nearby',
-                            }),
+                            label: _CountLabel(
+                              switch (choice) {
+                                _PeopleFilter.all => 'All',
+                                _PeopleFilter.unread => 'Unread',
+                                _PeopleFilter.contacts => 'Contacts',
+                                _PeopleFilter.nearby => 'Nearby',
+                              },
+                              switch (choice) {
+                                _PeopleFilter.all => contacts.length + nearby.length,
+                                _PeopleFilter.unread => mesh.unread.values.where((n) => n > 0).length,
+                                _PeopleFilter.contacts => contacts.length,
+                                _PeopleFilter.nearby => mesh.neighbors.length,
+                              },
+                            ),
                             selected: _filter == choice,
                             onSelected: (_) => setState(() => _filter = choice),
                           ),
@@ -164,19 +172,24 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                   ),
                 ),
                 for (final n in shownNearby)
-                  ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.cell_tower)),
-                    title: Text(nodeIdHex(n.nodeId), style: GwText.mono),
-                    subtitle: Text(
-                      [
-                        timeAgo(n.lastSeen),
-                        if (n.rssiDbm case final d?) signalText(d),
-                        if (n.pos != null) n.pos.toString(),
-                        if (waiting(n.nodeId) > 0) '${waiting(n.nodeId)} waiting for key',
-                      ].join(' · '),
+                  Card(
+                    margin: const EdgeInsets.symmetric(horizontal: GwSpace.md, vertical: GwSpace.xs),
+                    color: GwColors.surface1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                     ),
-                    trailing: const Icon(Icons.info_outline),
-                    onTap: () => _showHeardNode(context, ref, n),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.cell_tower)),
+                      title: Text(nodeIdHex(n.nodeId), style: GwText.mono),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: GwSpace.xs),
+                        child: NodeMetrics(nodeId: n.nodeId, mesh: mesh, waiting: waiting(n.nodeId), keyKnown: false),
+                      ),
+                      trailing: const Icon(Icons.info_outline, semanticLabel: 'What this means'),
+                      onTap: () => _showHeardNode(context, ref, n),
+                    ),
                   ),
               ],
             ],
@@ -389,12 +402,6 @@ class _ContactTile extends ConsumerWidget {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     final name = mesh.nameOf(c.nodeId);
-    final details = [
-      nodeIdHex(c.nodeId),
-      if (c.lastSeen != null) 'seen ${timeAgo(c.lastSeen!)}',
-      if (mesh.neighbors[c.nodeId]?.rssiDbm case final d?) signalText(d),
-      if (c.pos != null) c.pos.toString(),
-    ].join(' · ');
     final (IconData trustIcon, String trust, Color trustColor) = c.keyChanged
         ? (Icons.warning_amber, 'This node announced a different key', scheme.error)
         : c.pinned
@@ -442,7 +449,9 @@ class _ContactTile extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
                 style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.mistWhite) : null,
               ),
-            Text(details, style: GwText.mono.copyWith(fontSize: 11.5, color: GwColors.mutedText)),
+            Text(nodeIdHex(c.nodeId), style: GwText.mono.copyWith(fontSize: 11.5, color: GwColors.mutedText)),
+            const SizedBox(height: GwSpace.xs),
+            NodeMetrics(nodeId: c.nodeId, mesh: mesh, contact: c),
           ],
         ),
         trailing: Column(
@@ -462,6 +471,125 @@ class _ContactTile extends ConsumerWidget {
         ),
         onTap: open,
       ),
+    );
+  }
+}
+
+/// A filter label with its count, e.g. "Nearby 3".
+class _CountLabel extends StatelessWidget {
+  const _CountLabel(this.label, this.count);
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: '$label, $count',
+    excludeSemantics: true,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label),
+        const SizedBox(width: GwSpace.xs),
+        Text('$count', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: GwColors.mutedText)),
+      ],
+    ),
+  );
+}
+
+/// A node's measurements as small chips: when it was last heard (and whether
+/// it is in range now), its signal, distance and direction from you, how its
+/// key is trusted, and messages waiting for it. Only what was really measured.
+class NodeMetrics extends ConsumerWidget {
+  /// Creates the row for [nodeId].
+  const NodeMetrics({
+    required this.nodeId,
+    required this.mesh,
+    this.contact,
+    this.waiting = 0,
+    this.keyKnown = true,
+    super.key,
+  });
+
+  /// The node.
+  final int nodeId;
+
+  /// Mesh state to read from.
+  final MeshState mesh;
+
+  /// Its contact entry, if it is one.
+  final Contact? contact;
+
+  /// Messages written to it and still waiting.
+  final int waiting;
+
+  /// Whether we hold its key (false for a heard node waiting for one).
+  final bool keyKnown;
+
+  /// Heard within this long counts as in range now (beacons are minutes apart).
+  static const inRangeFor = Duration(minutes: 15);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final units = ref.watch(unitsProvider);
+    final n = mesh.neighbors[nodeId];
+    final c = contact;
+    final heard = n?.lastSeen ?? c?.lastSeen;
+    final inRange = n != null && DateTime.now().difference(n.lastSeen) < inRangeFor;
+    final pos = n?.pos ?? c?.pos;
+    final own = mesh.ownPos;
+    final chips = <(IconData, String, Color?)>[
+      if (heard != null)
+        (
+          inRange ? Icons.circle : Icons.history,
+          '${inRange ? 'in range · ' : ''}${timeAgo(heard)}',
+          inRange ? GwColors.success : null,
+        ),
+      if (n?.rssiDbm case final d?) (Icons.signal_cellular_alt, signalText(d), null),
+      if (own != null && pos != null)
+        (
+          Icons.near_me_outlined,
+          '${formatDistance(own.distanceTo(pos), units)} ${compassPoint(own.bearingTo(pos))}',
+          null,
+        ),
+      if (c != null && c.keyChanged)
+        (Icons.warning_amber, 'key changed', scheme.error)
+      else if (c != null && c.pinned)
+        (Icons.verified, 'verified by QR', GwColors.spectralCyan)
+      else if (c != null)
+        (Icons.wifi_tethering, 'key learned over the air', null)
+      else if (!keyKnown)
+        (Icons.key_off_outlined, 'waiting for key', null),
+      if (waiting > 0) (Icons.schedule_send_outlined, '$waiting waiting', scheme.tertiary),
+    ];
+    final style = Theme.of(context).textTheme.labelSmall;
+    return Wrap(
+      spacing: GwSpace.xs,
+      runSpacing: GwSpace.xs,
+      children: [
+        for (final (icon, label, color) in chips)
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: GwColors.surface2,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: (color ?? scheme.outlineVariant).withValues(alpha: 0.5)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: icon == Icons.circle ? 8 : 12, color: color ?? GwColors.mutedText),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(label, style: style?.copyWith(color: color ?? GwColors.mutedText)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
