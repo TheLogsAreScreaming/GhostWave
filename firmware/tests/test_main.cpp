@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <climits>
 #include <cstdio>
 #include <cstring>
 #include <functional>
@@ -265,6 +266,12 @@ struct TestRadio : RadioPort {
 };
 
 struct TestApp : AppPort {
+  const Router* router = nullptr;   // set by Medium::add: callbacks note rxSignal()
+  std::vector<int> msgDbm, deliveredDbm, neighborDbm;   // INT_MIN: no signal reported
+  int sig() const {
+    int d = 0;
+    return router && router->rxSignal(d) ? d : INT_MIN;
+  }
   std::vector<std::pair<uint32_t, std::vector<uint8_t>>> got;
   std::vector<uint32_t> delivered;
   std::vector<SosInfo> sos;
@@ -277,9 +284,18 @@ struct TestApp : AppPort {
   void onChannelMessage(uint32_t chan, uint32_t src, uint32_t mid, const std::vector<uint8_t>& p) override {
     chanMsgs.push_back({chan, src, mid, p});
   }
-  void onNeighbor(uint32_t id, const Position&, bool isNew) override { neighbors.push_back({id, isNew}); }
-  void onMessage(uint32_t src, uint32_t, const std::vector<uint8_t>& p) override { got.push_back({src, p}); }
-  void onDelivered(uint32_t, uint32_t mid) override { delivered.push_back(mid); }
+  void onNeighbor(uint32_t id, const Position&, bool isNew) override {
+    neighbors.push_back({id, isNew});
+    neighborDbm.push_back(sig());
+  }
+  void onMessage(uint32_t src, uint32_t, const std::vector<uint8_t>& p) override {
+    got.push_back({src, p});
+    msgDbm.push_back(sig());
+  }
+  void onDelivered(uint32_t, uint32_t mid) override {
+    delivered.push_back(mid);
+    deliveredDbm.push_back(sig());
+  }
   void onSos(const SosInfo& s) override { sos.push_back(s); }
   void onSosAck(uint32_t who, uint16_t seq) override { sosAcks.push_back({who, seq}); }
   struct Cancel { uint32_t src; uint16_t seq; bool verified; };
@@ -329,6 +345,7 @@ struct Medium {
     c.allowPlaintextDm = allowPlaintextDm;
     applyBeaconTiming(beaconMinS, beaconMaxS, c);
     n->router = std::make_unique<Router>(c, n->radio, n->app);
+    n->app.router = n->router.get();
     n->pos = {45.0 + kmNorth * 0.0089932, -110.0 + kmEast * 0.0127, true};
     n->router->setPosition(n->pos, now);
     nodes.push_back(std::move(n));
@@ -816,6 +833,32 @@ static bool onAir(const Medium& m, const std::string& s) {
   for (auto& f : m.frames)
     if (std::search(f.begin(), f.end(), s.begin(), s.end()) != f.end()) return true;
   return false;
+}
+
+// Protocol 1.7: while a frame is being handled the router reports how it was
+// heard, so the client link can attach it to messages, receipts and beacons.
+// Outside a receive it reports nothing; lastHeard keeps the latest reading.
+static void testRxSignal() {
+  std::printf("router: rxSignal during callbacks, lastHeard after\n");
+  Medium m;
+  auto& a = m.add(700, 0);
+  auto& b = m.add(701, 1.0);   // 1 km: the medium gives -129 + 20 * (1 - 1000/2500) = -117 dBm
+  int d = 0;
+  uint64_t at = 0;
+  CHECK(!a.router->lastHeard(d, at));
+  m.run(5000);
+  CHECK(!b.app.neighborDbm.empty() && b.app.neighborDbm[0] == -117);
+  CHECK(a.router->send(701, {'h', 'i'}, m.now) != 0);
+  m.run(30000);
+  CHECK(b.app.msgDbm.size() == 1 && b.app.msgDbm[0] == -117);
+  CHECK(a.app.deliveredDbm.size() == 1 && a.app.deliveredDbm[0] == -117);
+  CHECK(!a.router->rxSignal(d));   // not inside a receive now
+  CHECK(a.router->lastHeard(d, at) && d == -117 && at <= m.now);
+  // whole dBm, rounded; wild readings clamped
+  Router& r = *a.router;
+  std::vector<uint8_t> junk = {0xFF};
+  r.onReceive(junk.data(), junk.size(), -97.6f, m.now);   // undecodable: not a "heard" frame
+  CHECK(r.lastHeard(d, at) && d == -117);
 }
 
 static void testEncryptedRouting() {
@@ -2187,6 +2230,7 @@ int main() {
   testPosAge();
   testUtil();
   testBeaconTimingFlags();
+  testRxSignal();
   testBeaconVelocity();
   testBeaconMac();
   testBeaconRecoveryAfterMove();

@@ -28,7 +28,7 @@ constexpr uint8_t kProtocolVersion = 1;
 // 3: that handshake also agrees keys, and the link is encrypted after it.
 // 5: SosCancelled.
 // 6: NO_KEY: a DM is never sent unencrypted.
-constexpr uint32_t kProtocolMinor = 6;
+constexpr uint32_t kProtocolMinor = 7;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -78,6 +78,14 @@ struct OptU32 {
   uint32_t v = 0;
   void set(uint32_t x) { has = true, v = x; }
   bool operator==(const OptU32& o) const { return has == o.has && (!has || v == o.v); }
+};
+
+// Optional int32 (proto3 `optional sint32`): signal readings, which are negative.
+struct OptI32 {
+  bool has = false;
+  int32_t v = 0;
+  void set(int32_t x) { has = true, v = x; }
+  bool operator==(const OptI32& o) const { return has == o.has && (!has || v == o.v); }
 };
 
 using Bytes = std::vector<uint8_t>;
@@ -165,6 +173,8 @@ struct StatusInfo {
   uint32_t clients = 0, queued = 0;
   OptU32 batteryPct;   // absent: the node cannot read its battery
   bool txOff = false;  // the node is not transmitting right now
+  OptI32 lastRssiDbm;  // the last good frame heard (1.7); absent: none yet
+  OptU32 lastHeardS;   // seconds since then (1.7)
   bool operator==(const StatusInfo& o) const;
 };
 
@@ -205,6 +215,9 @@ struct FromRadio {
   bool verified = false;
   uint32_t count = 0;
   StatusInfo status;
+  // Text / Delivered / Neighbor / ChannelMessage: signal of the frame that
+  // carried it, as this node heard it (the last hop). 1.7; absent on older nodes.
+  OptI32 rssiDbm;
   // Error
   ErrorCode error = ErrorCode::None;
   std::string detail;

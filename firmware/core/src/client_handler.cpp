@@ -304,6 +304,12 @@ void Handler::handle(Conn& c, const ToRadio& m, uint64_t now) {
       st.status.uptimeS = static_cast<uint32_t>((now - startMs_) / 1000);
       st.status.clients = static_cast<uint32_t>(ready());
       st.status.queued = static_cast<uint32_t>(queue_.size());
+      int dbm = 0;
+      uint64_t at = 0;
+      if (r_.lastHeard(dbm, at)) {
+        st.status.lastRssiDbm.set(dbm);
+        st.status.lastHeardS.set(static_cast<uint32_t>((now > at ? now - at : 0) / 1000));
+      }
       if (hooks_.batteryPct) {
         const uint8_t pct = hooks_.batteryPct();
         if (pct != 0xFF) st.status.batteryPct.set(std::min<uint8_t>(pct, 100));
@@ -357,6 +363,7 @@ void Handler::onMessage(uint32_t src, uint32_t msgId, const std::vector<uint8_t>
   m.msgId = msgId;
   m.text = payload;
   if (m.text.size() > 128) m.text.resize(128);   // cannot happen: radio frames are 128 bytes
+  stampSignal(m);
   event(m, true);
 }
 
@@ -367,6 +374,7 @@ void Handler::onDelivered(uint32_t dst, uint32_t msgId) {
   m.msgId = msgId;
   auto it = clientIds_.find(msgId);
   if (it != clientIds_.end()) m.clientMsgId = it->second;   // kept: a receipt can arrive twice
+  stampSignal(m);
   event(m, true);
 }
 
@@ -425,6 +433,7 @@ void Handler::onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) {
   m.nodeId = id;
   m.pos = toPos(pos);
   m.isNew = isNew;
+  stampSignal(m);
   event(m, false);   // live view only: a stale neighbor list is worse than none
 }
 
@@ -620,7 +629,13 @@ void Handler::onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, co
   m.src = src;
   m.msgId = msgId;
   m.text = payload;
+  stampSignal(m);
   event(m, true);
+}
+
+void Handler::stampSignal(FromRadio& m) const {
+  int dbm = 0;
+  if (r_.rxSignal(dbm)) m.rssiDbm.set(dbm);
 }
 
 }  // namespace client

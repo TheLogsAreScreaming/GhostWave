@@ -47,7 +47,7 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.batteryPct == b.batteryPct && a.isNew == b.isNew && a.pinned == b.pinned && a.verified == b.verified &&
          a.count == b.count && a.status == b.status && a.error == b.error && a.detail == b.detail &&
          a.protocolMinor == b.protocolMinor && a.maxChannelTextBytes == b.maxChannelTextBytes &&
-         a.channel == b.channel && a.psk == b.psk && a.nonce == b.nonce;
+         a.channel == b.channel && a.psk == b.psk && a.nonce == b.nonce && a.rssiDbm == b.rssiDbm;
 }
 
 static std::vector<ToRadio> sampleTo() {
@@ -130,13 +130,29 @@ static std::vector<FromRadio> sampleFrom() {
   m = {}, m.kind = FromKind::Neighbor, m.nodeId = 8, m.pos = posFromDegrees(1, 2), m.isNew = true;
   v.push_back(m);
   m = {}, m.reqId = 77, m.kind = FromKind::Status;
-  m.status = {1, 2, 3, 4, 5, 6, 7, 0x1FFFFFFFFull, 9, 10, 11, true, 13, 14, 15, {}, false};
+  m.status = {1, 2, 3, 4, 5, 6, 7, 0x1FFFFFFFFull, 9, 10, 11, true, 13, 14, 15, {}, false, {}, {}};
   v.push_back(m);
   m.reqId = 177, m.status.batteryPct.set(0);   // 0 % stays distinct from "unknown"
   v.push_back(m);
   m.reqId = 178, m.status.batteryPct.set(87);
   v.push_back(m);
   m.reqId = 179, m.status.txOff = true;
+  v.push_back(m);
+  m.reqId = 180, m.status.lastRssiDbm.set(-118), m.status.lastHeardS.set(0);   // 1.7
+  v.push_back(m);
+  m.reqId = 181, m.status.lastRssiDbm.set(0), m.status.lastHeardS.set(3600);   // 0 dBm stays distinct from none
+  v.push_back(m);
+  // 1.7 signal of the frame that carried an event
+  m = {}, m.kind = FromKind::Text, m.src = 0x9F219DBB, m.msgId = 5, m.text = B("RT 5");
+  m.rssiDbm.set(-97);
+  v.push_back(m);
+  m = {}, m.kind = FromKind::Delivered, m.dest = 2, m.msgId = 3, m.clientMsgId = 4;
+  m.rssiDbm.set(-200);
+  v.push_back(m);
+  m = {}, m.kind = FromKind::Neighbor, m.nodeId = 9, m.rssiDbm.set(50);
+  v.push_back(m);
+  m = {}, m.kind = FromKind::ChannelMessage, m.channel = "camp", m.src = 1, m.msgId = 2, m.text = B("x");
+  m.rssiDbm.set(-1);
   v.push_back(m);
   m = {}, m.reqId = 78, m.kind = FromKind::Position;   // no fix
   v.push_back(m);

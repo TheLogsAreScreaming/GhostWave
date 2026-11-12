@@ -349,6 +349,13 @@ void Router::onReceive(const uint8_t* buf, size_t len, float rssi, uint64_t now)
   }
   ++stats_.rx;
   if (p.prevHop == me16() && p.src == cfg_.nodeId && p.type == PType::Beacon) return;
+  rxDbm_ = static_cast<int>(rssi < -200.f ? -200.f : rssi > 50.f ? 50.f : rssi + (rssi < 0 ? -0.5f : 0.5f));
+  lastDbm_ = rxDbm_, lastMs_ = now, heardAny_ = true;
+  struct InRx {
+    bool& f;
+    explicit InRx(bool& x) : f(x) { f = true; }
+    ~InRx() { f = false; }
+  } inRx(inRx_);
   if (p.hasSrcPos && p.srcAge != 0xFF && p.src != cfg_.nodeId) {
     uint64_t age = ageDecode(p.srcAge) * 1000ull;
     learn(p.src, p.srcPos, now > age ? now - age : 0);

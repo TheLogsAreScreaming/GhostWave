@@ -32,6 +32,7 @@ class ChatMessage {
     this.msgId = 0,
     this.error,
     this.replayed = false,
+    this.rssiDbm,
   });
 
   /// From [toJson].
@@ -45,6 +46,7 @@ class ChatMessage {
     msgId: (j['mid'] as int?) ?? 0,
     error: j['err'] as String?,
     replayed: (j['replayed'] as bool?) ?? false,
+    rssiDbm: j['rssi'] as int?,
   );
 
   /// The other node.
@@ -74,18 +76,24 @@ class ChatMessage {
   /// Incoming message held by the node while no app was connected.
   final bool replayed;
 
+  /// Signal, whole dBm, of the last hop as our node heard it: the message
+  /// itself (incoming) or its receipt (outgoing). Null from older nodes.
+  final int? rssiDbm;
+
   /// A copy with some fields changed.
-  ChatMessage copyWith({MsgState? state, int? msgId, String? error, bool clearError = false}) => ChatMessage(
-    peer: peer,
-    outgoing: outgoing,
-    text: text,
-    at: at,
-    state: state ?? this.state,
-    clientMsgId: clientMsgId,
-    msgId: msgId ?? this.msgId,
-    error: clearError ? null : (error ?? this.error),
-    replayed: replayed,
-  );
+  ChatMessage copyWith({MsgState? state, int? msgId, String? error, bool clearError = false, int? rssiDbm}) =>
+      ChatMessage(
+        peer: peer,
+        outgoing: outgoing,
+        text: text,
+        at: at,
+        state: state ?? this.state,
+        clientMsgId: clientMsgId,
+        msgId: msgId ?? this.msgId,
+        error: clearError ? null : (error ?? this.error),
+        replayed: replayed,
+        rssiDbm: rssiDbm ?? this.rssiDbm,
+      );
 
   /// JSON form.
   Map<String, Object?> toJson() => {
@@ -98,6 +106,7 @@ class ChatMessage {
     if (msgId != 0) 'mid': msgId,
     if (error != null) 'err': error,
     if (replayed) 'replayed': true,
+    'rssi': ?rssiDbm,
   };
 }
 
@@ -224,6 +233,7 @@ class ChannelMessage {
     this.msgId = 0,
     this.error,
     this.replayed = false,
+    this.rssiDbm,
   });
 
   /// From [toJson].
@@ -238,6 +248,7 @@ class ChannelMessage {
     msgId: (j['mid'] as int?) ?? 0,
     error: j['err'] as String?,
     replayed: (j['replayed'] as bool?) ?? false,
+    rssiDbm: j['rssi'] as int?,
   );
 
   /// Channel name.
@@ -270,19 +281,24 @@ class ChannelMessage {
   /// Held by the node while no app was connected.
   final bool replayed;
 
+  /// Signal, whole dBm, of the last hop as our node heard it (incoming).
+  final int? rssiDbm;
+
   /// A copy with some fields changed.
-  ChannelMessage copyWith({MsgState? state, int? msgId, String? error, bool clearError = false}) => ChannelMessage(
-    channel: channel,
-    outgoing: outgoing,
-    text: text,
-    at: at,
-    src: src,
-    state: state ?? this.state,
-    clientMsgId: clientMsgId,
-    msgId: msgId ?? this.msgId,
-    error: clearError ? null : (error ?? this.error),
-    replayed: replayed,
-  );
+  ChannelMessage copyWith({MsgState? state, int? msgId, String? error, bool clearError = false, int? rssiDbm}) =>
+      ChannelMessage(
+        channel: channel,
+        outgoing: outgoing,
+        text: text,
+        at: at,
+        src: src,
+        state: state ?? this.state,
+        clientMsgId: clientMsgId,
+        msgId: msgId ?? this.msgId,
+        error: clearError ? null : (error ?? this.error),
+        replayed: replayed,
+        rssiDbm: rssiDbm ?? this.rssiDbm,
+      );
 
   /// JSON form.
   Map<String, Object?> toJson() => {
@@ -296,13 +312,14 @@ class ChannelMessage {
     if (msgId != 0) 'mid': msgId,
     if (error != null) 'err': error,
     if (replayed) 'replayed': true,
+    'rssi': ?rssiDbm,
   };
 }
 
 /// A node heard nearby (beacon), contact or not. Live only, not saved.
 class Neighbor {
   /// Creates an entry.
-  const Neighbor({required this.nodeId, required this.lastSeen, this.pos});
+  const Neighbor({required this.nodeId, required this.lastSeen, this.pos, this.rssiDbm});
 
   /// Node ID.
   final int nodeId;
@@ -312,6 +329,9 @@ class Neighbor {
 
   /// Position from the beacon.
   final LatLon? pos;
+
+  /// Signal of its last beacon, whole dBm. Null from older nodes.
+  final int? rssiDbm;
 }
 
 /// An SOS from another node.

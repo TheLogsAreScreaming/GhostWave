@@ -79,6 +79,17 @@ class LongMessageItem extends ChatItem {
 
   /// Whether any part was held while no app was connected.
   bool get replayed => parts.values.any((m) => m.replayed);
+
+  /// The weakest signal among the parts that carry one: the link is only as
+  /// good as its worst hop. Null if none do.
+  int? get rssiDbm {
+    int? worst;
+    for (final m in parts.values) {
+      final d = m.rssiDbm;
+      if (d != null && (worst == null || d < worst)) worst = d;
+    }
+    return worst;
+  }
 }
 
 /// [thread] (oldest first) as display rows (oldest first). Tagged parts with the

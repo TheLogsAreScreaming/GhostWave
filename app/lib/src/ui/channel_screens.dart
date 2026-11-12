@@ -369,6 +369,7 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
                         replayed: m.replayed,
                         error: m.error,
                         receipts: false,
+                        rssiDbm: m.rssiDbm,
                         onRetry: m.outgoing && m.state == MsgState.failed ? () => unawaited(ctl.retryChannel(m)) : null,
                         onDelete: () => ctl.deleteChannelMessage(m),
                       );

@@ -295,6 +295,57 @@ void main() {
     });
   });
 
+  group('signal (protocol 1.7)', () {
+    test('messages, receipts, channel messages and beacons keep their signal; older nodes send none', () async {
+      final n = ChannelNode()..channels['crew'] = key(5);
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      await ctl().addContact(ContactCard(nodeId: bob, ed25519Pub: key(1), name: 'bob'));
+      n.node.last
+        ..send(
+          pb.FromRadio(
+            text: pb.TextMessage(src: bob, msgId: 1, text: utf8.encode('heard'), rssiDbm: -97),
+          ),
+        )
+        ..send(
+          pb.FromRadio(
+            text: pb.TextMessage(src: bob, msgId: 2, text: utf8.encode('old node')),
+          ),
+        )
+        ..send(
+          pb.FromRadio(
+            channelMessage: pb.ChannelMessage(
+              channel: 'crew',
+              src: bob,
+              msgId: 3,
+              text: utf8.encode('x'),
+              rssiDbm: -121,
+            ),
+          ),
+        )
+        ..send(pb.FromRadio(neighbor: pb.Neighbor(nodeId: bob, rssiDbm: -88)))
+        ..send(pb.FromRadio(neighbor: pb.Neighbor(nodeId: bob)));
+      await ctl().sendMessage(bob, 'out', 73);
+      await settle();
+      final out = mesh().messages[bob]!.firstWhere((m) => m.outgoing);
+      n.node.last.send(
+        pb.FromRadio(
+          delivered: pb.Delivered(dest: bob, msgId: out.msgId, clientMsgId: out.clientMsgId, rssiDbm: -110),
+        ),
+      );
+      await settle();
+      final msgs = mesh().messages[bob]!;
+      expect(msgs.firstWhere((m) => m.text == 'heard').rssiDbm, -97);
+      expect(msgs.firstWhere((m) => m.text == 'old node').rssiDbm, isNull);
+      expect(msgs.firstWhere((m) => m.outgoing).rssiDbm, -110);
+      expect(mesh().channelMessages['crew']!.single.rssiDbm, -121);
+      expect(mesh().neighbors[bob]!.rssiDbm, -88, reason: 'a beacon without a reading keeps the last one');
+      final back = ChatMessage.fromJson(msgs.firstWhere((m) => m.text == 'heard').toJson());
+      expect(back.rssiDbm, -97);
+      expect(ChatMessage.fromJson(msgs.firstWhere((m) => m.text == 'old node').toJson()).rssiDbm, isNull);
+    });
+  });
+
   group('deleting', () {
     test('a message, a conversation, a channel message, a channel history', () async {
       final n = ChannelNode()..channels['crew'] = key(5);

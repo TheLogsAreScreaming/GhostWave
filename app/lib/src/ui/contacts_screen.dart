@@ -170,6 +170,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                     subtitle: Text(
                       [
                         timeAgo(n.lastSeen),
+                        if (n.rssiDbm case final d?) signalText(d),
                         if (n.pos != null) n.pos.toString(),
                         if (waiting(n.nodeId) > 0) '${waiting(n.nodeId)} waiting for key',
                       ].join(' · '),
@@ -391,6 +392,7 @@ class _ContactTile extends ConsumerWidget {
     final details = [
       nodeIdHex(c.nodeId),
       if (c.lastSeen != null) 'seen ${timeAgo(c.lastSeen!)}',
+      if (mesh.neighbors[c.nodeId]?.rssiDbm case final d?) signalText(d),
       if (c.pos != null) c.pos.toString(),
     ].join(' · ');
     final (IconData trustIcon, String trust, Color trustColor) = c.keyChanged

@@ -3,6 +3,26 @@ library;
 
 import '../app/preferences.dart';
 
+/// How usable a LoRa link at [dbm] is, in a word, for people who don't read dBm.
+/// Rough bands for GhostWave's long-range settings: the radio still decodes well
+/// below -120 dBm, but margin shrinks fast past -115.
+String signalWord(int dbm) => switch (dbm) {
+  >= -90 => 'strong',
+  >= -105 => 'good',
+  >= -115 => 'fair',
+  _ => 'weak',
+};
+
+/// "-97 dBm, good": the number and the word, so it never relies on colour.
+String signalText(int dbm) => '$dbm dBm, ${signalWord(dbm)}';
+
+/// "12 s ago", "4 min ago", "2 h ago", from a count of seconds.
+String secondsAgo(int s) => s < 90
+    ? '$s s ago'
+    : s < 5400
+    ? '${(s / 60).round()} min ago'
+    : '${(s / 3600).round()} h ago';
+
 /// "just now", "5 min ago", "3 h ago", "2 d ago".
 String timeAgo(DateTime t, {DateTime? now}) {
   final d = (now ?? DateTime.now()).difference(t);

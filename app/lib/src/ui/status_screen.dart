@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'format.dart';
 import '../app/providers.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import 'theme.dart';
@@ -142,6 +143,12 @@ class _StatusList extends StatelessWidget {
       ('Received, bad', '${s.rxBad}'),
       ('Received, auth failed', '${s.rxAuthFail}'),
       ('Airtime', '${(s.airMs.toInt() / 1000).toStringAsFixed(1)} s'),
+      (
+        'Last frame heard',
+        s.hasLastRssiDbm()
+            ? '${signalText(s.lastRssiDbm)}${s.hasLastHeardS() ? ', ${secondsAgo(s.lastHeardS)}' : ''}'
+            : 'not reported',
+      ),
     ];
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -235,15 +242,24 @@ class _Rows extends StatelessWidget {
       children: [
         for (final (i, r) in rows.indexed) ...[
           if (i > 0) const Divider(indent: GwSpace.lg, endIndent: GwSpace.lg),
-          ListTile(
-            dense: true,
-            title: Text(r.$1, style: Theme.of(context).textTheme.bodyMedium),
-            trailing: Text(
-              r.$2,
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+          // short values (counters) sit beside the label; longer ones wrap under it,
+          // so large text on a narrow phone never pushes them off the edge
+          if (r.$2.length <= 10)
+            ListTile(
+              dense: true,
+              title: Text(r.$1, style: Theme.of(context).textTheme.bodyMedium),
+              trailing: Text(
+                r.$2,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+              ),
+            )
+          else
+            ListTile(
+              dense: true,
+              title: Text(r.$1, style: Theme.of(context).textTheme.bodyMedium),
+              subtitle: Text(r.$2, style: Theme.of(context).textTheme.titleSmall),
             ),
-          ),
         ],
       ],
     ),
