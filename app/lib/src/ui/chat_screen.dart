@@ -11,6 +11,7 @@ import '../data/message_split.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
+import 'connection_strip.dart';
 import 'format.dart';
 import 'message_bubble.dart';
 import 'theme.dart';
@@ -68,7 +69,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ref.listen(meshProvider.select((m) => m.unread[widget.peer] ?? 0), (_, n) {
       if (n > 0) ref.read(meshProvider.notifier).markRead(widget.peer);
     });
-    final online = ref.watch(sessionProvider) != null;
     final contact = mesh.contacts[widget.peer];
     final msgs = groupThread(mesh.messages[widget.peer] ?? const <ChatMessage>[]);
     final bytes = utf8Length(_text.text.trim());
@@ -85,12 +85,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(mesh.nameOf(widget.peer)),
+            // one line: the app bar has a fixed height, so large text fades out
+            // here rather than spilling; the full details are on the People card
             Text(
               [
                 nodeIdHex(widget.peer),
                 if (contact != null && !contact.verified) 'unverified',
                 if (contact?.lastSeen != null) 'seen ${timeAgo(contact!.lastSeen!)}',
               ].join(' · '),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.fade,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -124,133 +129,145 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (contact?.keyChanged ?? false) _KeyChangeBanner(contact: contact!),
-          if (!online)
-            Container(
-              width: double.infinity,
-              color: scheme.surfaceContainerHighest,
-              padding: const EdgeInsets.all(8),
-              child: const Text('Offline: messages are saved and sent when the node reconnects.'),
-            ),
-          if (contact == null)
-            Container(
-              width: double.infinity,
-              color: scheme.surfaceContainerHighest,
-              padding: const EdgeInsets.all(8),
-              child: const Text('No key for this node yet. Messages stay on this phone until it arrives.'),
-            ),
-          Expanded(
-            child: msgs.isEmpty
-                ? const Center(child: Text('No messages yet.'))
-                : ListView.builder(
-                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md),
-                    itemCount: msgs.length,
-                    itemBuilder: (context, i) {
-                      final index = msgs.length - 1 - i;
-                      final item = msgs[index];
-                      final day = item.at.toLocal();
-                      final previous = index == 0 ? null : msgs[index - 1].at.toLocal();
-                      final bubble = switch (item) {
-                        SingleItem(message: final m) => MessageBubble(
-                          outgoing: m.outgoing,
-                          text: m.text,
-                          at: m.at,
-                          state: m.state,
-                          replayed: m.replayed,
-                          error: m.error,
-                          rssiDbm: m.rssiDbm,
-                          onRetry: m.outgoing && m.state == MsgState.failed ? () => unawaited(ctl.retry(m)) : null,
-                          onDelete: () => ctl.deleteMessage(m),
-                        ),
-                        LongMessageItem() => MessageBubble(
-                          outgoing: item.outgoing,
-                          text: item.text,
-                          at: item.at,
-                          state: item.state,
-                          replayed: item.replayed,
-                          error: item.error,
-                          rssiDbm: item.rssiDbm,
-                          // only the parts that failed go again
-                          onRetry: item.outgoing && item.state == MsgState.failed
-                              ? () {
-                                  for (final p in item.parts.values) {
-                                    if (p.state == MsgState.failed) unawaited(ctl.retry(p));
-                                  }
-                                }
-                              : null,
-                          onDelete: () {
-                            for (final p in item.parts.values.toList()) {
-                              ctl.deleteMessage(p);
-                            }
-                          },
-                        ),
-                      };
-                      if (previous != null && DateUtils.isSameDay(day, previous)) return bubble;
-                      final label = MaterialLocalizations.of(context).formatMediumDate(day);
-                      return Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: GwSpace.sm),
-                            child: Semantics(
-                              header: true,
-                              child: Text(label, style: Theme.of(context).textTheme.labelMedium),
-                            ),
-                          ),
-                          bubble,
-                        ],
-                      );
-                    },
-                  ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(GwSpace.md, GwSpace.sm, GwSpace.md, GwSpace.sm),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _text,
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
-                      decoration: InputDecoration(
-                        hintText: 'Message',
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(GwRadius.lg),
-                          borderSide: const BorderSide(color: GwColors.outlineVariant),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(GwRadius.lg),
-                          borderSide: const BorderSide(color: GwColors.spectralCyan, width: 1.5),
-                        ),
-                        counterText: parts > 1 ? '$bytes bytes · $parts messages' : '$bytes / $max bytes',
-                        counterStyle: TextStyle(color: over ? scheme.error : null),
-                        errorText: over ? 'Too long: at most $kMaxMessageParts messages' : null,
+      body: LayoutBuilder(
+        builder: (context, box) => Column(
+          children: [
+            // warnings never push the conversation and the message box off a small
+            // screen (keyboard open, large text): past a third they scroll
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: box.maxHeight * 0.34),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (contact?.keyChanged ?? false) _KeyChangeBanner(contact: contact!),
+                    const ConnectionStrip(),
+                    if (contact == null)
+                      Container(
+                        width: double.infinity,
+                        color: scheme.surfaceContainerHighest,
+                        padding: const EdgeInsets.all(8),
+                        child: const Text('No key for this node yet. Messages stay on this phone until it arrives.'),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 22),
-                    child: IconButton.filled(
-                      style: IconButton.styleFrom(minimumSize: const Size(52, 52)),
-                      tooltip: 'Send',
-                      onPressed: bytes == 0 || over ? null : _send,
-                      icon: const Icon(Icons.send),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: msgs.isEmpty
+                  ? const Center(child: Text('No messages yet.'))
+                  : ListView.builder(
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                      reverse: true,
+                      padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md),
+                      itemCount: msgs.length,
+                      itemBuilder: (context, i) {
+                        final index = msgs.length - 1 - i;
+                        final item = msgs[index];
+                        final day = item.at.toLocal();
+                        final previous = index == 0 ? null : msgs[index - 1].at.toLocal();
+                        final bubble = switch (item) {
+                          SingleItem(message: final m) => MessageBubble(
+                            outgoing: m.outgoing,
+                            text: m.text,
+                            at: m.at,
+                            state: m.state,
+                            replayed: m.replayed,
+                            error: m.error,
+                            rssiDbm: m.rssiDbm,
+                            onRetry: m.outgoing && m.state == MsgState.failed ? () => unawaited(ctl.retry(m)) : null,
+                            onDelete: () => ctl.deleteMessage(m),
+                          ),
+                          LongMessageItem() => MessageBubble(
+                            outgoing: item.outgoing,
+                            text: item.text,
+                            at: item.at,
+                            state: item.state,
+                            replayed: item.replayed,
+                            error: item.error,
+                            rssiDbm: item.rssiDbm,
+                            progress: switch (item.parts.values.where((p) => p.state == MsgState.delivered).length) {
+                              final n when item.outgoing && n > 0 && n < item.total => '$n of ${item.total} delivered',
+                              _ => null,
+                            },
+                            // only the parts that failed go again
+                            onRetry: item.outgoing && item.state == MsgState.failed
+                                ? () {
+                                    for (final p in item.parts.values) {
+                                      if (p.state == MsgState.failed) unawaited(ctl.retry(p));
+                                    }
+                                  }
+                                : null,
+                            onDelete: () {
+                              for (final p in item.parts.values.toList()) {
+                                ctl.deleteMessage(p);
+                              }
+                            },
+                          ),
+                        };
+                        if (previous != null && DateUtils.isSameDay(day, previous)) return bubble;
+                        final label = MaterialLocalizations.of(context).formatMediumDate(day);
+                        return Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: GwSpace.sm),
+                              child: Semantics(
+                                header: true,
+                                child: Text(label, style: Theme.of(context).textTheme.labelMedium),
+                              ),
+                            ),
+                            bubble,
+                          ],
+                        );
+                      },
+                    ),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(GwSpace.md, GwSpace.sm, GwSpace.md, GwSpace.sm),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _text,
+                        minLines: 1,
+                        maxLines: 4,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _send(),
+                        decoration: InputDecoration(
+                          hintText: 'Message',
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GwRadius.lg),
+                            borderSide: const BorderSide(color: GwColors.outlineVariant),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(GwRadius.lg),
+                            borderSide: const BorderSide(color: GwColors.spectralCyan, width: 1.5),
+                          ),
+                          counterText: parts > 1 ? '$bytes bytes · $parts messages' : '$bytes / $max bytes',
+                          counterStyle: TextStyle(color: over ? scheme.error : null),
+                          errorText: over ? 'Too long: at most $kMaxMessageParts messages' : null,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 22),
+                      child: IconButton.filled(
+                        style: IconButton.styleFrom(minimumSize: const Size(52, 52)),
+                        tooltip: 'Send',
+                        onPressed: bytes == 0 || over ? null : _send,
+                        icon: const Icon(Icons.send),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -11,6 +11,7 @@ import '../app/providers.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
+import 'connection_strip.dart';
 import 'format.dart';
 import 'message_bubble.dart';
 import 'theme.dart';
@@ -340,17 +341,17 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
       ),
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            color: scheme.surfaceContainerHigh,
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-            child: Text(
-              online
-                  ? 'Group channel: reaches members within a few hops. No delivery receipts.'
-                  : 'Offline: messages are saved and sent when the node reconnects.',
-              style: Theme.of(context).textTheme.bodySmall,
+          const ConnectionStrip(),
+          if (online)
+            Container(
+              width: double.infinity,
+              color: scheme.surfaceContainerHigh,
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+              child: Text(
+                'Group channel: reaches members within a few hops. No delivery receipts.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
-          ),
           Expanded(
             child: msgs.isEmpty
                 ? const Center(child: Text('No messages yet.'))
