@@ -66,7 +66,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> with WidgetsBinding
         title: const Text('Node status'),
         actions: [
           IconButton(
-            tooltip: 'Field tools',
+            tooltip: 'Field tests',
             onPressed: () {
               Navigator.push<void>(context, MaterialPageRoute(builder: (_) => const FieldToolsScreen()));
             },
