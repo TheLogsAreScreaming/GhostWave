@@ -24,6 +24,7 @@ class MessageBubble extends StatelessWidget {
     this.error,
     this.receipts = true,
     this.rssiDbm,
+    this.progress,
     super.key,
   });
 
@@ -53,6 +54,9 @@ class MessageBubble extends StatelessWidget {
 
   /// Signal of the last hop: the message (incoming) or its receipt (outgoing).
   final int? rssiDbm;
+
+  /// Replaces the badge's word when only part is done, e.g. "2 of 3 delivered".
+  final String? progress;
 
   /// Retries a failed message.
   final VoidCallback? onRetry;
@@ -176,18 +180,17 @@ class MessageBubble extends StatelessWidget {
                       ),
                     if (outgoing) ...[
                       const SizedBox(width: 6),
-                      Icon(
-                        icon,
-                        size: 14,
-                        color: state == MsgState.failed
-                            ? scheme.error
-                            : state == MsgState.delivered
-                            ? GwColors.success
-                            : null,
-                        semanticLabel: label,
+                      _DeliveryBadge(
+                        icon: icon,
+                        label: progress ?? label,
+                        color: switch (state) {
+                          MsgState.failed => scheme.error,
+                          MsgState.delivered => GwColors.success,
+                          MsgState.sent => GwColors.spectralCyan,
+                          MsgState.pending => GwColors.mutedText,
+                        },
+                        style: meta,
                       ),
-                      const SizedBox(width: 2),
-                      Text(label, style: meta),
                     ],
                   ],
                 ),
@@ -203,4 +206,41 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The delivery state as a small pill: icon, word and tint together, so it
+/// reads without colour.
+class _DeliveryBadge extends StatelessWidget {
+  const _DeliveryBadge({required this.icon, required this.label, required this.color, required this.style});
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: label,
+    excludeSemantics: true,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(GwRadius.lg),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(label, style: style?.copyWith(color: color)),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

@@ -1,6 +1,6 @@
 # Chat and connection screen redesign
 
-Status: implementation proposal; not implemented or verified by this document.
+Status: chat side built (delivery badges, connection strip, large text with keyboard). The Connect screen side is in the connection health PR. Host-tested; not yet tried on a phone.
 
 ## Requirements
 
