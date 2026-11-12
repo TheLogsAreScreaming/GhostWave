@@ -121,7 +121,7 @@ void main() {
       addTearDown(s.close);
       final info = await s.hello('right', pinFor: () async => '424242', requireEncrypted: true);
       expect(s.isEncrypted, isTrue);
-      expect(info.protocolMinor, 6);
+      expect(info.protocolMinor, 7);
       final status = await s.request(pb.ToRadio(getStatus: pb.GetStatus()));
       expect(status.hasStatus(), isTrue);
       expect(s.isClosed, isFalse);
@@ -229,6 +229,7 @@ void main() {
         final text = await gotText;
         expect(utf8.decode(text.text), 'hello B, from the app');
         expect(text.msgId, q.sendQueued.msgId);
+        expect(text.hasRssiDbm(), isTrue, reason: 'protocol 1.7: the node says how it heard the DM');
         final delivered = await gotDelivered;
         expect(delivered.dest, upB.info.nodeId);
         expect(delivered.msgId, q.sendQueued.msgId);
@@ -320,6 +321,8 @@ void main() {
         expect(a.read(meshProvider).messages[infoB.nodeId]!.single.state, MsgState.delivered);
         final got = b.read(meshProvider).messages[infoA.nodeId]!.single;
         expect(got.text, 'from the app UI layer');
+        expect(got.rssiDbm, isNotNull);
+        expect(a.read(meshProvider).messages[infoB.nodeId]!.single.rssiDbm, isNotNull, reason: 'receipt signal');
         expect(got.outgoing, isFalse);
         expect(b.read(meshProvider).unread[infoA.nodeId], 1);
       } on Object {
