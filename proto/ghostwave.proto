@@ -200,12 +200,14 @@ message TextMessage {
   fixed32 msg_id = 2;
   bytes text = 3;                // as received; usually UTF-8, not guaranteed
   Position src_pos = 4;          // reserved: not filled by v1 nodes
+  optional sint32 rssi_dbm = 5;  // 1.7: how this node heard the frame (last hop), whole dBm
 }
 
 message Delivered {
   fixed32 dest = 1;
   fixed32 msg_id = 2;
   uint32 client_msg_id = 3;      // 0 if the message was not sent by a client
+  optional sint32 rssi_dbm = 4;  // 1.7: signal of the frame carrying the receipt (last hop)
 }
 
 message SendQueued {
@@ -242,6 +244,7 @@ message Neighbor {
   fixed32 node_id = 1;
   Position pos = 2;
   bool is_new = 3;
+  optional sint32 rssi_dbm = 4;  // 1.7: signal of this beacon
 }
 
 message Status {
@@ -262,6 +265,8 @@ message Status {
   uint32 queued = 15;            // events waiting for a client
   optional uint32 battery_pct = 16;   // 0-100; absent: the node cannot read its battery
   bool tx_off = 17;              // the node is not transmitting (`tx on` not set); false on older nodes
+  optional sint32 last_rssi_dbm = 18;   // 1.7: the last good frame heard; absent: none yet
+  optional uint32 last_heard_s = 19;    // 1.7: seconds since that frame
 }
 
 message OwnPosition {
@@ -328,6 +333,7 @@ message ChannelMessage {
   fixed32 msg_id = 3;
   bytes text = 4;                // as received; usually UTF-8, not guaranteed
   Position pos = 5;              // sender position, if the frame carried one
+  optional sint32 rssi_dbm = 6;  // 1.7: how this node heard the frame (last hop)
 }
 
 message Channel {                // one per joined channel (ListChannels)

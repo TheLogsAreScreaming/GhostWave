@@ -315,6 +315,7 @@ class MeshController extends Notifier<MeshState> {
       at: _now(),
       msgId: t.msgId,
       replayed: replayed,
+      rssiDbm: t.hasRssiDbm() ? t.rssiDbm : null,
     );
     final contacts = Map<int, Contact>.of(state.contacts);
     contacts[t.src] = (contacts[t.src] ?? Contact(nodeId: t.src)).copyWith(lastSeen: _now());
@@ -348,7 +349,11 @@ class MeshController extends Notifier<MeshState> {
             ((d.clientMsgId != 0 && m.clientMsgId == d.clientMsgId) || (d.msgId != 0 && m.msgId == d.msgId)))
           () {
             changed = true;
-            return m.copyWith(state: MsgState.delivered, msgId: d.msgId == 0 ? null : d.msgId);
+            return m.copyWith(
+              state: MsgState.delivered,
+              msgId: d.msgId == 0 ? null : d.msgId,
+              rssiDbm: d.hasRssiDbm() ? d.rssiDbm : null,
+            );
           }()
         else
           m,
@@ -413,7 +418,12 @@ class MeshController extends Notifier<MeshState> {
     state = state.copyWith(
       neighbors: {
         ...state.neighbors,
-        n.nodeId: Neighbor(nodeId: n.nodeId, lastSeen: now, pos: pos ?? state.neighbors[n.nodeId]?.pos),
+        n.nodeId: Neighbor(
+          nodeId: n.nodeId,
+          lastSeen: now,
+          pos: pos ?? state.neighbors[n.nodeId]?.pos,
+          rssiDbm: n.hasRssiDbm() ? n.rssiDbm : state.neighbors[n.nodeId]?.rssiDbm,
+        ),
       },
       contacts: state.contacts.containsKey(n.nodeId)
           ? {...state.contacts, n.nodeId: state.contacts[n.nodeId]!.copyWith(lastSeen: now, pos: pos)}
@@ -465,6 +475,7 @@ class MeshController extends Notifier<MeshState> {
       at: _now(),
       msgId: c.msgId,
       replayed: replayed,
+      rssiDbm: c.hasRssiDbm() ? c.rssiDbm : null,
     );
     state = state.copyWith(
       channelMessages: {

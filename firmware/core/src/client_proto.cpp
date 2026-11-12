@@ -37,6 +37,9 @@ struct Writer {
   void boolean(uint32_t f, bool v) {
     if (v) tag(f, kVarint), varint(1);
   }
+  void optSint(uint32_t f, const OptI32& v) {
+    if (v.has) tag(f, kVarint), varint((static_cast<uint32_t>(v.v) << 1) ^ static_cast<uint32_t>(v.v >> 31));
+  }
   void sint(uint32_t f, int32_t v) {
     uint32_t z = (static_cast<uint32_t>(v) << 1) ^ static_cast<uint32_t>(v >> 31);
     if (z) tag(f, kVarint), varint(z);
@@ -124,6 +127,12 @@ struct Field {
   bool opt(OptU32& out) const {
     if (wt != kVarint) return false;
     out.set(static_cast<uint32_t>(v));
+    return true;
+  }
+  bool optSint(OptI32& out) const {
+    if (wt != kVarint) return false;
+    const auto z = static_cast<uint32_t>(v);
+    out.set(static_cast<int32_t>((z >> 1) ^ (~(z & 1) + 1)));
     return true;
   }
   bool boolean(bool& out) const {
@@ -219,7 +228,8 @@ bool StatusInfo::operator==(const StatusInfo& o) const {
          delivered == o.delivered && forwarded == o.forwarded && stored == o.stored &&
          airMs == o.airMs && storeSize == o.storeSize && neighbors == o.neighbors &&
          sosHeld == o.sosHeld && sosActive == o.sosActive && uptimeS == o.uptimeS &&
-         clients == o.clients && queued == o.queued && batteryPct == o.batteryPct && txOff == o.txOff;
+         clients == o.clients && queued == o.queued && batteryPct == o.batteryPct && txOff == o.txOff &&
+         lastRssiDbm == o.lastRssiDbm && lastHeardS == o.lastHeardS;
 }
 
 // ------------------------------------------------------------- ToRadio --
@@ -377,12 +387,14 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.fx32(2, m.msgId);
       s.bytes(3, m.text);
       s.pos(4, m.pos);
+      s.optSint(5, m.rssiDbm);
       break;
     case FromKind::Delivered:
     case FromKind::SendQueued:
       s.fx32(1, m.dest);
       s.fx32(2, m.msgId);
       s.u32(3, m.clientMsgId);
+      if (m.kind == FromKind::Delivered) s.optSint(4, m.rssiDbm);
       break;
     case FromKind::Sos:
       s.fx32(1, m.src);
@@ -405,6 +417,7 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.fx32(1, m.nodeId);
       s.pos(2, m.pos);
       s.boolean(3, m.isNew);
+      s.optSint(4, m.rssiDbm);
       break;
     case FromKind::Status: {
       const StatusInfo& t = m.status;
@@ -425,6 +438,8 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.u32(15, t.queued);
       s.opt(16, t.batteryPct);
       s.boolean(17, t.txOff);
+      s.optSint(18, t.lastRssiDbm);
+      s.opt(19, t.lastHeardS);
       break;
     }
     case FromKind::Position: s.pos(1, m.pos); break;
@@ -458,6 +473,7 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.fx32(3, m.msgId);
       s.bytes(4, m.text);
       s.pos(5, m.pos);
+      s.optSint(6, m.rssiDbm);
       break;
     case FromKind::Channel:
       s.str(1, m.channel);
@@ -503,6 +519,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 2: return ok(x.fx32(m.msgId));
             case 3: return ok(x.bytes(m.text));
             case 4: return ok(parsePos(x, m.pos));
+            case 5: return ok(x.optSint(m.rssiDbm));
           }
           return 0;
         case FromKind::Delivered:
@@ -511,6 +528,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 1: return ok(x.fx32(m.dest));
             case 2: return ok(x.fx32(m.msgId));
             case 3: return ok(x.u32(m.clientMsgId));
+            case 4: return k == FromKind::Delivered ? ok(x.optSint(m.rssiDbm)) : 0;
           }
           return 0;
         case FromKind::Sos:
@@ -536,6 +554,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
           if (g == 1) return ok(x.fx32(m.nodeId));
           if (g == 2) return ok(parsePos(x, m.pos));
           if (g == 3) return ok(x.boolean(m.isNew));
+          if (g == 4) return ok(x.optSint(m.rssiDbm));
           return 0;
         case FromKind::Status:
           switch (g) {
@@ -556,6 +575,8 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 15: return ok(x.u32(t.queued));
             case 16: return ok(x.opt(t.batteryPct));
             case 17: return ok(x.boolean(t.txOff));
+            case 18: return ok(x.optSint(t.lastRssiDbm));
+            case 19: return ok(x.opt(t.lastHeardS));
           }
           return 0;
         case FromKind::Position:
@@ -600,6 +621,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 3: return ok(x.fx32(m.msgId));
             case 4: return ok(x.bytes(m.text));
             case 5: return ok(parsePos(x, m.pos));
+            case 6: return ok(x.optSint(m.rssiDbm));
           }
           return 0;
         case FromKind::Channel:

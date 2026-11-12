@@ -22,6 +22,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | 0 | the original set |
 | 2 | the PIN handshake on `Hello` (`PinChallenge`, `Hello.pin_proof`, error `BAD_PIN`) (§7), replaced by 3 |
 | 3 | that handshake also agrees keys, and the link is encrypted after it (`PinChallenge.server_share`, `Hello.client_share`, sealed frames with version byte 2) (§7). Not compatible with minor 2: both ends must be updated. |
+| 7 | signal strength: `rssi_dbm` on `TextMessage`, `Delivered`, `Neighbor` and `ChannelMessage`; `Status.last_rssi_dbm` and `last_heard_s` |
 | 1 | group channels (`SendChannelText`, `AddChannel`, `RemoveChannel`, `ListChannels`, `ChannelMessage`, `Channel`, `ChannelsEnd`, `NodeInfo.max_channel_text_bytes`, error `CHANNEL_LIMIT`) and `SetName` |
 
 ## 1. Transports
@@ -153,12 +154,12 @@ Notes on the requests:
 | # | Event | Fields | When |
 |---|---|---|---|
 | 10 | `NodeInfo` | `protocol_version`, `node_id`, `name`, `ed25519_pub`, `x25519_pub`, `legacy`, `firmware`, `max_text_bytes` | reply to `Hello` |
-| 11 | `TextMessage` | `src`, `msg_id`, `text` | a DM for us arrived |
-| 12 | `Delivered` | `dest`, `msg_id`, `client_msg_id` | end-to-end receipt for our DM |
+| 11 | `TextMessage` | `src`, `msg_id`, `text`, `rssi_dbm` (1.7) | a DM for us arrived |
+| 12 | `Delivered` | `dest`, `msg_id`, `client_msg_id`, `rssi_dbm` (1.7) | end-to-end receipt for our DM |
 | 13 | `SosAlert` | `src`, `seq`, `pos`, `accuracy_m`, `battery_pct`, `text` | a new SOS, or a newer seq of one already held |
 | 14 | `SosAckReceived` | `responder`, `seq` | someone acknowledged our SOS |
-| 15 | `Neighbor` | `node_id`, `pos`, `is_new` | a neighbor's beacon (live only, not queued) |
-| 16 | `Status` | counters, `store_size`, `neighbors`, `sos_held`, `sos_active`, `uptime_s`, `clients`, `queued`, `battery_pct`, `tx_off` | reply to `GetStatus` |
+| 15 | `Neighbor` | `node_id`, `pos`, `is_new`, `rssi_dbm` (1.7) | a neighbor's beacon (live only, not queued) |
+| 16 | `Status` | counters, `store_size`, `neighbors`, `sos_held`, `sos_active`, `uptime_s`, `clients`, `queued`, `battery_pct`, `tx_off`, `last_rssi_dbm` + `last_heard_s` (1.7) | reply to `GetStatus` |
 | 17 | `OwnPosition` | `pos` | reply to `GetPosition` |
 | 18 | `Error` | `code`, `detail` | a request failed, or the stream is bad |
 | 19 | `Contact` | `node_id`, `name`, `x25519_pub`, `ed25519_pub`, `pinned` | reply to `ListContacts` |
@@ -168,7 +169,7 @@ Notes on the requests:
 | 29 | `SosCancelled` (1.5) | `src`, `seq`, `verified` | the source ended its SOS. `verified`: signature checked and the alert dropped; false: no key to check, the alert stays |
 | 23 | `PeerIdent` | `node_id`, `name`, `is_new`, `ed25519_pub` (1.4) | a verified IDENT taught a new key, or a new name |
 | 24 | `KeyChange` | `node_id`, `ed25519_pub`, `name` | a signed IDENT carries a different key (DESIGN §9.2). Warn the user. The node keeps the old key. |
-| 25 | `ChannelMessage` (1.1) | `channel` (name), `src`, `msg_id`, `text` | a group channel message arrived (queued like `TextMessage`) |
+| 25 | `ChannelMessage` (1.1) | `channel` (name), `src`, `msg_id`, `text`, `rssi_dbm` (1.7) | a group channel message arrived (queued like `TextMessage`) |
 | 26 | `Channel` (1.1) | `name`, `psk` | reply to `ListChannels` (the key lets the app share the channel) |
 | 27 | `ChannelsEnd` (1.1) | `count` | ends `ListChannels` |
 | 28 | `PinChallenge` (1.2) | `nonce` (16 bytes) | reply to `Hello` on a link that needs a PIN (§7) |
@@ -176,6 +177,12 @@ Notes on the requests:
 `NodeInfo` (1.1) also carries `protocol_minor` and `max_channel_text_bytes`.
 
 Notes on the events:
+
+- **Signal (1.7):** `rssi_dbm` (`optional sint32`, whole dBm) is how strongly this node heard the
+  frame that carried the event: the **last hop**, not the whole path. A relayed DM shows the relay's
+  signal. On a `Delivered` it is the frame that carried the receipt. Absent from older nodes and from
+  events not caused by a received frame. `Status.last_rssi_dbm` is the last good frame of any kind,
+  `last_heard_s` seconds ago.
 
 - **Matching receipts:** match `Delivered` to the UI message by `client_msg_id`, which the app chose.
   `msg_id` also works. A receipt can arrive more than once, so treat it as idempotent.

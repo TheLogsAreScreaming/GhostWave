@@ -235,6 +235,21 @@ class Router {
   void onReceive(const uint8_t* buf, size_t len, float rssiDbm, uint64_t nowMs);
   void tick(uint64_t nowMs);
 
+  // Signal of the frame being handled right now, in whole dBm. True only while
+  // onReceive is running, so AppPort callbacks it triggers can report how the
+  // frame that caused them was heard (the last hop, not the whole path).
+  bool rxSignal(int& dbm) const {
+    if (!inRx_) return false;
+    dbm = rxDbm_;
+    return true;
+  }
+  // The last good frame heard: its signal and when. False if none yet.
+  bool lastHeard(int& dbm, uint64_t& atMs) const {
+    if (!heardAny_) return false;
+    dbm = lastDbm_, atMs = lastMs_;
+    return true;
+  }
+
   const RouterStats& stats() const { return stats_; }
   size_t storeSize() const { return store_.size(); }
   size_t neighborCount(uint64_t nowMs) const;
@@ -361,6 +376,9 @@ class Router {
   AppPort& app_;
   Rng rng_;
   RouterStats stats_;
+  bool inRx_ = false, heardAny_ = false;
+  int rxDbm_ = 0, lastDbm_ = 0;
+  uint64_t lastMs_ = 0;
 
   bool havePos_ = false;
   Position pos_;

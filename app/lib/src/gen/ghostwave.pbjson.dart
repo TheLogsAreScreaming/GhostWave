@@ -732,6 +732,18 @@ const TextMessage$json = {
       '6': '.ghostwave.client.v1.Position',
       '10': 'srcPos'
     },
+    {
+      '1': 'rssi_dbm',
+      '3': 5,
+      '4': 1,
+      '5': 17,
+      '9': 0,
+      '10': 'rssiDbm',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_rssi_dbm'},
   ],
 };
 
@@ -739,7 +751,8 @@ const TextMessage$json = {
 final $typed_data.Uint8List textMessageDescriptor = $convert.base64Decode(
     'CgtUZXh0TWVzc2FnZRIQCgNzcmMYASABKAdSA3NyYxIVCgZtc2dfaWQYAiABKAdSBW1zZ0lkEh'
     'IKBHRleHQYAyABKAxSBHRleHQSNgoHc3JjX3BvcxgEIAEoCzIdLmdob3N0d2F2ZS5jbGllbnQu'
-    'djEuUG9zaXRpb25SBnNyY1Bvcw==');
+    'djEuUG9zaXRpb25SBnNyY1BvcxIeCghyc3NpX2RibRgFIAEoEUgAUgdyc3NpRGJtiAEBQgsKCV'
+    '9yc3NpX2RibQ==');
 
 @$core.Deprecated('Use deliveredDescriptor instead')
 const Delivered$json = {
@@ -748,13 +761,26 @@ const Delivered$json = {
     {'1': 'dest', '3': 1, '4': 1, '5': 7, '10': 'dest'},
     {'1': 'msg_id', '3': 2, '4': 1, '5': 7, '10': 'msgId'},
     {'1': 'client_msg_id', '3': 3, '4': 1, '5': 13, '10': 'clientMsgId'},
+    {
+      '1': 'rssi_dbm',
+      '3': 4,
+      '4': 1,
+      '5': 17,
+      '9': 0,
+      '10': 'rssiDbm',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_rssi_dbm'},
   ],
 };
 
 /// Descriptor for `Delivered`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List deliveredDescriptor = $convert.base64Decode(
     'CglEZWxpdmVyZWQSEgoEZGVzdBgBIAEoB1IEZGVzdBIVCgZtc2dfaWQYAiABKAdSBW1zZ0lkEi'
-    'IKDWNsaWVudF9tc2dfaWQYAyABKA1SC2NsaWVudE1zZ0lk');
+    'IKDWNsaWVudF9tc2dfaWQYAyABKA1SC2NsaWVudE1zZ0lkEh4KCHJzc2lfZGJtGAQgASgRSABS'
+    'B3Jzc2lEYm2IAQFCCwoJX3Jzc2lfZGJt');
 
 @$core.Deprecated('Use sendQueuedDescriptor instead')
 const SendQueued$json = {
@@ -861,13 +887,26 @@ const Neighbor$json = {
       '10': 'pos'
     },
     {'1': 'is_new', '3': 3, '4': 1, '5': 8, '10': 'isNew'},
+    {
+      '1': 'rssi_dbm',
+      '3': 4,
+      '4': 1,
+      '5': 17,
+      '9': 0,
+      '10': 'rssiDbm',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_rssi_dbm'},
   ],
 };
 
 /// Descriptor for `Neighbor`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List neighborDescriptor = $convert.base64Decode(
     'CghOZWlnaGJvchIXCgdub2RlX2lkGAEgASgHUgZub2RlSWQSLwoDcG9zGAIgASgLMh0uZ2hvc3'
-    'R3YXZlLmNsaWVudC52MS5Qb3NpdGlvblIDcG9zEhUKBmlzX25ldxgDIAEoCFIFaXNOZXc=');
+    'R3YXZlLmNsaWVudC52MS5Qb3NpdGlvblIDcG9zEhUKBmlzX25ldxgDIAEoCFIFaXNOZXcSHgoI'
+    'cnNzaV9kYm0YBCABKBFIAFIHcnNzaURibYgBAUILCglfcnNzaV9kYm0=');
 
 @$core.Deprecated('Use statusDescriptor instead')
 const Status$json = {
@@ -898,9 +937,29 @@ const Status$json = {
       '17': true
     },
     {'1': 'tx_off', '3': 17, '4': 1, '5': 8, '10': 'txOff'},
+    {
+      '1': 'last_rssi_dbm',
+      '3': 18,
+      '4': 1,
+      '5': 17,
+      '9': 1,
+      '10': 'lastRssiDbm',
+      '17': true
+    },
+    {
+      '1': 'last_heard_s',
+      '3': 19,
+      '4': 1,
+      '5': 13,
+      '9': 2,
+      '10': 'lastHeardS',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_battery_pct'},
+    {'1': '_last_rssi_dbm'},
+    {'1': '_last_heard_s'},
   ],
 };
 
@@ -914,7 +973,9 @@ final $typed_data.Uint8List statusDescriptor = $convert.base64Decode(
     'gLIAEoDVIHc29zSGVsZBIdCgpzb3NfYWN0aXZlGAwgASgIUglzb3NBY3RpdmUSGQoIdXB0aW1l'
     'X3MYDSABKA1SB3VwdGltZVMSGAoHY2xpZW50cxgOIAEoDVIHY2xpZW50cxIWCgZxdWV1ZWQYDy'
     'ABKA1SBnF1ZXVlZBIkCgtiYXR0ZXJ5X3BjdBgQIAEoDUgAUgpiYXR0ZXJ5UGN0iAEBEhUKBnR4'
-    'X29mZhgRIAEoCFIFdHhPZmZCDgoMX2JhdHRlcnlfcGN0');
+    'X29mZhgRIAEoCFIFdHhPZmYSJwoNbGFzdF9yc3NpX2RibRgSIAEoEUgBUgtsYXN0UnNzaURibY'
+    'gBARIlCgxsYXN0X2hlYXJkX3MYEyABKA1IAlIKbGFzdEhlYXJkU4gBAUIOCgxfYmF0dGVyeV9w'
+    'Y3RCEAoOX2xhc3RfcnNzaV9kYm1CDwoNX2xhc3RfaGVhcmRfcw==');
 
 @$core.Deprecated('Use ownPositionDescriptor instead')
 const OwnPosition$json = {
@@ -1072,6 +1133,18 @@ const ChannelMessage$json = {
       '6': '.ghostwave.client.v1.Position',
       '10': 'pos'
     },
+    {
+      '1': 'rssi_dbm',
+      '3': 6,
+      '4': 1,
+      '5': 17,
+      '9': 0,
+      '10': 'rssiDbm',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_rssi_dbm'},
   ],
 };
 
@@ -1079,7 +1152,8 @@ const ChannelMessage$json = {
 final $typed_data.Uint8List channelMessageDescriptor = $convert.base64Decode(
     'Cg5DaGFubmVsTWVzc2FnZRIYCgdjaGFubmVsGAEgASgJUgdjaGFubmVsEhAKA3NyYxgCIAEoB1'
     'IDc3JjEhUKBm1zZ19pZBgDIAEoB1IFbXNnSWQSEgoEdGV4dBgEIAEoDFIEdGV4dBIvCgNwb3MY'
-    'BSABKAsyHS5naG9zdHdhdmUuY2xpZW50LnYxLlBvc2l0aW9uUgNwb3M=');
+    'BSABKAsyHS5naG9zdHdhdmUuY2xpZW50LnYxLlBvc2l0aW9uUgNwb3MSHgoIcnNzaV9kYm0YBi'
+    'ABKBFIAFIHcnNzaURibYgBAUILCglfcnNzaV9kYm0=');
 
 @$core.Deprecated('Use channelDescriptor instead')
 const Channel$json = {

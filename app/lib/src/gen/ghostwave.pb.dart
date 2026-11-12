@@ -2239,12 +2239,14 @@ class TextMessage extends $pb.GeneratedMessage {
     $core.int? msgId,
     $core.List<$core.int>? text,
     Position? srcPos,
+    $core.int? rssiDbm,
   }) {
     final result = TextMessage._();
     if (src != null) result.src = src;
     if (msgId != null) result.msgId = msgId;
     if (text != null) result.text = text;
     if (srcPos != null) result.srcPos = srcPos;
+    if (rssiDbm != null) result.rssiDbm = rssiDbm;
     return result;
   }
 
@@ -2268,6 +2270,7 @@ class TextMessage extends $pb.GeneratedMessage {
         3, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
     ..aOM<Position>(4, _omitFieldNames ? '' : 'srcPos',
         subBuilder: Position.$_createMessage)
+    ..aI(5, _omitFieldNames ? '' : 'rssiDbm', fieldType: $pb.PbFieldType.OS3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2329,6 +2332,15 @@ class TextMessage extends $pb.GeneratedMessage {
   void clearSrcPos() => $_clearField(4);
   @$pb.TagNumber(4)
   Position ensureSrcPos() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  $core.int get rssiDbm => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set rssiDbm($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasRssiDbm() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRssiDbm() => $_clearField(5);
 }
 
 class Delivered extends $pb.GeneratedMessage {
@@ -2336,11 +2348,13 @@ class Delivered extends $pb.GeneratedMessage {
     $core.int? dest,
     $core.int? msgId,
     $core.int? clientMsgId,
+    $core.int? rssiDbm,
   }) {
     final result = Delivered._();
     if (dest != null) result.dest = dest;
     if (msgId != null) result.msgId = msgId;
     if (clientMsgId != null) result.clientMsgId = clientMsgId;
+    if (rssiDbm != null) result.rssiDbm = rssiDbm;
     return result;
   }
 
@@ -2362,6 +2376,7 @@ class Delivered extends $pb.GeneratedMessage {
     ..aI(2, _omitFieldNames ? '' : 'msgId', fieldType: $pb.PbFieldType.OF3)
     ..aI(3, _omitFieldNames ? '' : 'clientMsgId',
         fieldType: $pb.PbFieldType.OU3)
+    ..aI(4, _omitFieldNames ? '' : 'rssiDbm', fieldType: $pb.PbFieldType.OS3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2410,6 +2425,15 @@ class Delivered extends $pb.GeneratedMessage {
   $core.bool hasClientMsgId() => $_has(2);
   @$pb.TagNumber(3)
   void clearClientMsgId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get rssiDbm => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set rssiDbm($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasRssiDbm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRssiDbm() => $_clearField(4);
 }
 
 class SendQueued extends $pb.GeneratedMessage {
@@ -2774,11 +2798,13 @@ class Neighbor extends $pb.GeneratedMessage {
     $core.int? nodeId,
     Position? pos,
     $core.bool? isNew,
+    $core.int? rssiDbm,
   }) {
     final result = Neighbor._();
     if (nodeId != null) result.nodeId = nodeId;
     if (pos != null) result.pos = pos;
     if (isNew != null) result.isNew = isNew;
+    if (rssiDbm != null) result.rssiDbm = rssiDbm;
     return result;
   }
 
@@ -2800,6 +2826,7 @@ class Neighbor extends $pb.GeneratedMessage {
     ..aOM<Position>(2, _omitFieldNames ? '' : 'pos',
         subBuilder: Position.$_createMessage)
     ..aOB(3, _omitFieldNames ? '' : 'isNew')
+    ..aI(4, _omitFieldNames ? '' : 'rssiDbm', fieldType: $pb.PbFieldType.OS3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2850,6 +2877,15 @@ class Neighbor extends $pb.GeneratedMessage {
   $core.bool hasIsNew() => $_has(2);
   @$pb.TagNumber(3)
   void clearIsNew() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get rssiDbm => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set rssiDbm($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasRssiDbm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRssiDbm() => $_clearField(4);
 }
 
 class Status extends $pb.GeneratedMessage {
@@ -2871,6 +2907,8 @@ class Status extends $pb.GeneratedMessage {
     $core.int? queued,
     $core.int? batteryPct,
     $core.bool? txOff,
+    $core.int? lastRssiDbm,
+    $core.int? lastHeardS,
   }) {
     final result = Status._();
     if (tx != null) result.tx = tx;
@@ -2890,6 +2928,8 @@ class Status extends $pb.GeneratedMessage {
     if (queued != null) result.queued = queued;
     if (batteryPct != null) result.batteryPct = batteryPct;
     if (txOff != null) result.txOff = txOff;
+    if (lastRssiDbm != null) result.lastRssiDbm = lastRssiDbm;
+    if (lastHeardS != null) result.lastHeardS = lastHeardS;
     return result;
   }
 
@@ -2926,6 +2966,10 @@ class Status extends $pb.GeneratedMessage {
     ..aI(16, _omitFieldNames ? '' : 'batteryPct',
         fieldType: $pb.PbFieldType.OU3)
     ..aOB(17, _omitFieldNames ? '' : 'txOff')
+    ..aI(18, _omitFieldNames ? '' : 'lastRssiDbm',
+        fieldType: $pb.PbFieldType.OS3)
+    ..aI(19, _omitFieldNames ? '' : 'lastHeardS',
+        fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3100,6 +3144,24 @@ class Status extends $pb.GeneratedMessage {
   $core.bool hasTxOff() => $_has(16);
   @$pb.TagNumber(17)
   void clearTxOff() => $_clearField(17);
+
+  @$pb.TagNumber(18)
+  $core.int get lastRssiDbm => $_getIZ(17);
+  @$pb.TagNumber(18)
+  set lastRssiDbm($core.int value) => $_setSignedInt32(17, value);
+  @$pb.TagNumber(18)
+  $core.bool hasLastRssiDbm() => $_has(17);
+  @$pb.TagNumber(18)
+  void clearLastRssiDbm() => $_clearField(18);
+
+  @$pb.TagNumber(19)
+  $core.int get lastHeardS => $_getIZ(18);
+  @$pb.TagNumber(19)
+  set lastHeardS($core.int value) => $_setUnsignedInt32(18, value);
+  @$pb.TagNumber(19)
+  $core.bool hasLastHeardS() => $_has(18);
+  @$pb.TagNumber(19)
+  void clearLastHeardS() => $_clearField(19);
 }
 
 class OwnPosition extends $pb.GeneratedMessage {
@@ -3624,6 +3686,7 @@ class ChannelMessage extends $pb.GeneratedMessage {
     $core.int? msgId,
     $core.List<$core.int>? text,
     Position? pos,
+    $core.int? rssiDbm,
   }) {
     final result = ChannelMessage._();
     if (channel != null) result.channel = channel;
@@ -3631,6 +3694,7 @@ class ChannelMessage extends $pb.GeneratedMessage {
     if (msgId != null) result.msgId = msgId;
     if (text != null) result.text = text;
     if (pos != null) result.pos = pos;
+    if (rssiDbm != null) result.rssiDbm = rssiDbm;
     return result;
   }
 
@@ -3655,6 +3719,7 @@ class ChannelMessage extends $pb.GeneratedMessage {
         4, _omitFieldNames ? '' : 'text', $pb.PbFieldType.OY)
     ..aOM<Position>(5, _omitFieldNames ? '' : 'pos',
         subBuilder: Position.$_createMessage)
+    ..aI(6, _omitFieldNames ? '' : 'rssiDbm', fieldType: $pb.PbFieldType.OS3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3725,6 +3790,15 @@ class ChannelMessage extends $pb.GeneratedMessage {
   void clearPos() => $_clearField(5);
   @$pb.TagNumber(5)
   Position ensurePos() => $_ensure(4);
+
+  @$pb.TagNumber(6)
+  $core.int get rssiDbm => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set rssiDbm($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasRssiDbm() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearRssiDbm() => $_clearField(6);
 }
 
 class Channel extends $pb.GeneratedMessage {

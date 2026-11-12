@@ -162,6 +162,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           state: m.state,
                           replayed: m.replayed,
                           error: m.error,
+                          rssiDbm: m.rssiDbm,
                           onRetry: m.outgoing && m.state == MsgState.failed ? () => unawaited(ctl.retry(m)) : null,
                           onDelete: () => ctl.deleteMessage(m),
                         ),
@@ -172,6 +173,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           state: item.state,
                           replayed: item.replayed,
                           error: item.error,
+                          rssiDbm: item.rssiDbm,
                           // only the parts that failed go again
                           onRetry: item.outgoing && item.state == MsgState.failed
                               ? () {

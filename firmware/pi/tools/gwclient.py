@@ -75,17 +75,20 @@ FROM_EVENTS = {
                        4: ("ed25519_pub", "bytes"), 5: ("x25519_pub", "bytes"), 6: ("legacy", "bool"),
                        7: ("firmware", "str"), 8: ("max_text_bytes", "u32"), 9: ("protocol_minor", "u32"),
                        10: ("max_channel_text_bytes", "u32")}),
-    11: ("text", {1: ("src", "fx32"), 2: ("msg_id", "fx32"), 3: ("text", "bytes"), 4: ("src_pos", "pos")}),
-    12: ("delivered", {1: ("dest", "fx32"), 2: ("msg_id", "fx32"), 3: ("client_msg_id", "u32")}),
+    11: ("text", {1: ("src", "fx32"), 2: ("msg_id", "fx32"), 3: ("text", "bytes"), 4: ("src_pos", "pos"),
+                  5: ("rssi_dbm", "osint")}),
+    12: ("delivered", {1: ("dest", "fx32"), 2: ("msg_id", "fx32"), 3: ("client_msg_id", "u32"),
+                       4: ("rssi_dbm", "osint")}),
     13: ("sos", {1: ("src", "fx32"), 2: ("seq", "u32"), 3: ("pos", "pos"), 4: ("accuracy_m", "opt"),
                  5: ("battery_pct", "opt"), 6: ("text", "bytes")}),
     14: ("sos_ack", {1: ("responder", "fx32"), 2: ("seq", "u32")}),
-    15: ("neighbor", {1: ("node_id", "fx32"), 2: ("pos", "pos"), 3: ("is_new", "bool"), 4: ("ed25519_pub", "bytes")}),
+    15: ("neighbor", {1: ("node_id", "fx32"), 2: ("pos", "pos"), 3: ("is_new", "bool"), 4: ("rssi_dbm", "osint")}),
     16: ("status", {1: ("tx", "u32"), 2: ("rx", "u32"), 3: ("rx_bad", "u32"), 4: ("rx_auth_fail", "u32"),
                     5: ("delivered", "u32"), 6: ("forwarded", "u32"), 7: ("stored", "u32"),
                     8: ("air_ms", "u64"), 9: ("store_size", "u32"), 10: ("neighbors", "u32"),
                     11: ("sos_held", "u32"), 12: ("sos_active", "bool"), 13: ("uptime_s", "u32"),
-                    14: ("clients", "u32"), 15: ("queued", "u32")}),
+                    14: ("clients", "u32"), 15: ("queued", "u32"), 16: ("battery_pct", "opt"),
+                    17: ("tx_off", "bool"), 18: ("last_rssi_dbm", "osint"), 19: ("last_heard_s", "opt")}),
     17: ("position", {1: ("pos", "pos")}),
     18: ("error", {1: ("code", "u32"), 2: ("detail", "str")}),
     19: ("contact", {1: ("node_id", "fx32"), 2: ("name", "bytes"), 3: ("x25519_pub", "bytes"),
@@ -97,7 +100,7 @@ FROM_EVENTS = {
     24: ("key_change", {1: ("node_id", "fx32"), 2: ("ed25519_pub", "bytes"), 3: ("name", "bytes")}),
     # protocol 1.1
     25: ("channel_message", {1: ("channel", "str"), 2: ("src", "fx32"), 3: ("msg_id", "fx32"),
-                             4: ("text", "bytes"), 5: ("src_pos", "pos")}),
+                             4: ("text", "bytes"), 5: ("src_pos", "pos"), 6: ("rssi_dbm", "osint")}),
     26: ("channel", {1: ("name", "str"), 2: ("psk", "bytes")}),
     27: ("channels_end", {1: ("count", "u32")}),
     # protocol 1.2
@@ -199,7 +202,7 @@ def _fields(buf):
 def _decode(fields, buf):
     out = {}
     for name, typ in fields.values():  # defaults
-        out[name] = None if typ in ("opt", "pos") else (b"" if typ == "bytes" else
+        out[name] = None if typ in ("opt", "pos", "osint") else (b"" if typ == "bytes" else
                                                        "" if typ == "str" else False if typ == "bool" else 0)
     for f, wt, v in _fields(buf):
         if f not in fields:
@@ -211,7 +214,7 @@ def _decode(fields, buf):
         if typ == "pos":
             p = _decode(POSITION, v)
             out[name] = (p["lat_e7"] / 1e7, p["lon_e7"] / 1e7)
-        elif typ == "sint":
+        elif typ in ("sint", "osint"):
             v &= 0xFFFFFFFF
             out[name] = (v >> 1) ^ -(v & 1)
         elif typ == "str":

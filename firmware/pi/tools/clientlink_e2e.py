@@ -156,6 +156,8 @@ mid = r[0]["msg_id"]
 e = b.wait_event(lambda e: e["kind"] == "text" and e["src"] == ia["node_id"], 60)
 check(e is not None and e["text"] == b"hello B, from A's app" and e["msg_id"] == mid,
       "B's client got the DM (msg_id %08x)" % mid)
+check(e is not None and isinstance(e["rssi_dbm"], int) and -200 <= e["rssi_dbm"] <= 50,
+      "the DM carries the signal it was heard at (1.7): %s dBm" % (e or {}).get("rssi_dbm"))
 e = a.wait_event(lambda e: e["kind"] == "delivered" and e["msg_id"] == mid, 60)
 check(e is not None and e["client_msg_id"] == CMID and e["dest"] == ib["node_id"],
       "A's client got Delivered with client_msg_id %d" % CMID)
@@ -213,8 +215,8 @@ else:   # a slow step above used up the minute: the check would be meaningless
     say("skip  second SOS within a minute (over a minute since SosStart)")
 
 # -------------------------------------------- group channels (protocol 1.1) --
-check(ia.get("protocol_minor") == 6 and ia.get("max_channel_text_bytes") == 86,
-      "NodeInfo: protocol_minor 6, max_channel_text_bytes 86")
+check(ia.get("protocol_minor") == 7 and ia.get("max_channel_text_bytes") == 86,
+      "NodeInfo: protocol_minor 7, max_channel_text_bytes 86")
 PSK = bytes(range(1, 33))
 for cl, who in ((a, "A"), (b, "B")):
     must(cl.request("add_channel", name="e2e crew", psk=PSK)[0]["kind"] == "ok", "%s joins #e2e crew" % who)

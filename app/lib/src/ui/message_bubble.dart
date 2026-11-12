@@ -23,6 +23,7 @@ class MessageBubble extends StatelessWidget {
     this.replayed = false,
     this.error,
     this.receipts = true,
+    this.rssiDbm,
     super.key,
   });
 
@@ -49,6 +50,9 @@ class MessageBubble extends StatelessWidget {
 
   /// Whether this kind of message gets delivery receipts (DMs yes, channels no).
   final bool receipts;
+
+  /// Signal of the last hop: the message (incoming) or its receipt (outgoing).
+  final int? rssiDbm;
 
   /// Retries a failed message.
   final VoidCallback? onRetry;
@@ -165,6 +169,11 @@ class MessageBubble extends StatelessWidget {
                   children: [
                     if (replayed) Text('held · ', style: meta),
                     Text(clockTime(at), style: meta),
+                    if (rssiDbm case final d?)
+                      Tooltip(
+                        message: outgoing ? 'Receipt heard at ${signalText(d)}' : 'Heard at ${signalText(d)}',
+                        child: Text(' · $d dBm', style: meta, semanticsLabel: 'signal ${signalText(d)}'),
+                      ),
                     if (outgoing) ...[
                       const SizedBox(width: 6),
                       Icon(
