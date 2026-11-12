@@ -143,6 +143,11 @@ class NodeLink {
   Timer? _retry;
   Timer? _heartbeat;
   bool _pinging = false;
+  Duration? _lastRoundTrip;
+
+  /// How long the last answered heartbeat took, there and back. Null until one
+  /// is answered on the current link.
+  Duration? get lastRoundTrip => _lastRoundTrip;
 
   /// Current state.
   LinkState get state => _state;
@@ -242,6 +247,7 @@ class NodeLink {
         await s.close();
         return;
       }
+      _lastRoundTrip = null;
       _set(LinkUp(t.label, info, s));
       final live = s;
       _heartbeat?.cancel();
@@ -285,8 +291,12 @@ class NodeLink {
     if (_pinging || s.isClosed || gen != _generation) return;
     _pinging = true;
     try {
+      final sent = Stopwatch()..start();
       final r = await s.request(pb.ToRadio(getStatus: pb.GetStatus()), timeout: heartbeatTimeout);
-      if (gen == _generation && !s.isClosed) _heartbeats.add(r.status);
+      if (gen == _generation && !s.isClosed) {
+        _lastRoundTrip = sent.elapsed;
+        _heartbeats.add(r.status);
+      }
     } on ReplyTimeoutException {
       if (gen == _generation && !s.isClosed) {
         await s.close(reason: 'link timed out (no reply in ${heartbeatTimeout.inSeconds} s)');

@@ -98,6 +98,9 @@ abstract interface class BleLink {
   /// Completes when the link drops.
   Future<void> get disconnected;
 
+  /// The phone's signal reading of the connected node, dBm.
+  Future<int> readRssi();
+
   /// Disconnects.
   Future<void> close();
 }
@@ -205,7 +208,7 @@ class BleTransport implements Transport {
   }
 }
 
-class _BleConnection implements TransportConnection {
+class _BleConnection implements TransportConnection, LinkSignalReader {
   _BleConnection(this._link, int mtu) : _chunk = math.max(1, math.min(mtu - 3, kBleMaxWrite)) {
     // listening before subscribe(), so the first notification is not lost
     _notes = _link.notifications.listen(_in.add, onError: (Object _) => _finish());
@@ -246,4 +249,12 @@ class _BleConnection implements TransportConnection {
 
   @override
   Future<void> close() async => _finish();
+
+  @override
+  Future<int?> readLinkSignalDbm() async {
+    if (_closed) return null;
+    final v = await _link.readRssi();
+    // 0 and positive values are "no reading" on some phones
+    return v < 0 && v > -130 ? v : null;
+  }
 }

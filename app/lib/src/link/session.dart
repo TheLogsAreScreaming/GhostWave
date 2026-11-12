@@ -84,7 +84,9 @@ class _Pending {
 /// A live session. Create it, listen to [events], then call [hello].
 class LinkSession {
   /// Wraps [connection]. Starts reading at once.
-  LinkSession(this._conn, {this.replyTimeout = const Duration(seconds: 8)}) {
+  LinkSession(this._conn, {this.replyTimeout = const Duration(seconds: 8), MonotonicClock clock = appMonotonicClock})
+    : _clock = clock,
+      _openedAt = clock() {
     _sub = _conn.input.listen(
       _onBytes,
       onError: (Object e) => _shutdown('link error: $e'),
@@ -94,6 +96,30 @@ class LinkSession {
   }
 
   final TransportConnection _conn;
+  final MonotonicClock _clock;
+  final Duration _openedAt;
+  Duration? _lastRxAt;
+
+  /// How long this session has been open.
+  Duration get age => _clock() - _openedAt;
+
+  /// Time since the node last sent anything decodable, or null if nothing yet.
+  /// Monotonic: a phone clock change does not move it.
+  Duration? get sinceLastReceived => _lastRxAt == null ? null : _clock() - _lastRxAt!;
+
+  /// Whether this connection can report the phone-to-node radio signal.
+  bool get canReadLinkSignal => _conn is LinkSignalReader;
+
+  /// The phone-to-node signal (Bluetooth), or null where it can't be read.
+  Future<int?> readLinkSignalDbm() async {
+    final Object c = _conn;
+    if (c is! LinkSignalReader || isClosed) return null;
+    try {
+      return await c.readLinkSignalDbm();
+    } on Object {
+      return null;
+    }
+  }
 
   /// Default time to wait for a reply.
   final Duration replyTimeout;
@@ -282,6 +308,7 @@ class LinkSession {
 
   void _route(pb.FromRadio m) {
     lastReceivedAt = DateTime.now();
+    _lastRxAt = _clock();
     final p = m.reqId == 0 ? null : _pending[m.reqId];
     if (p == null) {
       // an event kind from a newer node: nothing this app can show

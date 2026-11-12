@@ -10,6 +10,7 @@ import '../link/contact_card.dart';
 import '../link/node_link.dart';
 import '../link/transport.dart';
 import 'ble_scan_screen.dart';
+import 'connection_health.dart';
 import 'format.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -146,6 +147,12 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               const SizedBox(height: GwSpace.xs),
               const SizedBox(height: 24),
               LinkStateCard(state: state),
+              if (state is LinkUp) const ConnectionHealthCard(),
+              if (state is LinkWaiting || state is LinkFailed)
+                TroubleshootCard(
+                  state: state,
+                  bluetooth: BleNodeRef.tryParse(ref.watch(nodeAddressProvider) ?? '') != null,
+                ),
               _RecentNodes(
                 current: ref.watch(nodeAddressProvider),
                 onConnect: (address) {
@@ -217,7 +224,7 @@ class LinkStateCard extends ConsumerWidget {
         title: Text(title),
         subtitle: Text(
           '$detail\n${switch (state) {
-            LinkUp(:final session) => session.lastReceivedAt == null ? 'Waiting for radio data' : 'Last radio data: ${timeAgo(session.lastReceivedAt!)}',
+            LinkUp() => 'Live details below.',
             LinkWaiting() when !bluetooth => 'Check Wi-Fi and the node address. Reconnection is automatic.',
             LinkFailed() when !bluetooth => 'Check the host and port, then retry on the same network.',
             LinkNeedsPin() => 'Use the PIN printed by the node at startup.',

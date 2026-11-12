@@ -83,6 +83,9 @@ class FakeLink implements BleLink {
   Future<void> get disconnected => _gone.future;
 
   @override
+  Future<int> readRssi() async => radio.linkRssi;
+
+  @override
   Future<void> close() async {
     closed = true;
     drop();
@@ -90,6 +93,7 @@ class FakeLink implements BleLink {
 }
 
 class FakeRadio implements BleRadio {
+  int linkRssi = -67;
   int? mtu = 247;
   bool pairingFails = false;
   bool staleBond = false;
@@ -138,6 +142,23 @@ void main() {
       fa.flushTimers(flushPeriodicTimers: false);
     });
   }
+
+  test('the phone-to-radio Bluetooth signal is readable on a Bluetooth link; bad readings are null', () {
+    connectAt(185, (radio, link, fa) {
+      final s = (link.state as LinkUp).session;
+      expect(s.canReadLinkSignal, isTrue);
+      int? got;
+      unawaited(s.readLinkSignalDbm().then((v) => got = v));
+      fa.flushMicrotasks();
+      expect(got, -67);
+      radio.linkRssi = 0; // some phones report 0 for "no reading"
+      unawaited(s.readLinkSignalDbm().then((v) => got = v));
+      fa.flushMicrotasks();
+      expect(got, isNull);
+      fa.elapse(const Duration(seconds: 16)); // a heartbeat round trip is measured
+      expect(link.lastRoundTrip, isNotNull);
+    });
+  });
 
   for (final (mtu, largest) in [(23, 20), (185, 182), (247, 244), (517, 244), (null, 20)]) {
     test('MTU $mtu: writes of at most $largest bytes, and Hello gets through', () {

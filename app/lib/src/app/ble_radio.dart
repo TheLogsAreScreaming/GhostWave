@@ -114,5 +114,8 @@ class _Link implements BleLink {
   Future<void> get disconnected => UniversalBle.connectionStream(_id).firstWhere((up) => !up);
 
   @override
+  Future<int> readRssi() => UniversalBle.readRssi(_id);
+
+  @override
   Future<void> close() => UniversalBle.disconnect(_id);
 }

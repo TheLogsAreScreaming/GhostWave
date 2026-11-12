@@ -1,6 +1,6 @@
 # Live connection diagnostics
 
-Status: implementation proposal; not implemented or verified by this document.
+Status: built in the app (Connect → Connection health, What to try). Host-tested; not yet tried on a phone.
 
 ## Requirements
 
