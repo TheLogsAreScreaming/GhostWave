@@ -331,7 +331,7 @@ class MeshController extends Notifier<MeshState> {
       unawaited(
         ref
             .read(meshAlertsProvider)
-            .textReceived(peer: t.src, from: state.nameOf(t.src), text: msg.text)
+            .textReceived(peer: t.src, from: state.nameOf(t.src), text: _notificationText(msg.text))
             .catchError((Object _) {}),
       );
     }
@@ -571,6 +571,12 @@ class MeshController extends Notifier<MeshState> {
         if (m.outgoing && m.state == MsgState.pending) unawaited(_deliver(session, m));
       }
     }
+  }
+
+  /// A received part's text without its "(2/3#a7) " label, for a notification.
+  static String _notificationText(String text) {
+    final p = parsePart(text);
+    return p == null ? text : 'Part ${p.index} of ${p.total}: ${p.body}';
   }
 
   /// Sends [text], in labelled parts if it is too long for one radio message.

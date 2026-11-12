@@ -387,7 +387,7 @@ void main() {
       final sent = n.node.requests.where((r) => r.hasSendText()).map((r) => r.sendText).toList();
       expect(sent.length, greaterThan(1));
       expect(sent.every((s) => s.text.length <= 73), isTrue);
-      expect(utf8.decode(sent.first.text), startsWith('(1/${sent.length}) '));
+      expect(utf8.decode(sent.first.text), matches(RegExp('^\\(1/${sent.length}#[0-9a-f]{2}\\) ')));
       final msgs = mesh().messages[bob]!;
       expect(msgs.map((m) => m.state).toSet(), {MsgState.sent});
       n.node.last.send(
