@@ -29,6 +29,21 @@ abstract interface class TransportConnection {
   Future<void> close();
 }
 
+/// A connection that can measure the radio link between the phone and the node
+/// (Bluetooth), separate from the node's own LoRa signal.
+abstract interface class LinkSignalReader {
+  /// The phone's reading of the node, whole dBm, or null if it can't be read now.
+  Future<int?> readLinkSignalDbm();
+}
+
+/// Time that only moves forward and ignores clock changes. Tests pass a fake.
+typedef MonotonicClock = Duration Function();
+
+final Stopwatch _appClock = Stopwatch()..start();
+
+/// The app's [MonotonicClock]: time since the app started.
+Duration appMonotonicClock() => _appClock.elapsed;
+
 /// Opens [TransportConnection]s to one node. Each reconnect calls [open] again.
 abstract interface class Transport {
   /// Human-readable target, e.g. `192.168.1.20:47800`.
