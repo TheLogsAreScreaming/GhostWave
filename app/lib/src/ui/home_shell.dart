@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/local_alerts.dart';
+import '../app/trails.dart';
 import '../app/home_surfaces.dart';
 import '../app/background_link.dart';
 import '../app/mesh_alerts.dart';
@@ -116,6 +117,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   Widget build(BuildContext context) {
     ref.watch(widgetSyncProvider); // keeps the home-screen widget current while the app runs
     ref.watch(localAlertsProvider); // radio battery, new nodes, quiet trip contacts
+    ref.watch(trailsRecorderProvider); // trip contacts' trails, only while a trip is on
     ref.listen(linkStateProvider, (_, next) {
       if (next.value case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
       if (next.value is LinkUp) _offerBackgroundOnce();
