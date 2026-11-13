@@ -427,6 +427,18 @@ void Handler::onKeyChange(uint32_t id, const uint8_t edPub[32], const std::strin
   event(m, true);
 }
 
+void Handler::onLinkPing(uint32_t node, bool answered, int forwardDbm, int reverseDbm) {
+  FromRadio m;
+  m.kind = FromKind::LinkPingResult;
+  m.nodeId = node;
+  m.answered = answered;
+  if (answered) {
+    m.rssiDbm.set(forwardDbm);
+    m.reverseDbm.set(reverseDbm);
+  }
+  event(m, false);   // a stale result is useless: not held for a later app
+}
+
 void Handler::onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) {
   FromRadio m;
   m.kind = FromKind::Neighbor;
@@ -515,7 +527,8 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
       break;
     case ToKind::SetName:
     case ToKind::RequestKey:
-    case ToKind::SetTx: break;
+    case ToKind::SetTx:
+    case ToKind::LinkPing: break;
     default: return false;
   }
   switch (m.kind) {
@@ -594,6 +607,17 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
       }
       self_.name = m.name;
       reply(c, req, FromKind::Ok);
+      return true;
+    }
+    case ToKind::LinkPing: {
+      using PR = gw::Router::PingResult;
+      switch (r_.linkPing(m.nodeId, now)) {
+        case PR::Sent: reply(c, req, FromKind::Ok); break;
+        case PR::Busy: error(c, req, ErrorCode::RateLimited, "a ping is already out; wait for its result"); break;
+        case PR::TooSoon: error(c, req, ErrorCode::RateLimited, "one ping every 5 seconds"); break;
+        case PR::NotNeighbor: error(c, req, ErrorCode::NotFound, "not heard directly: a link ping is one hop"); break;
+        case PR::BadNode: error(c, req, ErrorCode::BadArgument, "bad node ID"); break;
+      }
       return true;
     }
     case ToKind::SetTx: {

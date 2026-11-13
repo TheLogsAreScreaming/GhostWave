@@ -122,6 +122,8 @@ class Handler {
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen);
   void onKeyChange(uint32_t id, const uint8_t edPub[32], const std::string& name);
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew);
+  // Router::linkPing finished (1.9): live only, like neighbors.
+  void onLinkPing(uint32_t node, bool answered, int forwardDbm, int reverseDbm);
   // Adds the signal of the frame being received, if this runs inside one.
   void stampSignal(FromRadio& m) const;
   void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& payload);

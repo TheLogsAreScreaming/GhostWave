@@ -70,6 +70,8 @@ TO_REQUESTS = {
     26: ("request_key", {1: ("node_id", "fx32")}),
     # protocol 1.8
     27: ("set_tx", {1: ("on", "bool")}),
+    # protocol 1.9
+    28: ("link_ping", {1: ("node_id", "fx32")}),
 }
 
 FROM_EVENTS = {
@@ -108,6 +110,9 @@ FROM_EVENTS = {
     # protocol 1.2
     28: ("pin_challenge", {1: ("nonce", "bytes"), 2: ("server_share", "bytes")}),
     29: ("sos_cancelled", {1: ("src", "fx32"), 2: ("seq", "u32"), 3: ("verified", "bool")}),
+    # protocol 1.9
+    30: ("link_ping_result", {1: ("node_id", "fx32"), 2: ("answered", "bool"),
+                              3: ("forward_rssi_dbm", "osint"), 4: ("reverse_rssi_dbm", "osint")}),
 }
 
 ERRORS = ["NONE", "BAD_FRAME", "BAD_VERSION", "UNKNOWN_REQUEST", "NEED_HELLO", "BAD_ARGUMENT",

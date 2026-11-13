@@ -626,7 +626,7 @@ static void testSetTx() {
   ToRadio m;
   m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
   auto v = send(m);
-  CHECK(v.size() == 1 && v[0].protocolMinor == 8);
+  CHECK(v.size() == 1 && v[0].protocolMinor == 9);
   m = {}, m.reqId = 2, m.kind = ToKind::SetTx, m.on = true;
   v = send(m);
   CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 2 && tx && calls == 1);
@@ -637,6 +637,22 @@ static void testSetTx() {
   m = {}, m.reqId = 4, m.kind = ToKind::SetTx, m.on = false;
   v = send(m);
   CHECK(v.size() == 1 && v[0].error == ErrorCode::SendFailed && !tx);   // off now, but not saved: says so
+
+  // LinkPing (1.9): a node not heard directly is refused, and the result
+  // event carries both readings only when answered.
+  m = {}, m.reqId = 6, m.kind = ToKind::LinkPing, m.nodeId = 0x77777777;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NotFound);
+  m.nodeId = 0;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument);
+  h.onLinkPing(0x77777777, true, -97, -101);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::LinkPingResult && v[0].answered && v[0].rssiDbm.has &&
+        v[0].rssiDbm.v == -97 && v[0].reverseDbm.v == -101);
+  h.onLinkPing(0x77777777, false, 0, 0);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && !v[0].answered && !v[0].rssiDbm.has && !v[0].reverseDbm.has);
 
   Rig plain;   // ghostwaved and other nodes with no gate
   auto& pc = plain.t.add("tcp");

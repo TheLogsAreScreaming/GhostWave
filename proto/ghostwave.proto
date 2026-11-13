@@ -49,6 +49,8 @@ message ToRadio {
     RequestKey request_key = 26;
     // protocol 1.8
     SetTx set_tx = 27;
+    // protocol 1.9
+    LinkPing link_ping = 28;
   }
 }
 
@@ -159,6 +161,13 @@ message SetTx {
   bool on = 1;
 }
 
+// 1.9: ping a node heard directly (one hop) and measure the link both ways.
+// Replies Ok when sent; the answer comes as LinkPingResult. NOT_FOUND: not
+// heard directly; RATE_LIMITED: a ping is out, or the last was under 5 s ago.
+message LinkPing {
+  fixed32 node_id = 1;
+}
+
 // --------------------------------------------------------------- node -> app
 
 message FromRadio {
@@ -188,6 +197,8 @@ message FromRadio {
     PinChallenge pin_challenge = 28;
     // protocol 1.5
     SosCancelled sos_cancelled = 29;
+    // protocol 1.9
+    LinkPingResult link_ping_result = 30;
   }
 }
 
@@ -241,6 +252,16 @@ message SosCancelled {
   fixed32 src = 1;
   uint32 seq = 2;
   bool verified = 3;
+}
+
+// A LinkPing ended. answered false: no reply within 10 s (out of range, busy,
+// or older firmware). forward: how strongly the node heard our ping;
+// reverse: how strongly we heard its reply. Both measured on the radios.
+message LinkPingResult {
+  fixed32 node_id = 1;
+  bool answered = 2;
+  optional sint32 forward_rssi_dbm = 3;
+  optional sint32 reverse_rssi_dbm = 4;
 }
 
 message SosAckReceived {

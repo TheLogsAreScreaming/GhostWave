@@ -80,6 +80,12 @@ class AppPort {
   virtual void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& payload) {
     (void)chanId, (void)src, (void)msgId, (void)payload;
   }
+  // A link ping we started (Router::linkPing) ended. answered: the neighbor
+  // replied. forwardDbm: how strongly it heard our ping; reverseDbm: how
+  // strongly we heard its reply. Both measured, never inferred.
+  virtual void onLinkPing(uint32_t node, bool answered, int forwardDbm, int reverseDbm) {
+    (void)node, (void)answered, (void)forwardDbm, (void)reverseDbm;
+  }
 };
 
 // Group channels a node can join at once (DESIGN §9.3).
@@ -235,6 +241,16 @@ class Router {
   void onReceive(const uint8_t* buf, size_t len, float rssiDbm, uint64_t nowMs);
   void tick(uint64_t nowMs);
 
+  // Link ping (one hop, both directions): asks neighbor `node` how strongly it
+  // hears us; its reply says, and we measure the reply. One at a time, at
+  // most one every kLinkPingGapMs; the answer comes as AppPort::onLinkPing,
+  // or as unanswered after kLinkPingTimeoutMs.
+  enum class PingResult { Sent, Busy, TooSoon, NotNeighbor, BadNode };
+  PingResult linkPing(uint32_t node, uint64_t nowMs);
+  static constexpr uint64_t kLinkPingGapMs = 5000;
+  static constexpr uint64_t kLinkPingTimeoutMs = 10000;
+  static constexpr uint64_t kLinkPingReplyGapMs = 1000;   // we answer at most this often
+
   // Signal of the frame being handled right now, in whole dBm. True only while
   // onReceive is running, so AppPort callbacks it triggers can report how the
   // frame that caused them was heard (the last hop, not the whole path).
@@ -376,6 +392,16 @@ class Router {
   AppPort& app_;
   Rng rng_;
   RouterStats stats_;
+  struct PingWait {
+    uint32_t node, token;
+    uint64_t deadline;
+  };
+  bool pingOn_ = false;
+  PingWait ping_{};
+  uint64_t lastPingMs_ = 0, lastPingReplyMs_ = 0;
+  bool pingEver_ = false, pingReplyEver_ = false;
+  void onDiag(const Packet& p, uint64_t now);
+  void sendDiag(uint32_t to, const uint8_t* payload, size_t n, uint64_t now);
   bool inRx_ = false, heardAny_ = false;
   int rxDbm_ = 0, lastDbm_ = 0;
   uint64_t lastMs_ = 0;

@@ -268,6 +268,9 @@ struct TestRadio : RadioPort {
 struct TestApp : AppPort {
   const Router* router = nullptr;   // set by Medium::add: callbacks note rxSignal()
   std::vector<int> msgDbm, deliveredDbm, neighborDbm;   // INT_MIN: no signal reported
+  struct Ping { uint32_t node; bool answered; int fwd, rev; };
+  std::vector<Ping> pings;
+  void onLinkPing(uint32_t node, bool answered, int fwd, int rev) override { pings.push_back({node, answered, fwd, rev}); }
   int sig() const {
     int d = 0;
     return router && router->rxSignal(d) ? d : INT_MIN;
@@ -859,6 +862,31 @@ static void testRxSignal() {
   std::vector<uint8_t> junk = {0xFF};
   r.onReceive(junk.data(), junk.size(), -97.6f, m.now);   // undecodable: not a "heard" frame
   CHECK(r.lastHeard(d, at) && d == -117);
+}
+
+// Link ping: one hop, both directions measured; refused for non-neighbors,
+// while one is out, and too soon after the last; unanswered after the timeout.
+static void testLinkPing() {
+  std::printf("router: link ping both ways, limits, timeout\n");
+  Medium m;
+  auto& a = m.add(800, 0);
+  auto& b = m.add(801, 1.0);   // -117 dBm both ways in this medium
+  using PR = Router::PingResult;
+  CHECK(a.router->linkPing(801, m.now) == PR::NotNeighbor);   // no beacon heard yet
+  m.run(5000);
+  CHECK(a.router->linkPing(800, m.now) == PR::BadNode);
+  CHECK(a.router->linkPing(801, m.now) == PR::Sent);
+  CHECK(a.router->linkPing(801, m.now) == PR::Busy);
+  m.run(3000);
+  CHECK(a.app.pings.size() == 1 && a.app.pings[0].answered && a.app.pings[0].node == 801 &&
+        a.app.pings[0].fwd == -117 && a.app.pings[0].rev == -117);
+  CHECK(b.app.pings.empty() && b.app.got.empty());   // nothing shows up as a message on the target
+  CHECK(a.router->linkPing(801, m.now) == PR::TooSoon);
+  m.run(Router::kLinkPingGapMs);
+  m.move(b, 50);   // out of range: the ping goes unanswered
+  CHECK(a.router->linkPing(801, m.now) == PR::Sent);
+  m.run(Router::kLinkPingTimeoutMs + 100);
+  CHECK(a.app.pings.size() == 2 && !a.app.pings[1].answered);
 }
 
 static void testEncryptedRouting() {
@@ -2231,6 +2259,7 @@ int main() {
   testUtil();
   testBeaconTimingFlags();
   testRxSignal();
+  testLinkPing();
   testBeaconVelocity();
   testBeaconMac();
   testBeaconRecoveryAfterMove();
