@@ -16,6 +16,8 @@ import 'channel_screens.dart';
 import 'chat_screen.dart';
 import 'format.dart';
 import 'link_ping.dart';
+import 'node_journal_screen.dart';
+import 'node_mark.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -182,7 +184,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.cell_tower)),
+                      leading: NodeMark(nodeId: n.nodeId),
                       title: Text(nodeIdHex(n.nodeId), style: GwText.mono),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: GwSpace.xs),
@@ -202,6 +204,13 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         appBar: AppBar(
           title: const Text('Chats'),
           actions: [
+            IconButton(
+              tooltip: 'Node journal',
+              onPressed: () => unawaited(
+                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NodeJournalScreen())),
+              ),
+              icon: const Icon(Icons.menu_book_outlined),
+            ),
             IconButton(
               tooltip: 'Reload from node',
               onPressed: online
@@ -678,6 +687,17 @@ void _showHeardNode(BuildContext context, WidgetRef ref, Neighbor n) {
                     },
                     child: Text(ref.read(meshProvider.notifier).nodeCanRequestKey ? 'Ask for key' : 'Check again'),
                   ),
+                  if (ref.read(meshProvider).journal.entries.containsKey(n.nodeId))
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(sheet).pop();
+                        unawaited(
+                          Navigator.of(context)
+                              .push(MaterialPageRoute<void>(builder: (_) => JournalNodeScreen(nodeId: n.nodeId))),
+                        );
+                      },
+                      child: const Text('Journal'),
+                    ),
                   if (ref.read(meshProvider.notifier).nodeCanLinkPing)
                     TextButton(
                       onPressed: () {

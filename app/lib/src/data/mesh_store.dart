@@ -10,6 +10,7 @@ import 'package:cryptography/cryptography.dart';
 import '../link/contact_card.dart';
 import 'history_crypto.dart';
 import 'models.dart';
+import 'node_journal.dart';
 import 'team_trails.dart';
 
 /// Trails from [toJson]'s `trails`; anything malformed is dropped.
@@ -54,6 +55,7 @@ class StoredMesh {
     this.channelMessages = const {},
     this.drafts = const {},
     this.trails = const {},
+    this.journal = const NodeJournal(),
     this.problem = HistoryProblem.none,
   });
 
@@ -88,6 +90,7 @@ class StoredMesh {
         (k, v) => MapEntry(int.parse(k as String), v as String),
       ),
       trails: _trailsFromJson(j['trails']),
+      journal: NodeJournal.fromJson(j['journal']),
     );
   }
 
@@ -115,6 +118,9 @@ class StoredMesh {
   /// 24-hour trails of trip contacts and this node, oldest point first.
   final Map<int, List<TrailFix>> trails;
 
+  /// Every node heard while connected to this node.
+  final NodeJournal journal;
+
   /// Why this snapshot is empty, if the saved one could not be read. Not saved.
   final HistoryProblem problem;
 
@@ -138,6 +144,7 @@ class StoredMesh {
       for (final l in channelMessages.values)
         for (final msg in l) msg.toJson(),
     ],
+    if (!journal.isEmpty) 'journal': journal.toJson(),
   };
 }
 
