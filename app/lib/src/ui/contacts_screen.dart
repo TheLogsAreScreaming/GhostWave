@@ -15,6 +15,7 @@ import 'add_contact_screen.dart';
 import 'channel_screens.dart';
 import 'chat_screen.dart';
 import 'format.dart';
+import 'link_ping.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -677,6 +678,14 @@ void _showHeardNode(BuildContext context, WidgetRef ref, Neighbor n) {
                     },
                     child: Text(ref.read(meshProvider.notifier).nodeCanRequestKey ? 'Ask for key' : 'Check again'),
                   ),
+                  if (ref.read(meshProvider.notifier).nodeCanLinkPing)
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(sheet).pop();
+                        unawaited(showLinkPing(context, ref, n.nodeId));
+                      },
+                      child: const Text('Ping'),
+                    ),
                   TextButton(
                     onPressed: () {
                       Navigator.of(sheet).pop();

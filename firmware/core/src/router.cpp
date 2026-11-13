@@ -1,5 +1,7 @@
 #include "ghostwave/router.h"
 
+#include "ghostwave/diagnostics.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -370,6 +372,7 @@ void Router::onReceive(const uint8_t* buf, size_t len, float rssi, uint64_t now)
     case PType::Sos: onSos(p, now); break;
     case PType::SosAck: onSosAck(p, now); break;
     case PType::SosCancel: onSosCancel(p, now); break;
+    case PType::Diag: onDiag(p, now); break;
     case PType::Ident: onIdent(p, now); break;
     default: break;
   }
@@ -378,6 +381,10 @@ void Router::onReceive(const uint8_t* buf, size_t len, float rssi, uint64_t now)
 // -------------------------------------------------------------------- tick --
 
 void Router::tick(uint64_t now) {
+  if (pingOn_ && now >= ping_.deadline) {
+    pingOn_ = false;
+    app_.onLinkPing(ping_.node, false, 0, 0);
+  }
   for (auto it = pending_.begin(); it != pending_.end();) {
     if (it->second.fireAt > now) {
       ++it;
@@ -1812,6 +1819,66 @@ void Router::identTick(uint64_t now) {
     nextIdentAt_ = now + static_cast<uint64_t>(cfg_.identIntervalMs * scale) +
                    rng_.range(0, cfg_.identIntervalMs / 10 + 1);
   }
+}
+
+// ------------------------------------------------------------- link ping --
+
+Router::PingResult Router::linkPing(uint32_t node, uint64_t now) {
+  if (node == 0 || node == kBroadcast || node == cfg_.nodeId) return PingResult::BadNode;
+  if (pingOn_) return PingResult::Busy;
+  if (pingEver_ && now - lastPingMs_ < kLinkPingGapMs) return PingResult::TooSoon;
+  if (nb_.find(node) == nb_.end()) return PingResult::NotNeighbor;   // one hop only: it must be heard directly
+  diag::Probe pr;
+  pr.token = rng_.next() | 1u;
+  pr.origin = cfg_.nodeId;
+  pr.target = node;
+  uint8_t b[diag::kProbeBytes];
+  if (!diag::encodeProbe(pr, b, sizeof b)) return PingResult::BadNode;
+  sendDiag(node, b, sizeof b, now);
+  pingOn_ = pingEver_ = true;
+  ping_ = {node, pr.token, now + kLinkPingTimeoutMs};
+  lastPingMs_ = now;
+  return PingResult::Sent;
+}
+
+void Router::sendDiag(uint32_t to, const uint8_t* payload, size_t n, uint64_t now) {
+  Packet p;
+  p.type = PType::Diag;
+  p.mode = Mode::Unicast;
+  p.src = cfg_.nodeId;
+  p.dst = to;
+  p.msgId = rng_.next();
+  p.hopsLeft = 0;   // never forwarded
+  p.prevHop = me16();
+  p.nextHop = shortId(to);
+  p.payload.assign(payload, payload + n);
+  enqueue(p, true, now);
+}
+
+void Router::onDiag(const Packet& p, uint64_t now) {
+  if (p.dst != cfg_.nodeId || !inRx_) return;   // one hop, addressed to us; needs this frame's signal
+  diag::Probe pr;
+  if (diag::decodeProbe(p.payload.data(), p.payload.size(), pr)) {
+    if (pr.kind != diag::Kind::Probe || pr.target != cfg_.nodeId || pr.origin != p.src) return;
+    if (pingReplyEver_ && now - lastPingReplyMs_ < kLinkPingReplyGapMs) return;   // no amplification
+    diag::Hop h;
+    h.token = pr.token;
+    h.node = cfg_.nodeId;
+    h.previous = pr.origin;
+    h.rxRssiDbm = static_cast<int16_t>(rxDbm_);
+    h.hop = 1;
+    uint8_t b[diag::kHopBytes];
+    if (!diag::encodeHop(h, b, sizeof b)) return;
+    sendDiag(pr.origin, b, sizeof b, now);
+    pingReplyEver_ = true;
+    lastPingReplyMs_ = now;
+    return;
+  }
+  diag::Hop h;
+  if (!diag::decodeHop(p.payload.data(), p.payload.size(), h)) return;
+  if (!pingOn_ || h.token != ping_.token || h.node != ping_.node || p.src != ping_.node) return;
+  pingOn_ = false;
+  app_.onLinkPing(h.node, true, h.rxRssiDbm, rxDbm_);
 }
 
 }  // namespace gw

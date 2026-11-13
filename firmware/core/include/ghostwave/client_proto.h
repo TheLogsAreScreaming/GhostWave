@@ -28,7 +28,7 @@ constexpr uint8_t kProtocolVersion = 1;
 // 3: that handshake also agrees keys, and the link is encrypted after it.
 // 5: SosCancelled.
 // 6: NO_KEY: a DM is never sent unencrypted.
-constexpr uint32_t kProtocolMinor = 8;
+constexpr uint32_t kProtocolMinor = 9;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -112,6 +112,7 @@ enum class ToKind : uint8_t {
   SetName = 25,
   RequestKey = 26,        // 1.4
   SetTx = 27,             // 1.8
+  LinkPing = 28,          // 1.9
 };
 
 struct ToRadio {
@@ -165,6 +166,7 @@ enum class FromKind : uint8_t {
   ChannelsEnd = 27,
   PinChallenge = 28,   // 1.2
   SosCancelled = 29,   // 1.5
+  LinkPingResult = 30,   // 1.9
 };
 
 struct StatusInfo {
@@ -216,6 +218,9 @@ struct FromRadio {
   bool pinned = false;
   // SosCancelled: src, seq, verified (signature checked against the key we hold)
   bool verified = false;
+  // LinkPingResult: nodeId, answered, rssiDbm (forward), reverseDbm
+  bool answered = false;
+  OptI32 reverseDbm;
   uint32_t count = 0;
   StatusInfo status;
   // Text / Delivered / Neighbor / ChannelMessage: signal of the frame that

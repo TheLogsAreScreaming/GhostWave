@@ -204,6 +204,11 @@ class SerialApp : public gw::AppPort {
                     static_cast<unsigned>(g_rt.delivered()), static_cast<unsigned>(g_rt.sent()), g_lastRssi);
     GW_LINK(onDelivered(dst, msgId));
   }
+  void onLinkPing(uint32_t node, bool answered, int forwardDbm, int reverseDbm) override {
+    if (answered) Serial.printf("ping %08lx: it heard us at %d dBm, we heard it at %d dBm\n", static_cast<unsigned long>(node), forwardDbm, reverseDbm);
+    else Serial.printf("ping %08lx: no answer\n", static_cast<unsigned long>(node));
+    GW_LINK(onLinkPing(node, answered, forwardDbm, reverseDbm));
+  }
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) override {
     GW_LINK(onNeighbor(id, pos, isNew));
   }
@@ -365,7 +370,7 @@ void printTxState() {
 
 void printHelp() {
   Serial.print(
-      "range test: rangetest <hex-id> [seconds] | rangetest stop | rangetest\n"
+      "range test: rangetest <hex-id> [seconds] | rangetest stop | rangetest | ping <hex-id> (one hop, both ways)\n"
       "commands: send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | status | pos\n"
       "          keys | peer <hex-id> <hex-pubkey> | sos <text> | sosstop | sosack <hex-id>\n"
       "settings (saved): name [text] | name clear | setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
@@ -427,6 +432,21 @@ void handleCommand(std::string line) {
       if (!txOpen()) Serial.println("TX is off, so this will not be sent (tx on)");
     } else {
       Serial.println("too long to send");
+    }
+  } else if (cmd == "ping") {
+    std::string a = word(line);
+    uint32_t dst;
+    if (!parseId(a, dst)) {
+      Serial.println("usage: ping <hex-id>   (a node heard directly: measures the link both ways)");
+    } else {
+      using PR = gw::Router::PingResult;
+      switch (g_router->linkPing(dst, nowMs())) {
+        case PR::Sent: Serial.printf("ping %08lx sent, answer within 10 s\n", static_cast<unsigned long>(dst)); break;
+        case PR::Busy: Serial.println("a ping is already out"); break;
+        case PR::TooSoon: Serial.println("one ping every 5 seconds"); break;
+        case PR::NotNeighbor: Serial.println("not heard directly yet (a ping is one hop)"); break;
+        case PR::BadNode: Serial.println("bad node ID"); break;
+      }
     }
   } else if (cmd == "rangetest") {
     std::string a = word(line);

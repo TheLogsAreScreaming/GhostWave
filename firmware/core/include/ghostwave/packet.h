@@ -25,6 +25,7 @@ enum class PType : uint8_t {
   Sos = 0x06,
   SosAck = 0x07,
   SosCancel = 0x08,   // the source ended its SOS; signed (DESIGN §8)
+  Diag = 0x09,        // one-hop link ping and its report (diagnostics.h); older nodes ignore it
 };
 
 enum class Mode : uint8_t { Geo = 0, Spray = 1, Unicast = 2, ScopedFlood = 3 };

@@ -283,6 +283,7 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
     case ToKind::SetName: s.str(1, m.name); break;
     case ToKind::RequestKey: s.fx32(1, m.nodeId); break;
     case ToKind::SetTx: s.boolean(1, m.on); break;
+    case ToKind::LinkPing: s.fx32(1, m.nodeId); break;
     case ToKind::ListChannels:
     case ToKind::ListContacts:
     case ToKind::SosStop:
@@ -298,7 +299,7 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
   m = ToRadio{};
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
-    if (f < 10 || f > static_cast<uint32_t>(ToKind::SetTx)) return 0;   // newer requests: ignored
+    if (f < 10 || f > static_cast<uint32_t>(ToKind::LinkPing)) return 0;   // newer requests: ignored
     if (v.wt != kLen) return -1;
     ToKind k = static_cast<ToKind>(f);
     m.kind = k;
@@ -356,6 +357,9 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
           return 0;
         case ToKind::SetTx:
           if (g == 1) return ok(x.boolean(m.on));
+          return 0;
+        case ToKind::LinkPing:
+          if (g == 1) return ok(x.fx32(m.nodeId));
           return 0;
         default: return 0;
       }
@@ -416,6 +420,12 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.fx32(1, m.src);
       s.u32(2, m.seq);
       s.boolean(3, m.verified);
+      break;
+    case FromKind::LinkPingResult:
+      s.fx32(1, m.nodeId);
+      s.boolean(2, m.answered);
+      s.optSint(3, m.rssiDbm);
+      s.optSint(4, m.reverseDbm);
       break;
     case FromKind::Neighbor:
       s.fx32(1, m.nodeId);
@@ -496,7 +506,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
     if (f == 2) return ok(v.boolean(m.replayed));
-    if (f < 10 || f > 29) return 0;
+    if (f < 10 || f > static_cast<uint32_t>(FromKind::LinkPingResult)) return 0;   // newer events: ignored
     if (v.wt != kLen) return -1;
     FromKind k = static_cast<FromKind>(f);
     m.kind = k;
@@ -553,6 +563,12 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
           if (g == 1) return ok(x.fx32(m.src));
           if (g == 2) return ok(x.u32(m.seq));
           if (g == 3) return ok(x.boolean(m.verified));
+          return 0;
+        case FromKind::LinkPingResult:
+          if (g == 1) return ok(x.fx32(m.nodeId));
+          if (g == 2) return ok(x.boolean(m.answered));
+          if (g == 3) return ok(x.optSint(m.rssiDbm));
+          if (g == 4) return ok(x.optSint(m.reverseDbm));
           return 0;
         case FromKind::Neighbor:
           if (g == 1) return ok(x.fx32(m.nodeId));

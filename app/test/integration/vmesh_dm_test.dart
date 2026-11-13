@@ -121,7 +121,7 @@ void main() {
       addTearDown(s.close);
       final info = await s.hello('right', pinFor: () async => '424242', requireEncrypted: true);
       expect(s.isEncrypted, isTrue);
-      expect(info.protocolMinor, 8);
+      expect(info.protocolMinor, 9);
       final status = await s.request(pb.ToRadio(getStatus: pb.GetStatus()));
       expect(status.hasStatus(), isTrue);
       expect(s.isClosed, isFalse);

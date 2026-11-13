@@ -47,7 +47,8 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.batteryPct == b.batteryPct && a.isNew == b.isNew && a.pinned == b.pinned && a.verified == b.verified &&
          a.count == b.count && a.status == b.status && a.error == b.error && a.detail == b.detail &&
          a.protocolMinor == b.protocolMinor && a.maxChannelTextBytes == b.maxChannelTextBytes &&
-         a.channel == b.channel && a.psk == b.psk && a.nonce == b.nonce && a.rssiDbm == b.rssiDbm;
+         a.channel == b.channel && a.psk == b.psk && a.nonce == b.nonce && a.rssiDbm == b.rssiDbm &&
+         a.answered == b.answered && a.reverseDbm == b.reverseDbm;
 }
 
 static std::vector<ToRadio> sampleTo() {
@@ -99,6 +100,8 @@ static std::vector<ToRadio> sampleTo() {
   m = {}, m.reqId = 22, m.kind = ToKind::SetTx, m.on = true;   // 1.8
   v.push_back(m);
   m = {}, m.reqId = 23, m.kind = ToKind::SetTx, m.on = false;   // an empty message, still SetTx
+  v.push_back(m);
+  m = {}, m.reqId = 24, m.kind = ToKind::LinkPing, m.nodeId = 0x9F219DBB;   // 1.9
   v.push_back(m);
   m = {}, m.reqId = 19, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientName = "app", m.clientShare = Bytes(16, 7),
   m.pinProof = key(2);   // 1.2
@@ -154,6 +157,11 @@ static std::vector<FromRadio> sampleFrom() {
   m.rssiDbm.set(-200);
   v.push_back(m);
   m = {}, m.kind = FromKind::Neighbor, m.nodeId = 9, m.rssiDbm.set(50);
+  v.push_back(m);
+  m = {}, m.kind = FromKind::LinkPingResult, m.nodeId = 0x9F219DBB, m.answered = true;   // 1.9
+  m.rssiDbm.set(-97), m.reverseDbm.set(-101);
+  v.push_back(m);
+  m = {}, m.kind = FromKind::LinkPingResult, m.nodeId = 7;   // no answer: no readings
   v.push_back(m);
   m = {}, m.kind = FromKind::ChannelMessage, m.channel = "camp", m.src = 1, m.msgId = 2, m.text = B("x");
   m.rssiDbm.set(-1);

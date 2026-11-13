@@ -369,6 +369,9 @@ class StdoutApp : public gw::AppPort {
     std::fflush(stdout);
     if (link) link->onDelivered(dst, msgId);
   }
+  void onLinkPing(uint32_t node, bool answered, int forwardDbm, int reverseDbm) override {
+    if (link) link->onLinkPing(node, answered, forwardDbm, reverseDbm);
+  }
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) override {
     if (link) link->onNeighbor(id, pos, isNew);
   }

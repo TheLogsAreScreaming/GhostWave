@@ -215,8 +215,8 @@ else:   # a slow step above used up the minute: the check would be meaningless
     say("skip  second SOS within a minute (over a minute since SosStart)")
 
 # -------------------------------------------- group channels (protocol 1.1) --
-check(ia.get("protocol_minor") == 8 and ia.get("max_channel_text_bytes") == 86,
-      "NodeInfo: protocol_minor 8, max_channel_text_bytes 86")
+check(ia.get("protocol_minor") == 9 and ia.get("max_channel_text_bytes") == 86,
+      "NodeInfo: protocol_minor 9, max_channel_text_bytes 86")
 PSK = bytes(range(1, 33))
 for cl, who in ((a, "A"), (b, "B")):
     must(cl.request("add_channel", name="e2e crew", psk=PSK)[0]["kind"] == "ok", "%s joins #e2e crew" % who)
