@@ -12,6 +12,7 @@ import '../app/providers.dart';
 import '../data/field_reports.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import 'format.dart';
+import 'coverage_screen.dart';
 import 'settings_screen.dart' show packageInfoProvider;
 
 String _when(DateTime t) {
@@ -89,6 +90,16 @@ class FieldToolsScreen extends ConsumerWidget {
             const Text(
               'Each test keeps its notes and radio samples on this phone until you delete it, '
               'including after the app closes. Nothing here transmits on the mesh.',
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.radar),
+                title: const Text('Coverage walk'),
+                subtitle: const Text('Ping a node as you walk and map where you get through. This one transmits.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => const CoverageScreen())),
+              ),
             ),
             if (s.problem == ReportsProblem.unreadable)
               const _Notice('Saved reports were damaged and could not be read. The file was set aside.'),

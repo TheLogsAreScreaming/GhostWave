@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'src/app/background_link.dart';
+import 'src/app/coverage.dart';
 import 'src/app/field_reports_controller.dart';
 import 'src/app/backup.dart';
 import 'src/app/home_surfaces.dart';
@@ -43,6 +44,7 @@ Future<void> main() async {
         meshStoreProvider.overrideWithValue(MeshStore(dir, const SecureHistoryKeys())),
         meshAlertsProvider.overrideWithValue(alerts),
         offlineStoreProvider.overrideWithValue(OfflineStore(dir)),
+        coverageStoreProvider.overrideWithValue(CoverageStore(dir)),
         fieldReportStoreProvider.overrideWithValue(FieldReportStore(dir)),
         pinStoreProvider.overrideWithValue(const SecurePinStore()),
         if (Platform.isAndroid) backupFilesProvider.overrideWithValue(const AndroidBackupFiles()),
