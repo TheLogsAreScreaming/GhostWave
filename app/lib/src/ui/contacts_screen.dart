@@ -19,6 +19,7 @@ import 'link_ping.dart';
 import 'node_journal_screen.dart';
 import 'node_mark.dart';
 import 'theme.dart';
+import 'timeline_screen.dart';
 import 'widgets.dart';
 
 /// Contacts (with unread counts and last-seen) and nodes heard nearby.
@@ -204,6 +205,13 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         appBar: AppBar(
           title: const Text('Chats'),
           actions: [
+            IconButton(
+              tooltip: 'Timeline',
+              onPressed: () => unawaited(
+                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TimelineScreen())),
+              ),
+              icon: const Icon(Icons.timeline),
+            ),
             IconButton(
               tooltip: 'Node journal',
               onPressed: () => unawaited(
