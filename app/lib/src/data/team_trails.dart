@@ -12,8 +12,13 @@ class TrailFix {
   final double longitude;
   final DateTime at;
 
-  bool get valid => latitude.isFinite && longitude.isFinite &&
-      latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+  bool get valid =>
+      latitude.isFinite &&
+      longitude.isFinite &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180;
 }
 
 class TeamTrails {
@@ -45,22 +50,28 @@ class TeamTrails {
 
   Map<int, List<TrailFix>> snapshot({DateTime? now}) {
     prune(now: now);
-    return {for (final e in _tracks.entries) e.key: List.unmodifiable(e.value)};
+    return {for (final e in _tracks.entries) e.key: List<TrailFix>.unmodifiable(e.value)};
   }
 
   /// GPX 1.1 tracks; one trk per contact. XML-escaped display names.
   String exportGpx(Map<int, String> names, {DateTime? now}) {
     final tracks = snapshot(now: now);
-    final out = StringBuffer('<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<gpx version="1.1" creator="GhostWave" '
-        'xmlns="http://www.topografix.com/GPX/1/1">\n');
+    final out = StringBuffer(
+      '<?xml version="1.0" encoding="UTF-8"?>\n'
+      '<gpx version="1.1" creator="GhostWave" '
+      'xmlns="http://www.topografix.com/GPX/1/1">\n',
+    );
     for (final e in tracks.entries) {
       if (e.value.isEmpty) continue;
-      final name = const HtmlEscape(HtmlEscapeMode.element).convert(names[e.key] ?? e.key.toString());
+      final name = const HtmlEscape(
+        HtmlEscapeMode.element,
+      ).convert(names[e.key] ?? e.key.toString());
       out.write('<trk><name>$name</name><trkseg>\n');
       for (final p in e.value) {
-        out.write('<trkpt lat="${p.latitude}" lon="${p.longitude}">'
-            '<time>${p.at.toUtc().toIso8601String()}</time></trkpt>\n');
+        out.write(
+          '<trkpt lat="${p.latitude}" lon="${p.longitude}">'
+          '<time>${p.at.toUtc().toIso8601String()}</time></trkpt>\n',
+        );
       }
       out.write('</trkseg></trk>\n');
     }
