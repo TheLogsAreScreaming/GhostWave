@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../app/local_alerts.dart';
 import '../app/trip_controller.dart';
 import '../app/field_reports_controller.dart';
 import '../app/background_link.dart';
@@ -107,6 +108,38 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
             ],
+            const _Header('Alerts'),
+            Consumer(
+              builder: (context, ref, _) {
+                final a = ref.watch(localAlertSettingsProvider);
+                final set = ref.read(localAlertSettingsProvider.notifier).set;
+                return Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.battery_alert_outlined),
+                      title: const Text('Radio battery low'),
+                      subtitle: const Text('At 20 % and again at 10 %, if your radio reports its battery'),
+                      value: a.battery,
+                      onChanged: (v) => set(a.copyWith(battery: v)),
+                    ),
+                    SwitchListTile(
+                      secondary: const Icon(Icons.person_pin_circle_outlined),
+                      title: const Text('Trip contact gone quiet'),
+                      subtitle: const Text('Your radio has not heard them for 30 minutes, while a trip is on'),
+                      value: a.quiet,
+                      onChanged: (v) => set(a.copyWith(quiet: v)),
+                    ),
+                    SwitchListTile(
+                      secondary: const Icon(Icons.cell_tower),
+                      title: const Text('New node heard'),
+                      subtitle: const Text('Each node your radio hears for the first time while connected'),
+                      value: a.newNode,
+                      onChanged: (v) => set(a.copyWith(newNode: v)),
+                    ),
+                  ],
+                );
+              },
+            ),
             const _Header('This phone'),
             ListTile(
               leading: const Icon(Icons.straighten),

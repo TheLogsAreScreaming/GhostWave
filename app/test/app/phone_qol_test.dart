@@ -66,6 +66,10 @@ class RecordingAlerts implements MeshAlerts {
   @override
   Future<void> tripAlert({required int id, required String title, required String body}) async =>
       shown.add('trip $title: $body');
+
+  @override
+  Future<void> radioAlert({required int id, required String title, required String body}) async =>
+      shown.add('radio $title: $body');
 }
 
 /// [answeringNode] that also accepts `SetOwnPosition`.
