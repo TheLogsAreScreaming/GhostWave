@@ -67,6 +67,14 @@ constexpr float kTcxoVolts = 1.8f;
 // switched on exactly as Meshtastic does.
 constexpr int kPinVext = 36;
 constexpr bool kVextOn = false;     // LOW = on
+// 0.96" SSD1306 on its own I2C pins, powered by Vext, reset on GPIO 21
+// (Heltec's pins_arduino.h: SDA_OLED 17, SCL_OLED 18, RST_OLED 21).
+#ifndef GW_HAS_OLED
+#define GW_HAS_OLED 1
+#endif
+#define GW_OLED_SDA 17
+#define GW_OLED_SCL 18
+#define GW_OLED_RST 21
 
 #elif defined(GW_BOARD_RAK4631)
 // Sources: RAK4631 datasheet "RAK4630 internal connections" table, cross-
@@ -95,6 +103,7 @@ constexpr int kPin3v3SEnable = 34;
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0                // no GPS on a bare RAK19007: app or CLI position
 #define GW_HAS_BLE 1
+#define GW_HAS_OLED 1               // RAK1921 in the I2C slot; optional, detected at boot
 #define GW_NRF52 1
 
 #elif defined(GW_BOARD_RAK3401_1W)
@@ -111,6 +120,7 @@ constexpr float kTcxoVolts = 1.8f;  // SX126X_DIO3_TCXO_VOLTAGE
 constexpr int kPinVbat = 5;         // P0.05 / AIN3, the base board's VBAT divider (variant.h A0)
 constexpr float kVbatScale = 1.73f; // Meshtastic rak3401_1watt ADC_MULTIPLIER; not measured by us
 #define GW_HAS_OLED 1               // RAK1921 in the I2C slot; optional, detected at boot
+#define GW_HAS_VBAT_ADC 1           // battery on kPinVbat through the base board's divider
 #define GW_LORA_SPI SPI1            // P0.03 SCK, P0.30 MOSI, P0.29 MISO (variants/rak4631)
 #define GW_HAS_ANT_POWER 1
 constexpr int kPinAntPower = 21;    // P0.21 SX126X_POWER_EN
@@ -183,6 +193,26 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 #endif
 #ifndef GW_HAS_OLED
 #define GW_HAS_OLED 0
+#endif
+// OLED wiring: -1 = the core's default Wire pins / no reset line.
+#ifndef GW_OLED_SDA
+#define GW_OLED_SDA -1
+#endif
+#ifndef GW_OLED_SCL
+#define GW_OLED_SCL -1
+#endif
+#ifndef GW_OLED_RST
+#define GW_OLED_RST -1
+#endif
+#ifndef GW_OLED_SH1106
+#define GW_OLED_SH1106 0
+#endif
+#ifndef GW_HAS_VBAT_ADC
+#define GW_HAS_VBAT_ADC 0
+#endif
+// Every ESP32 board has the BLE client link (ble_link_esp32.cpp).
+#if defined(ARDUINO_ARCH_ESP32) && !defined(GW_HAS_BLE)
+#define GW_HAS_BLE 1
 #endif
 #ifndef GW_HAS_PA_CURVE
 #define GW_HAS_PA_CURVE 0

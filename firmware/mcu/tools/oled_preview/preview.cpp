@@ -40,8 +40,12 @@ int main(int argc, char** argv) {
   s.rangeSent = 24;
   s.rangeDelivered = 22;
   s.rangeRssi = -97;
+  s.freqMHz = 914.875f;
+  s.region = "us915";
+  s.bleName = "GhostWave-34e1";
+  s.uptimeS = 3725;
   View v;
-  v.pages = 3;
+  v.pages = 4;
   v.version = "0.1.0-dev.9";
   v.passkey = "654321";
   v.msgFrom = 0x9f219dbb;
@@ -51,7 +55,8 @@ int main(int argc, char** argv) {
     Screen screen;
     uint8_t page;
   } shots[] = {{"1-splash", Screen::Splash, 0},       {"2-status", Screen::Status, 0},
-               {"3-neighbors", Screen::Neighbors, 1}, {"4-message", Screen::Message, 2},
+               {"2b-node", Screen::Node, 1},
+               {"3-neighbors", Screen::Neighbors, 2}, {"4-message", Screen::Message, 3},
                {"5-range", Screen::Range, 0},         {"6-passkey", Screen::Passkey, 0},
                {"7-sos", Screen::Sos, 0}};
   for (auto& sh : shots) {
@@ -69,6 +74,10 @@ int main(int argc, char** argv) {
   v.page = 0;
   render(c, s, v);
   save(c, dir + "/8-status-listening.pbm");
+  v.screen = Screen::Node;
+  v.page = 1;
+  render(c, s, v);
+  save(c, dir + "/8b-node-listening.pbm");
   s.sosOwn = false;
   s.sosHeard = 1;
   v.screen = Screen::Sos;

@@ -34,7 +34,7 @@ static bool sameTo(const ToRadio& a, const ToRadio& b) {
          a.clientMsgId == b.clientMsgId && a.nodeId == b.nodeId && a.ed25519Pub == b.ed25519Pub &&
          a.x25519Pub == b.x25519Pub && a.name == b.name && a.pos == b.pos &&
          a.batteryPct == b.batteryPct && a.accuracyM == b.accuracyM && a.channel == b.channel && a.psk == b.psk &&
-         a.clientShare == b.clientShare && a.pinProof == b.pinProof;
+         a.clientShare == b.clientShare && a.pinProof == b.pinProof && a.on == b.on;
 }
 
 static bool sameFrom(const FromRadio& a, const FromRadio& b) {
@@ -95,6 +95,10 @@ static std::vector<ToRadio> sampleTo() {
   m = {}, m.reqId = 18, m.kind = ToKind::SetName, m.name = "Ridge1";
   v.push_back(m);
   m = {}, m.reqId = 21, m.kind = ToKind::RequestKey, m.nodeId = 0x0A0B0C0D;   // 1.4
+  v.push_back(m);
+  m = {}, m.reqId = 22, m.kind = ToKind::SetTx, m.on = true;   // 1.8
+  v.push_back(m);
+  m = {}, m.reqId = 23, m.kind = ToKind::SetTx, m.on = false;   // an empty message, still SetTx
   v.push_back(m);
   m = {}, m.reqId = 19, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientName = "app", m.clientShare = Bytes(16, 7),
   m.pinProof = key(2);   // 1.2

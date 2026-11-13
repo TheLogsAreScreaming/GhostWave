@@ -514,7 +514,8 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
       }
       break;
     case ToKind::SetName:
-    case ToKind::RequestKey: break;
+    case ToKind::RequestKey:
+    case ToKind::SetTx: break;
     default: return false;
   }
   switch (m.kind) {
@@ -592,6 +593,19 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
         return true;
       }
       self_.name = m.name;
+      reply(c, req, FromKind::Ok);
+      return true;
+    }
+    case ToKind::SetTx: {
+      if (!hooks_.setTx) {
+        error(c, req, ErrorCode::UnknownRequest, "this node has no transmit switch");
+        return true;
+      }
+      if (!hooks_.setTx(m.on)) {
+        error(c, req, ErrorCode::SendFailed, "could not save the setting");
+        return true;
+      }
+      t_.log(std::string("client turned transmit ") + (m.on ? "on" : "off"));
       reply(c, req, FromKind::Ok);
       return true;
     }

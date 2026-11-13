@@ -14,6 +14,11 @@ constexpr int kPinLoraRst = 23;
 constexpr float kTcxoVolts = 1.8f;  // DIO3
 constexpr int kPinVext = -1;   // board power switch, -1 = none
 constexpr bool kVextOn = false;
+// Optional SSD1306 add-on on the shared I2C bus (SDA 21, SCL 22, with the
+// power chip); detected at boot, so a T-Beam without one just has no screen.
+#define GW_HAS_OLED 1
+#define GW_OLED_SDA 21
+#define GW_OLED_SCL 22
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0
 #define GW_HAS_BOARD_POWER 1
