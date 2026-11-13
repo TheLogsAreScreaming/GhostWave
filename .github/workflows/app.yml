@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: app-${{ github.ref }}
@@ -43,17 +43,6 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter pub get
-      - name: Apply Dart formatter to PR files
-        if: github.event_name == 'pull_request'
-        run: |
-          dart format lib/src/app/mesh_controller.dart lib/src/data/mesh_store.dart lib/src/ui/chat_screen.dart
-          if ! git diff --quiet -- lib/src/app/mesh_controller.dart lib/src/data/mesh_store.dart lib/src/ui/chat_screen.dart; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add lib/src/app/mesh_controller.dart lib/src/data/mesh_store.dart lib/src/ui/chat_screen.dart
-            git commit -m 'style(chat): apply Dart formatter'
-            git push origin HEAD:feat/chat-quick-replies-drafts-search
-          fi
       - name: Format
         run: dart format --output=none --set-exit-if-changed lib/main.dart lib/src/app lib/src/data lib/src/link lib/src/map lib/src/ui test
       - name: Analyze
