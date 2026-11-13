@@ -3,10 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
+import '../app/coverage.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../link/geo.dart';
 import '../map/offline_maps.dart';
+import '../data/coverage_sample.dart';
+import 'coverage_screen.dart' show coverageLook;
 import 'format.dart';
 import 'offline_maps_screen.dart';
 import 'tile_provider.dart';
@@ -38,6 +41,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _map = MapController();
   bool _fitted = false;
   bool _showTrails = true;
+  bool _showCoverage = true;
 
   /// Colour-blind-safe line colours (Okabe-Ito), one per trip contact.
   static const _trailColors = [
@@ -141,6 +145,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
     final focus = _focus;
     final own = mesh.ownPos;
+    final covState = ref.watch(coverageProvider);
+    final walk = covState.running ?? covState.walks.firstOrNull;
+    final covNow = DateTime.now().toUtc();
+    final coverage = walk == null
+        ? const <CoverageSample>[]
+        : [for (final p in walk.pings) sampleOf(walk, p, mesh.messages, covNow)];
     final trails = [
       for (final (i, e) in mesh.trails.entries.where((e) => e.value.length > 1).indexed)
         (
@@ -188,6 +198,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               icon: const Icon(Icons.route_outlined),
               selectedIcon: const Icon(Icons.route),
             ),
+          if (coverage.isNotEmpty)
+            IconButton(
+              tooltip: _showCoverage ? 'Hide coverage' : 'Show coverage',
+              isSelected: _showCoverage,
+              onPressed: () => setState(() => _showCoverage = !_showCoverage),
+              icon: const Icon(Icons.radar_outlined),
+              selectedIcon: const Icon(Icons.radar),
+            ),
           IconButton(tooltip: 'Show all', onPressed: () => _fit(pins), icon: const Icon(Icons.fit_screen)),
         ],
       ),
@@ -212,6 +230,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         color: t.color,
                         strokeWidth: 4,
                         borderColor: Colors.black54,
+                        borderStrokeWidth: 1,
+                      ),
+                  ],
+                ),
+              if (_showCoverage && coverage.isNotEmpty)
+                CircleLayer(
+                  circles: [
+                    for (final s in coverage)
+                      CircleMarker(
+                        point: ll.LatLng(s.latitude, s.longitude),
+                        radius: 7,
+                        color: coverageLook(s).$2,
+                        borderColor: Colors.black87,
                         borderStrokeWidth: 1,
                       ),
                   ],
@@ -262,6 +293,43 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           ],
                         ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+          if (_showCoverage && coverage.isNotEmpty)
+            Positioned(
+              right: 12,
+              bottom: 28,
+              child: Semantics(
+                container: true,
+                label: 'Coverage legend',
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Coverage: ${coverage.length} pings', style: Theme.of(context).textTheme.labelSmall),
+                        for (final (label, color) in const [
+                          ('strong', Color(0xFF009E73)),
+                          ('fair', Color(0xFFF0E442)),
+                          ('weak', Color(0xFFE69F00)),
+                          ('no reading', Color(0xFF56B4E9)),
+                          ('failed', Color(0xFFD55E00)),
+                          ('waiting', Color(0xFF9AA5B8)),
+                        ])
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.circle, size: 10, color: color),
+                              const SizedBox(width: 6),
+                              Text(label, style: Theme.of(context).textTheme.bodySmall),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
