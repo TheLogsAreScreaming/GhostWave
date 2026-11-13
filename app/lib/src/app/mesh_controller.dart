@@ -335,16 +335,18 @@ class MeshController extends Notifier<MeshState> {
     );
     final contacts = Map<int, Contact>.of(state.contacts);
     contacts[t.src] = (contacts[t.src] ?? Contact(nodeId: t.src)).copyWith(lastSeen: _now());
+    // a coverage walk's ping: kept in the chat, but no unread count or notification
+    final quiet = msg.text.startsWith('[Coverage] ');
     state = state.copyWith(
       messages: {
         ...state.messages,
         t.src: [...thread, msg],
       },
       contacts: contacts,
-      unread: {...state.unread, t.src: (state.unread[t.src] ?? 0) + 1},
+      unread: quiet ? null : {...state.unread, t.src: (state.unread[t.src] ?? 0) + 1},
     );
     _save();
-    if (!ref.read(appForegroundProvider)) {
+    if (!quiet && !ref.read(appForegroundProvider)) {
       unawaited(
         ref
             .read(meshAlertsProvider)
