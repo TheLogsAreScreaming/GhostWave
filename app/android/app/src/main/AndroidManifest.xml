@@ -48,7 +48,22 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Long-press shortcuts: SOS, Check in, Chats. They only open the app there. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+        <!-- Home-screen widget. The app pushes its text; it never polls. -->
+        <receiver
+            android:name=".StatusWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/ghostwave_widget_info" />
+        </receiver>
         <service
             android:name=".LinkForegroundService"
             android:exported="false"

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shortcut icon: check in (a check mark on navy). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#070B16" android:pathData="M24,2a22,22 0,1 1,0 44a22,22 0,1 1,0 -44z" />
+    <path android:fillColor="#00E5F5" android:pathData="M20.5,30.2l-6.4,-6.4l-2.4,2.4l8.8,8.8l16,-16l-2.4,-2.4z" />
+</vector>

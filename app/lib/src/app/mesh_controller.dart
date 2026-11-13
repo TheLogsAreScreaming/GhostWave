@@ -688,14 +688,35 @@ class MeshController extends Notifier<MeshState> {
   void setDraft(int peer, String text) {
     if (state.nodeId == null || state.drafts[peer] == text) return;
     final drafts = Map<int, String>.of(state.drafts);
-    if (text.isEmpty) { drafts.remove(peer); } else { drafts[peer] = text; }
+    if (text.isEmpty) {
+      drafts.remove(peer);
+    } else {
+      drafts[peer] = text;
+    }
     state = state.copyWith(drafts: drafts);
     _save();
   }
 
+  /// Deletes every DM and channel message, and unsent drafts, on this phone.
+  /// Contacts, channels and SOS records stay; the node keeps its own data.
+  void deleteAllMessages() {
+    state = state.copyWith(
+      messages: const {},
+      unread: const {},
+      channelMessages: const {},
+      channelUnread: const {},
+      drafts: const {},
+    );
+    _flushSave();
+  }
+
   /// Deletes the whole conversation with [peer] (on this phone only).
   void deleteThread(int peer) {
-    state = state.copyWith(messages: {...state.messages}..remove(peer), unread: {...state.unread}..remove(peer), drafts: {...state.drafts}..remove(peer));
+    state = state.copyWith(
+      messages: {...state.messages}..remove(peer),
+      unread: {...state.unread}..remove(peer),
+      drafts: {...state.drafts}..remove(peer),
+    );
     _save();
   }
 

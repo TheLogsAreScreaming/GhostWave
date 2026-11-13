@@ -100,10 +100,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final contact = mesh.contacts[widget.peer];
     final allMessages = groupThread(mesh.messages[widget.peer] ?? const <ChatMessage>[]);
     final query = _search.text.trim().toLowerCase();
-    final msgs = query.isEmpty ? allMessages : allMessages.where((item) => switch (item) {
-      SingleItem(message: final m) => m.text.toLowerCase().contains(query),
-      LongMessageItem() => item.text.toLowerCase().contains(query),
-    }).toList();
+    final msgs = query.isEmpty
+        ? allMessages
+        : allMessages
+              .where(
+                (item) => switch (item) {
+                  SingleItem(message: final m) => m.text.toLowerCase().contains(query),
+                  LongMessageItem() => item.text.toLowerCase().contains(query),
+                },
+              )
+              .toList();
     final bytes = utf8Length(_text.text.trim());
     final reportedMax = ref.watch(nodeInfoProvider.select((info) => info?.maxTextBytes ?? 0));
     final max = reportedMax == 0 ? kDefaultMaxTextBytes : reportedMax;
@@ -183,11 +189,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search),
                     hintText: 'Search this conversation',
-                    suffixIcon: query.isEmpty ? null : IconButton(
-                      tooltip: 'Clear search',
-                      onPressed: () => setState(_search.clear),
-                      icon: const Icon(Icons.clear),
-                    ),
+                    suffixIcon: query.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            onPressed: () => setState(_search.clear),
+                            icon: const Icon(Icons.clear),
+                          ),
                   ),
                 ),
               ),

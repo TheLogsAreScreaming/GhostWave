@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shortcut icon: SOS (a warning triangle on red). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#C62828" android:pathData="M24,2a22,22 0,1 1,0 44a22,22 0,1 1,0 -44z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M24,12l12,22h-24z" />
+    <path android:fillColor="#C62828" android:pathData="M22.6,19h2.8v8h-2.8zM22.6,29h2.8v2.8h-2.8z" />
+</vector>

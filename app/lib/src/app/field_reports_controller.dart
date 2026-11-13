@@ -111,6 +111,9 @@ class FieldReportsController extends Notifier<FieldReportsState> {
     if (r != null && r.notes != notes) update(r.copyWith(notes: notes));
   }
 
+  /// Deletes every saved report.
+  void deleteAll() => _set(const []);
+
   /// Deletes report [id].
   void delete(String id) => _set([
     for (final r in state.reports)

@@ -65,7 +65,9 @@ class StoredMesh {
           if (GroupChannel.fromJson(m(c)) case final ch) ch.name: ch,
       },
       channelMessages: channelMessages,
-      drafts: (j['drafts'] as Map<Object?, Object?>? ?? const {}).map((k, v) => MapEntry(int.parse(k as String), v as String)),
+      drafts: (j['drafts'] as Map<Object?, Object?>? ?? const {}).map(
+        (k, v) => MapEntry(int.parse(k as String), v as String),
+      ),
     );
   }
 
