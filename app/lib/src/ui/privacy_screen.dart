@@ -83,6 +83,11 @@ class PrivacyScreen extends ConsumerWidget {
                     'Trip plan and your check-ins',
                     'Who you check in with, reminder settings, and which check-ins you sent.',
                   ),
+                  (
+                    Icons.route_outlined,
+                    'Trails',
+                    'Only during a trip: your position and your trip contacts\', for 24 hours, encrypted with your chats.',
+                  ),
                   (Icons.map_outlined, 'Offline maps', 'Map tiles for areas you saved.'),
                   (Icons.tune, 'Settings', 'Units, the node address, and the like.'),
                 ]),

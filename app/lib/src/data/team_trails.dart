@@ -79,9 +79,7 @@ List<TrailFix> addTrailFix(List<TrailFix> track, TrailFix fix, DateTime now) {
   if (track.any((p) => p.at.isAtSameMomentAs(stamp))) return track;
   if (track.isNotEmpty) {
     final last = track.last;
-    if (!stamp.isBefore(last.at) &&
-        stamp.difference(last.at) < kTrailMinGap &&
-        _metres(last, fix) < kTrailMinMetres) {
+    if (!stamp.isBefore(last.at) && stamp.difference(last.at) < kTrailMinGap && _metres(last, fix) < kTrailMinMetres) {
       return track;
     }
   }

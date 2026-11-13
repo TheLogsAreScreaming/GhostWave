@@ -12,6 +12,23 @@ import 'history_crypto.dart';
 import 'models.dart';
 import 'team_trails.dart';
 
+/// Trails from [toJson]'s `trails`; anything malformed is dropped.
+Map<int, List<TrailFix>> _trailsFromJson(Object? j) {
+  final out = <int, List<TrailFix>>{};
+  if (j is! Map) return out;
+  for (final MapEntry(:key, :value) in j.entries) {
+    final id = int.tryParse('$key');
+    if (id == null || value is! List) continue;
+    final fixes = <TrailFix>[];
+    for (final p in value) {
+      final f = TrailFix.fromJson(p);
+      if (f != null) fixes.add(f);
+    }
+    if (fixes.isNotEmpty) out[id] = fixes;
+  }
+  return out;
+}
+
 /// Why a node's saved history did not load.
 enum HistoryProblem {
   /// It loaded, or there was none.
@@ -70,14 +87,7 @@ class StoredMesh {
       drafts: (j['drafts'] as Map<Object?, Object?>? ?? const {}).map(
         (k, v) => MapEntry(int.parse(k as String), v as String),
       ),
-      trails: {
-        for (final MapEntry(:key, :value) in (j['trails'] as Map<Object?, Object?>? ?? const {}).entries)
-          if (int.tryParse('$key') case final id?)
-            id: [
-              for (final p in (value as List<Object?>?) ?? const <Object?>[])
-                if (TrailFix.fromJson(p) case final f?) f,
-            ],
-      },
+      trails: _trailsFromJson(j['trails']),
     );
   }
 

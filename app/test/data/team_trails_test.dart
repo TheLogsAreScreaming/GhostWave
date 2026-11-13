@@ -5,17 +5,9 @@ void main() {
   final now = DateTime.utc(2026, 11, 12, 20);
   test('24 hour cutoff, duplicate fixes and invalid coordinates', () {
     final trails = TeamTrails();
-    trails.record(
-      1,
-      TrailFix(latitude: 41, longitude: -73, at: now.subtract(const Duration(hours: 25))),
-      now: now,
-    );
+    trails.record(1, TrailFix(latitude: 41, longitude: -73, at: now.subtract(const Duration(hours: 25))), now: now);
     trails.record(1, TrailFix(latitude: 91, longitude: -73, at: now), now: now);
-    final fix = TrailFix(
-      latitude: 41,
-      longitude: -73,
-      at: now.subtract(const Duration(minutes: 5)),
-    );
+    final fix = TrailFix(latitude: 41, longitude: -73, at: now.subtract(const Duration(minutes: 5)));
     trails.record(1, fix, now: now);
     trails.record(1, fix, now: now);
     expect(trails.snapshot(now: now)[1], hasLength(1));
