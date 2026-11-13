@@ -37,6 +37,17 @@ class _Pin {
 class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _map = MapController();
   bool _fitted = false;
+  bool _showTrails = true;
+
+  /// Colour-blind-safe line colours (Okabe-Ito), one per trip contact.
+  static const _trailColors = [
+    Color(0xFFE69F00),
+    Color(0xFF56B4E9),
+    Color(0xFF009E73),
+    Color(0xFFF0E442),
+    Color(0xFFD55E00),
+    Color(0xFFCC79A7),
+  ];
   MapFocus? _focus;
   OfflineFirstTileProvider? _tiles;
   Object? _tilesKey;
@@ -130,6 +141,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
     final focus = _focus;
     final own = mesh.ownPos;
+    final trails = [
+      for (final (i, e) in mesh.trails.entries.where((e) => e.value.length > 1).indexed)
+        (
+          id: e.key,
+          name: e.key == mesh.nodeId ? 'You' : mesh.nameOf(e.key),
+          color: e.key == mesh.nodeId ? GwColors.mapMe : _trailColors[i % _trailColors.length],
+          points: [for (final p in e.value) ll.LatLng(p.latitude, p.longitude)],
+        ),
+    ];
     if (!_fitted && pins.isNotEmpty) {
       _fitted = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -160,6 +180,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 : _saveArea,
             icon: const Icon(Icons.download_for_offline_outlined),
           ),
+          if (trails.isNotEmpty)
+            IconButton(
+              tooltip: _showTrails ? 'Hide trails' : 'Show trails',
+              isSelected: _showTrails,
+              onPressed: () => setState(() => _showTrails = !_showTrails),
+              icon: const Icon(Icons.route_outlined),
+              selectedIcon: const Icon(Icons.route),
+            ),
           IconButton(tooltip: 'Show all', onPressed: () => _fit(pins), icon: const Icon(Icons.fit_screen)),
         ],
       ),
@@ -175,6 +203,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 tileProvider: _tileProvider(ref.read(offlineStoreProvider), source.urlTemplate, off.regions),
                 maxZoom: 19,
               ),
+              if (_showTrails && trails.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    for (final t in trails)
+                      Polyline(
+                        points: t.points,
+                        color: t.color,
+                        strokeWidth: 4,
+                        borderColor: Colors.black54,
+                        borderStrokeWidth: 1,
+                      ),
+                  ],
+                ),
               MarkerLayer(
                 markers: [
                   for (final p in pins)
@@ -199,6 +240,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               SimpleAttributionWidget(source: Text(source.attributionText)),
             ],
           ),
+          if (_showTrails && trails.isNotEmpty)
+            Positioned(
+              left: 12,
+              bottom: 28,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Trails, last 24 h', style: Theme.of(context).textTheme.labelSmall),
+                      for (final t in trails)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(width: 16, height: 4, color: t.color),
+                            const SizedBox(width: 6),
+                            Text(t.name, style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (pins.isEmpty && focus == null)
             Positioned(
               top: 12,
