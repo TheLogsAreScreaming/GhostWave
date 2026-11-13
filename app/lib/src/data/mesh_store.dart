@@ -10,6 +10,7 @@ import 'package:cryptography/cryptography.dart';
 import '../link/contact_card.dart';
 import 'history_crypto.dart';
 import 'models.dart';
+import 'team_trails.dart';
 
 /// Why a node's saved history did not load.
 enum HistoryProblem {
@@ -35,6 +36,7 @@ class StoredMesh {
     this.channels = const {},
     this.channelMessages = const {},
     this.drafts = const {},
+    this.trails = const {},
     this.problem = HistoryProblem.none,
   });
 
@@ -68,6 +70,14 @@ class StoredMesh {
       drafts: (j['drafts'] as Map<Object?, Object?>? ?? const {}).map(
         (k, v) => MapEntry(int.parse(k as String), v as String),
       ),
+      trails: {
+        for (final MapEntry(:key, :value) in (j['trails'] as Map<Object?, Object?>? ?? const {}).entries)
+          if (int.tryParse('$key') case final id?)
+            id: [
+              for (final p in (value as List<Object?>?) ?? const <Object?>[])
+                if (TrailFix.fromJson(p) case final f?) f,
+            ],
+      },
     );
   }
 
@@ -92,6 +102,9 @@ class StoredMesh {
   /// Unsent DM text, encrypted with the node's history.
   final Map<int, String> drafts;
 
+  /// 24-hour trails of trip contacts and this node, oldest point first.
+  final Map<int, List<TrailFix>> trails;
+
   /// Why this snapshot is empty, if the saved one could not be read. Not saved.
   final HistoryProblem problem;
 
@@ -107,6 +120,10 @@ class StoredMesh {
     'ownSos': ownSos.toJson(),
     'channels': [for (final c in channels.values) c.toJson()],
     'drafts': {for (final e in drafts.entries) '${e.key}': e.value},
+    if (trails.isNotEmpty)
+      'trails': {
+        for (final e in trails.entries) '${e.key}': [for (final p in e.value) p.toJson()],
+      },
     'channelMessages': [
       for (final l in channelMessages.values)
         for (final msg in l) msg.toJson(),
