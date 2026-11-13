@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ghostwave/src/app/local_alert_engine.dart';
+import 'package:ghostwave_app/src/app/local_alert_engine.dart';
 
 void main() {
   test('battery alerts on threshold crossings only and rearms after recovery', () {
