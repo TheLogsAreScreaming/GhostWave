@@ -40,10 +40,12 @@ object GhostWaveEngine {
             override fun onEngineWillDestroy() {
                 engine = null
                 channel = null
+                HomeSurfaces.detach()
             }
         })
         val methods = MethodChannel(created.dartExecutor.binaryMessenger, CHANNEL)
         methods.setMethodCallHandler { call, result -> handle(app, call, result) }
+        HomeSurfaces.attach(app, created.dartExecutor.binaryMessenger)
         engine = created
         channel = methods
         return created

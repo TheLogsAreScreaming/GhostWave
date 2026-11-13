@@ -19,6 +19,14 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         GhostWaveEngine.activityAttached = true
         super.onCreate(savedInstanceState)
+        // a shortcut or the widget opened us at a place (not on a rotation restart)
+        if (savedInstanceState == null) HomeSurfaces.actionOf(intent)?.let(HomeSurfaces::deliver)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        HomeSurfaces.actionOf(intent)?.let(HomeSurfaces::deliver)
     }
 
     override fun provideFlutterEngine(context: Context): FlutterEngine = GhostWaveEngine.obtain(context)
