@@ -37,6 +37,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _search = TextEditingController();
   bool _searching = false;
   int? _loadedNode;
+  bool _restoringDraft = false;
   static const _quickReplies = ['Received', 'On my way', 'I’m OK', 'Need assistance'];
 
   @override
@@ -49,7 +50,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _onDraftChanged() {
-    if (!mounted) return;
+    if (!mounted || _restoringDraft) return;
     setState(() {});
     if (_loadedNode != null) ref.read(meshProvider.notifier).setDraft(widget.peer, _text.text);
   }
@@ -57,8 +58,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _restoreDraft(MeshState mesh) {
     if (mesh.nodeId == null || _loadedNode == mesh.nodeId) return;
     _loadedNode = mesh.nodeId;
+    _restoringDraft = true;
     _text.text = mesh.drafts[widget.peer] ?? '';
     _text.selection = TextSelection.collapsed(offset: _text.text.length);
+    _restoringDraft = false;
   }
 
   @override
@@ -97,7 +100,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final contact = mesh.contacts[widget.peer];
     final allMessages = groupThread(mesh.messages[widget.peer] ?? const <ChatMessage>[]);
     final query = _search.text.trim().toLowerCase();
-    final msgs = query.isEmpty ? allMessages : allMessages.where((item) => item.text.toLowerCase().contains(query)).toList();
+    final msgs = query.isEmpty ? allMessages : allMessages.where((item) => switch (item) {
+      SingleItem(message: final m) => m.text.toLowerCase().contains(query),
+      LongMessageItem() => item.text.toLowerCase().contains(query),
+    }).toList();
     final bytes = utf8Length(_text.text.trim());
     final reportedMax = ref.watch(nodeInfoProvider.select((info) => info?.maxTextBytes ?? 0));
     final max = reportedMax == 0 ? kDefaultMaxTextBytes : reportedMax;
