@@ -677,6 +677,13 @@ class MeshController extends Notifier<MeshState> {
     _save();
   }
 
+  /// Deletes every DM and channel message on this phone. Contacts, channels
+  /// and SOS records stay; the node keeps its own data.
+  void deleteAllMessages() {
+    state = state.copyWith(messages: const {}, unread: const {}, channelMessages: const {}, channelUnread: const {});
+    _flushSave();
+  }
+
   /// Deletes the whole conversation with [peer] (on this phone only).
   void deleteThread(int peer) {
     state = state.copyWith(messages: {...state.messages}..remove(peer), unread: {...state.unread}..remove(peer));

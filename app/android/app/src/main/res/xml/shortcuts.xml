@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the app icon. Each only opens the app there: SOS still needs the hold. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="sos"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_sos"
+        android:shortcutShortLabel="@string/shortcut_sos"
+        android:shortcutLongLabel="@string/shortcut_sos_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="ghostwave://open/sos"
+            android:targetPackage="org.ghostwave.ghostwave_app"
+            android:targetClass="org.ghostwave.ghostwave_app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="checkin"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_checkin"
+        android:shortcutShortLabel="@string/shortcut_checkin"
+        android:shortcutLongLabel="@string/shortcut_checkin_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="ghostwave://open/checkin"
+            android:targetPackage="org.ghostwave.ghostwave_app"
+            android:targetClass="org.ghostwave.ghostwave_app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="chats"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_chats"
+        android:shortcutShortLabel="@string/shortcut_chats"
+        android:shortcutLongLabel="@string/shortcut_chats_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="ghostwave://open/chats"
+            android:targetPackage="org.ghostwave.ghostwave_app"
+            android:targetClass="org.ghostwave.ghostwave_app.MainActivity" />
+    </shortcut>
+</shortcuts>
