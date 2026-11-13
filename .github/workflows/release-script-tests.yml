@@ -1,0 +1,19 @@
+name: Release script tests
+on:
+  pull_request:
+    paths: ['scripts/release.py', 'scripts/test-release.py', '.github/workflows/release-script-tests.yml']
+  push:
+    branches: [main]
+    paths: ['scripts/release.py', 'scripts/test-release.py', '.github/workflows/release-script-tests.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: '3.12'
+      - run: python3 scripts/test-release.py
+      - run: python3 scripts/release.py --help

@@ -1,6 +1,6 @@
 # Flasher release synchronization
 
-Status: planning draft. Implementation and verification are pending.
+Status: built: `scripts/release.py --site` rebuilds the flasher and opens the site pull request (docs/RELEASING.md). Deploying stays manual.
 
 ## Scope
 

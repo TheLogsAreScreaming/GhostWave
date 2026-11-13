@@ -1,6 +1,6 @@
 # Firmware release automation
 
-Status: planning draft. Implementation and verification are pending.
+Status: built: `scripts/release.py` (see docs/RELEASING.md). Dry run by default; `--publish` releases firmware and app.
 
 ## Scope
 
