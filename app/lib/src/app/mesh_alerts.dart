@@ -25,6 +25,10 @@ abstract interface class MeshAlerts {
 
   /// A trip reminder or overdue warning. The same [id] replaces the last one.
   Future<void> tripAlert({required int id, required String title, required String body});
+
+  /// About your own radio or who it hears (battery, a new node). The same
+  /// [id] replaces the last one.
+  Future<void> radioAlert({required int id, required String title, required String body});
 }
 
 /// [MeshAlerts] that shows nothing (tests, unsupported platforms).
@@ -46,6 +50,9 @@ class NoMeshAlerts implements MeshAlerts {
 
   @override
   Future<void> tripAlert({required int id, required String title, required String body}) async {}
+
+  @override
+  Future<void> radioAlert({required int id, required String title, required String body}) async {}
 }
 
 /// The notifier the mesh controller calls; overridden in `main`.
@@ -139,6 +146,24 @@ class LocalMeshAlerts implements MeshAlerts {
     importance: Importance.high,
     priority: Priority.high,
     category: AndroidNotificationCategory.reminder,
+  );
+
+  static const _radio = AndroidNotificationDetails(
+    'radio',
+    'Radio alerts',
+    channelDescription: 'Your radio battery and nodes heard for the first time',
+    importance: Importance.defaultImportance,
+    priority: Priority.defaultPriority,
+    category: AndroidNotificationCategory.status,
+  );
+
+  @override
+  Future<void> radioAlert({required int id, required String title, required String body}) => _plugin.show(
+    // negative like trip alerts, in their own half: bit 30 set
+    id: -1 - ((id & 0x3FFFFFFF) | 0x40000000),
+    title: title,
+    body: body,
+    notificationDetails: const NotificationDetails(android: _radio, iOS: DarwinNotificationDetails()),
   );
 
   @override
