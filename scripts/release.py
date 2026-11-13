@@ -310,7 +310,9 @@ def main():
     if a.skip_firmware or not fw_new:
         print(f'firmware {fw_version}: ' + ('skipped' if a.skip_firmware else 'already released, skipped'))
         fw_new = False
-    runs = runs_for(commit, ['ci', 'app', *(['boards'] if fw_new else [])])
+    # the App workflow skips firmware-only commits, so an app build is only
+    # required when the app is being released
+    runs = runs_for(commit, ['ci', *([] if a.skip_app else ['app']), *(['boards'] if fw_new else [])])
     nrf, boards = stage_firmware(commit, fw_version, runs, tags, a.out) if fw_new else ([], None)
     app_version, app = (None, None) if a.skip_app else stage_app(commit, runs, tags, a.out, a.app_version)
     flasher = build_flasher(a.out) if a.site else None
