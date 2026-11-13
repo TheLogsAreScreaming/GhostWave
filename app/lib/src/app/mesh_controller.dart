@@ -77,7 +77,10 @@ class MeshState {
   /// Unread channel messages by channel.
   final Map<String, int> channelUnread;
 
-  /// Unsent drafts per DM peer.\n  final Map<int, String> drafts;\n\n  /// Why this node's saved history did not load, if it didn't.
+  /// Unsent drafts per DM peer.
+  final Map<int, String> drafts;
+
+  /// Why this node's saved history did not load, if it didn't.
   final HistoryProblem historyProblem;
 
   /// Whether the connected node reports that it is not transmitting.
@@ -681,7 +684,16 @@ class MeshController extends Notifier<MeshState> {
     _save();
   }
 
-  /// Saves an unsent draft in the encrypted node history.\n  void setDraft(int peer, String text) {\n    if (state.nodeId == null || state.drafts[peer] == text) return;\n    final drafts = Map<int, String>.of(state.drafts);\n    if (text.isEmpty) { drafts.remove(peer); } else { drafts[peer] = text; }\n    state = state.copyWith(drafts: drafts);\n    _save();\n  }\n\n  /// Deletes the whole conversation with [peer] (on this phone only).
+  /// Saves an unsent draft in the encrypted node history.
+  void setDraft(int peer, String text) {
+    if (state.nodeId == null || state.drafts[peer] == text) return;
+    final drafts = Map<int, String>.of(state.drafts);
+    if (text.isEmpty) { drafts.remove(peer); } else { drafts[peer] = text; }
+    state = state.copyWith(drafts: drafts);
+    _save();
+  }
+
+  /// Deletes the whole conversation with [peer] (on this phone only).
   void deleteThread(int peer) {
     state = state.copyWith(messages: {...state.messages}..remove(peer), unread: {...state.unread}..remove(peer), drafts: {...state.drafts}..remove(peer));
     _save();
