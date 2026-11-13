@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/mesh_store.dart';
 import '../data/message_split.dart';
 import '../data/models.dart';
+import '../data/team_trails.dart';
 import '../data/trip.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import '../link/contact_card.dart';
@@ -40,6 +41,7 @@ class MeshState {
     this.channelMessages = const {},
     this.channelUnread = const {},
     this.drafts = const {},
+    this.trails = const {},
     this.historyProblem = HistoryProblem.none,
     this.txOff = false,
   });
@@ -80,6 +82,9 @@ class MeshState {
   /// Unsent drafts per DM peer.
   final Map<int, String> drafts;
 
+  /// 24-hour trails of trip contacts and this node (see trailsRecorderProvider).
+  final Map<int, List<TrailFix>> trails;
+
   /// Why this node's saved history did not load, if it didn't.
   final HistoryProblem historyProblem;
 
@@ -116,6 +121,7 @@ class MeshState {
     Map<String, List<ChannelMessage>>? channelMessages,
     Map<String, int>? channelUnread,
     Map<int, String>? drafts,
+    Map<int, List<TrailFix>>? trails,
     bool? txOff,
   }) => MeshState(
     nodeId: nodeId ?? this.nodeId,
@@ -130,6 +136,7 @@ class MeshState {
     channelMessages: channelMessages ?? this.channelMessages,
     channelUnread: channelUnread ?? this.channelUnread,
     drafts: drafts ?? this.drafts,
+    trails: trails ?? this.trails,
     historyProblem: historyProblem,
     txOff: txOff ?? this.txOff,
   );
@@ -194,6 +201,7 @@ class MeshController extends Notifier<MeshState> {
         channels: saved.channels,
         channelMessages: saved.channelMessages,
         drafts: saved.drafts,
+        trails: pruneTrails(saved.trails, _now()),
         historyProblem: saved.problem,
       );
     }
@@ -705,6 +713,26 @@ class MeshController extends Notifier<MeshState> {
     _save();
   }
 
+  /// Adds a real position to [id]'s 24-hour trail (thinned, capped). Saved
+  /// with the encrypted history. No-op before a node is connected.
+  void recordTrail(int id, LatLon pos, DateTime at) => recordTrailAt(id, pos.lat, pos.lon, at);
+
+  /// [recordTrail] with plain coordinates.
+  void recordTrailAt(int id, double lat, double lon, DateTime at) {
+    if (state.nodeId == null) return;
+    final before = state.trails[id] ?? const <TrailFix>[];
+    final after = addTrailFix(before, TrailFix(latitude: lat, longitude: lon, at: at), _now());
+    if (identical(before, after)) return;
+    state = state.copyWith(trails: {...state.trails, id: after});
+    _save();
+  }
+
+  /// Forgets every trail on this phone.
+  void clearTrails() {
+    state = state.copyWith(trails: const {});
+    _flushSave();
+  }
+
   /// Saves an unsent draft in the encrypted node history.
   void setDraft(int peer, String text) {
     if (state.nodeId == null || state.drafts[peer] == text) return;
@@ -1032,6 +1060,7 @@ class MeshController extends Notifier<MeshState> {
       channels: _snap.channels,
       channelMessages: _snap.channelMessages,
       drafts: _snap.drafts,
+      trails: _snap.trails,
     );
     // a failed write (disk full, app dir gone) must not crash the app; the
     // next change tries again
