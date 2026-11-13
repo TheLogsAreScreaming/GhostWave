@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
   s.uptimeS = 3725;
   View v;
   v.pages = 4;
-  v.version = "0.1.0-dev.9";
+  v.version = "0.1.0-dev.10";
   v.passkey = "654321";
   v.msgFrom = 0x9f219dbb;
   v.msg = "At the north trailhead, heading up the ridge. Back by 6.";
