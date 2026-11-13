@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/mesh_store.dart';
 import '../data/message_split.dart';
 import '../data/models.dart';
+import '../data/node_journal.dart';
 import '../data/team_trails.dart';
 import '../data/trip.dart';
 import '../gen/ghostwave.pb.dart' as pb;
@@ -42,6 +43,7 @@ class MeshState {
     this.channelUnread = const {},
     this.drafts = const {},
     this.trails = const {},
+    this.journal = const NodeJournal(),
     this.historyProblem = HistoryProblem.none,
     this.txOff = false,
   });
@@ -85,6 +87,9 @@ class MeshState {
   /// 24-hour trails of trip contacts and this node (see trailsRecorderProvider).
   final Map<int, List<TrailFix>> trails;
 
+  /// Every node heard while connected to this node (the node journal).
+  final NodeJournal journal;
+
   /// Why this node's saved history did not load, if it didn't.
   final HistoryProblem historyProblem;
 
@@ -122,6 +127,7 @@ class MeshState {
     Map<String, int>? channelUnread,
     Map<int, String>? drafts,
     Map<int, List<TrailFix>>? trails,
+    NodeJournal? journal,
     bool? txOff,
   }) => MeshState(
     nodeId: nodeId ?? this.nodeId,
@@ -137,6 +143,7 @@ class MeshState {
     channelUnread: channelUnread ?? this.channelUnread,
     drafts: drafts ?? this.drafts,
     trails: trails ?? this.trails,
+    journal: journal ?? this.journal,
     historyProblem: historyProblem,
     txOff: txOff ?? this.txOff,
   );
@@ -189,7 +196,10 @@ class MeshController extends Notifier<MeshState> {
     listenSelf((_, next) => _snap = next);
     final evSub = link.events.listen(_onEvent);
     final stSub = link.states.listen(_onState);
-    final hbSub = link.heartbeats.listen(_applyTxOff);
+    final hbSub = link.heartbeats.listen((s) {
+      _applyTxOff(s);
+      _markListening();
+    });
     ref.onDispose(() {
       unawaited(evSub.cancel());
       unawaited(stSub.cancel());
@@ -220,6 +230,7 @@ class MeshController extends Notifier<MeshState> {
         channelMessages: saved.channelMessages,
         drafts: saved.drafts,
         trails: pruneTrails(saved.trails, _now()),
+        journal: saved.journal.markListening(_now()),
         historyProblem: saved.problem,
       );
     }
@@ -303,6 +314,7 @@ class MeshController extends Notifier<MeshState> {
   // ---------------------------------------------------------------- events --
 
   void _onEvent(pb.FromRadio e) {
+    _logHeard(e);
     switch (e.whichEvent()) {
       case pb.FromRadio_Event.text:
         _onText(e.text, replayed: e.replayed);
@@ -349,6 +361,80 @@ class MeshController extends Notifier<MeshState> {
       default:
         break;
     }
+  }
+
+  // ------------------------------------------------------------- journal --
+
+  /// Counts this hour as one the app was listening in (heartbeats arrive
+  /// while the link is up).
+  void _markListening() {
+    if (state.nodeId == null) return;
+    final next = state.journal.markListening(_now());
+    if (identical(next, state.journal)) return;
+    state = state.copyWith(journal: next);
+    _save();
+  }
+
+  /// Adds the sender of [e], if it has one, to the node journal.
+  void _logHeard(pb.FromRadio e) {
+    final own = state.nodeId;
+    if (own == null) return;
+    final timed = !e.replayed;
+    void log(int id, HeardVia via, {LatLon? pos, int? rssi, String? name}) {
+      if (id == 0 || id == 0xFFFFFFFF || id == own) return;
+      state = state.copyWith(
+        journal: state.journal.record(id, _now(), via, pos: pos, rssiDbm: rssi, name: name, timed: timed),
+      );
+      _save();
+    }
+
+    switch (e.whichEvent()) {
+      case pb.FromRadio_Event.neighbor:
+        final n = e.neighbor;
+        log(
+          n.nodeId,
+          HeardVia.beacon,
+          pos: n.hasPos() ? LatLon.fromProto(n.pos) : null,
+          rssi: n.hasRssiDbm() ? n.rssiDbm : null,
+        );
+      case pb.FromRadio_Event.text:
+        final t = e.text;
+        // a replayed message may already be in the chat: count it once
+        if ((state.messages[t.src] ?? const <ChatMessage>[]).any((m) => !m.outgoing && m.msgId == t.msgId)) return;
+        log(t.src, HeardVia.direct, rssi: t.hasRssiDbm() ? t.rssiDbm : null);
+      case pb.FromRadio_Event.channelMessage:
+        final c = e.channelMessage;
+        final thread = state.channelMessages[c.channel] ?? const <ChannelMessage>[];
+        if (thread.any((m) => !m.outgoing && m.src == c.src && m.msgId == c.msgId)) return;
+        log(c.src, HeardVia.channel, rssi: c.hasRssiDbm() ? c.rssiDbm : null);
+      case pb.FromRadio_Event.sos:
+        final a = e.sos;
+        final known = state.alerts.where((x) => x.src == a.src).firstOrNull;
+        if (known != null && known.seq >= a.seq) return;
+        log(a.src, HeardVia.sos, pos: a.hasPos() ? LatLon.fromProto(a.pos) : null);
+      case pb.FromRadio_Event.peerIdent:
+        log(e.peerIdent.nodeId, HeardVia.ident, name: decodeLenient(e.peerIdent.name));
+      default:
+        break;
+    }
+  }
+
+  /// Replaces the user's tags on [nodeId]'s journal entry.
+  void setJournalTags(int nodeId, Iterable<String> tags) {
+    state = state.copyWith(journal: state.journal.withTags(nodeId, tags));
+    _save();
+  }
+
+  /// Replaces the user's note on [nodeId]'s journal entry.
+  void setJournalNote(int nodeId, String note) {
+    state = state.copyWith(journal: state.journal.withNote(nodeId, note));
+    _save();
+  }
+
+  /// Removes [nodeId] from the journal (it is logged again if heard again).
+  void forgetJournalEntry(int nodeId) {
+    state = state.copyWith(journal: state.journal.forget(nodeId));
+    _save();
   }
 
   void _onText(pb.TextMessage t, {required bool replayed}) {
@@ -1124,6 +1210,7 @@ class MeshController extends Notifier<MeshState> {
       channelMessages: _snap.channelMessages,
       drafts: _snap.drafts,
       trails: _snap.trails,
+      journal: _snap.journal,
     );
     // a failed write (disk full, app dir gone) must not crash the app; the
     // next change tries again

@@ -20,11 +20,14 @@ import 'package:ghostwave_app/src/app/mesh_controller.dart';
 import 'package:ghostwave_app/src/app/providers.dart';
 import 'package:ghostwave_app/src/data/mesh_store.dart';
 import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
+import 'package:ghostwave_app/src/ui/node_journal_screen.dart';
+import 'package:ghostwave_app/src/ui/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/mesh_controller_test.dart' show answeringNode;
 import 'link/fake_node.dart';
 import 'support/history_keys.dart';
+import 'support/journal_seed.dart';
 
 final String? _outDir = Platform.environment['SCREENSHOT_DIR'];
 
@@ -193,6 +196,38 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
     await _shot(tester, key, 'status');
+  });
+
+  testWidgets('node journal list and node page', skip: skip != false, (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final key = GlobalKey();
+    tester.view.physicalSize = const Size(412, 892) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: key,
+        child: ProviderScope(
+          overrides: [
+            sharedPrefsProvider.overrideWithValue(prefs),
+            clockProvider.overrideWithValue(() => now),
+            meshProvider.overrideWith(() => SeededMesh(journalSeedState(now))),
+          ],
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: buildGhostWaveTheme(),
+            home: const NodeJournalScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await _shot(tester, key, 'journal');
+    await tester.tap(find.text('Rover'));
+    await tester.pumpAndSettle();
+    await _shot(tester, key, 'journal_node');
   });
 
   testWidgets('desktop width', skip: skip != false, (tester) async {
