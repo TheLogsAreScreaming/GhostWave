@@ -1,9 +1,17 @@
 # Coverage Explorer — implementation contract
 
-Status: **foundation only**. This branch introduces the typed measurement model,
-CSV serialization and unit tests. It does **not** yet send test packets, collect
-live GPS, render map markers, or change firmware. Do not advertise field-tested
-coverage until these pieces are implemented and verified.
+Status: **built in the app** (Status → Field tests → Coverage walk). Host-tested
+with a fake GPS and a fake node; **not yet walked with real radios**. No
+firmware change: pings are encrypted DMs (`[Coverage] N`) and results come from
+their delivery receipts.
+
+What it does today: one destination per walk, a ping every 30 s, 1 min or 2 min
+from the phone's own fix (a fix older than 30 s is not used, and that ping is
+counted as skipped), pending until a receipt or 3 minutes (then failed; a late
+receipt still turns it delivered), signal only from a real receipt, dots on the
+Map with a legend, CSV export, delete. Walks are kept in a private file on the
+phone; a walk left running when the app closed is ended on the next start. The
+receiving app keeps pings in the chat but does not notify or count them unread.
 
 ## Proposed test flow
 

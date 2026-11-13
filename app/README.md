@@ -37,6 +37,7 @@ any other mesh app.
 | **Units:** km or mi (Settings) | done |
 | **Privacy & data** (Settings): what is kept on the phone, what leaves it and to where, and delete chat history / field tests / everything (now also clears field tests and the trip) | built, not tried on a phone |
 | **App-icon shortcuts and home-screen widget** (Android): long-press the icon for SOS, Check in, Chats; a widget shows the radio link, unread, SOS and overdue trip contacts with Check in and SOS buttons. Both only open the app there: SOS still needs the hold | built, not tried on a phone |
+| **Coverage walk** (Status → Field tests): ping one node from your phone's GPS as you walk; dots on the Map show where it got through and the receipt's signal; CSV export | built, not walked with radios |
 | **Backup and restore** (Android): one passphrase-encrypted file with contacts, channels, chat history, saved PINs and settings | done, not tried on a phone |
 | **History on the phone:** contacts, chats, channels and SOS records encrypted at rest | done, not tried on a phone |
 | iPhone install | on hold, see below |

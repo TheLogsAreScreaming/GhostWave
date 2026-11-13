@@ -67,9 +67,16 @@ class CoverageSample {
   );
 
   String toCsvRow() => [
-    sessionId, clientMessageId, destinationNodeId,
-    latitude, longitude, recordedAt.toUtc().toIso8601String(),
-    outcome.name, rssiDbm ?? '', snrDb ?? '', gpsAccuracyMeters ?? '',
+    sessionId,
+    clientMessageId,
+    destinationNodeId,
+    latitude,
+    longitude,
+    recordedAt.toUtc().toIso8601String(),
+    outcome.name,
+    rssiDbm ?? '',
+    snrDb ?? '',
+    gpsAccuracyMeters ?? '',
   ].join(',');
 }
 

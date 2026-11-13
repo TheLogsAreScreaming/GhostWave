@@ -324,7 +324,7 @@ class CoverageController extends Notifier<CoverageState> {
       _replace(walk.copyWith(skippedNoFix: walk.skippedNoFix + 1));
       return;
     }
-    if (ref.read(sessionProvider) == null) return; // not connected: try again next time
+    if (ref.read(nodeLinkProvider).session == null) return; // not connected: try again next time
     final n = walk.pings.length + 1;
     final cmid = await ref.read(meshProvider.notifier).sendText(walk.dest, '$kCoveragePrefix$n');
     final latest = state.running;

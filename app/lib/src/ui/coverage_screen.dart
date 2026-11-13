@@ -128,6 +128,7 @@ class _CoverageScreenState extends ConsumerState<CoverageScreen> {
                   const SizedBox(height: GwSpace.sm),
                   DropdownButtonFormField<int>(
                     initialValue: _every,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Ping every'),
                     items: [
                       for (final s in kPingIntervals)
