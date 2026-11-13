@@ -196,6 +196,15 @@ const ToRadio$json = {
       '9': 0,
       '10': 'setTx'
     },
+    {
+      '1': 'link_ping',
+      '3': 28,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.LinkPing',
+      '9': 0,
+      '10': 'linkPing'
+    },
   ],
   '8': [
     {'1': 'request'},
@@ -226,7 +235,8 @@ final $typed_data.Uint8List toRadioDescriptor = $convert.base64Decode(
     'xzSABSDGxpc3RDaGFubmVscxI5CghzZXRfbmFtZRgZIAEoCzIcLmdob3N0d2F2ZS5jbGllbnQu'
     'djEuU2V0TmFtZUgAUgdzZXROYW1lEkIKC3JlcXVlc3Rfa2V5GBogASgLMh8uZ2hvc3R3YXZlLm'
     'NsaWVudC52MS5SZXF1ZXN0S2V5SABSCnJlcXVlc3RLZXkSMwoGc2V0X3R4GBsgASgLMhouZ2hv'
-    'c3R3YXZlLmNsaWVudC52MS5TZXRUeEgAUgVzZXRUeEIJCgdyZXF1ZXN0');
+    'c3R3YXZlLmNsaWVudC52MS5TZXRUeEgAUgVzZXRUeBI8CglsaW5rX3BpbmcYHCABKAsyHS5naG'
+    '9zdHdhdmUuY2xpZW50LnYxLkxpbmtQaW5nSABSCGxpbmtQaW5nQgkKB3JlcXVlc3Q=');
 
 @$core.Deprecated('Use helloDescriptor instead')
 const Hello$json = {
@@ -487,6 +497,18 @@ const SetTx$json = {
 final $typed_data.Uint8List setTxDescriptor =
     $convert.base64Decode('CgVTZXRUeBIOCgJvbhgBIAEoCFICb24=');
 
+@$core.Deprecated('Use linkPingDescriptor instead')
+const LinkPing$json = {
+  '1': 'LinkPing',
+  '2': [
+    {'1': 'node_id', '3': 1, '4': 1, '5': 7, '10': 'nodeId'},
+  ],
+};
+
+/// Descriptor for `LinkPing`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List linkPingDescriptor =
+    $convert.base64Decode('CghMaW5rUGluZxIXCgdub2RlX2lkGAEgASgHUgZub2RlSWQ=');
+
 @$core.Deprecated('Use fromRadioDescriptor instead')
 const FromRadio$json = {
   '1': 'FromRadio',
@@ -673,6 +695,15 @@ const FromRadio$json = {
       '9': 0,
       '10': 'sosCancelled'
     },
+    {
+      '1': 'link_ping_result',
+      '3': 30,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.LinkPingResult',
+      '9': 0,
+      '10': 'linkPingResult'
+    },
   ],
   '8': [
     {'1': 'event'},
@@ -704,7 +735,9 @@ final $typed_data.Uint8List fromRadioDescriptor = $convert.base64Decode(
     'c19lbmQYGyABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYxLkNoYW5uZWxzRW5kSABSC2NoYW5uZW'
     'xzRW5kEkgKDXBpbl9jaGFsbGVuZ2UYHCABKAsyIS5naG9zdHdhdmUuY2xpZW50LnYxLlBpbkNo'
     'YWxsZW5nZUgAUgxwaW5DaGFsbGVuZ2USSAoNc29zX2NhbmNlbGxlZBgdIAEoCzIhLmdob3N0d2'
-    'F2ZS5jbGllbnQudjEuU29zQ2FuY2VsbGVkSABSDHNvc0NhbmNlbGxlZEIHCgVldmVudA==');
+    'F2ZS5jbGllbnQudjEuU29zQ2FuY2VsbGVkSABSDHNvc0NhbmNlbGxlZBJPChBsaW5rX3Bpbmdf'
+    'cmVzdWx0GB4gASgLMiMuZ2hvc3R3YXZlLmNsaWVudC52MS5MaW5rUGluZ1Jlc3VsdEgAUg5saW'
+    '5rUGluZ1Jlc3VsdEIHCgVldmVudA==');
 
 @$core.Deprecated('Use nodeInfoDescriptor instead')
 const NodeInfo$json = {
@@ -880,6 +913,44 @@ const SosCancelled$json = {
 final $typed_data.Uint8List sosCancelledDescriptor = $convert.base64Decode(
     'CgxTb3NDYW5jZWxsZWQSEAoDc3JjGAEgASgHUgNzcmMSEAoDc2VxGAIgASgNUgNzZXESGgoIdm'
     'VyaWZpZWQYAyABKAhSCHZlcmlmaWVk');
+
+@$core.Deprecated('Use linkPingResultDescriptor instead')
+const LinkPingResult$json = {
+  '1': 'LinkPingResult',
+  '2': [
+    {'1': 'node_id', '3': 1, '4': 1, '5': 7, '10': 'nodeId'},
+    {'1': 'answered', '3': 2, '4': 1, '5': 8, '10': 'answered'},
+    {
+      '1': 'forward_rssi_dbm',
+      '3': 3,
+      '4': 1,
+      '5': 17,
+      '9': 0,
+      '10': 'forwardRssiDbm',
+      '17': true
+    },
+    {
+      '1': 'reverse_rssi_dbm',
+      '3': 4,
+      '4': 1,
+      '5': 17,
+      '9': 1,
+      '10': 'reverseRssiDbm',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_forward_rssi_dbm'},
+    {'1': '_reverse_rssi_dbm'},
+  ],
+};
+
+/// Descriptor for `LinkPingResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List linkPingResultDescriptor = $convert.base64Decode(
+    'Cg5MaW5rUGluZ1Jlc3VsdBIXCgdub2RlX2lkGAEgASgHUgZub2RlSWQSGgoIYW5zd2VyZWQYAi'
+    'ABKAhSCGFuc3dlcmVkEi0KEGZvcndhcmRfcnNzaV9kYm0YAyABKBFIAFIOZm9yd2FyZFJzc2lE'
+    'Ym2IAQESLQoQcmV2ZXJzZV9yc3NpX2RibRgEIAEoEUgBUg5yZXZlcnNlUnNzaURibYgBAUITCh'
+    'FfZm9yd2FyZF9yc3NpX2RibUITChFfcmV2ZXJzZV9yc3NpX2RibQ==');
 
 @$core.Deprecated('Use sosAckReceivedDescriptor instead')
 const SosAckReceived$json = {

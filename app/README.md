@@ -37,6 +37,7 @@ any other mesh app.
 | **Units:** km or mi (Settings) | done |
 | **Privacy & data** (Settings): what is kept on the phone, what leaves it and to where, and delete chat history / field tests / everything (now also clears field tests and the trip) | built, not tried on a phone |
 | **App-icon shortcuts and home-screen widget** (Android): long-press the icon for SOS, Check in, Chats; a widget shows the radio link, unread, SOS and overdue trip contacts with Check in and SOS buttons. Both only open the app there: SOS still needs the hold | built, not tried on a phone |
+| **Link ping** (node protocol 1.9): from a chat's menu or a heard node's sheet, ping a node your radio hears directly and see how strongly each side heard the other | built, not tried on radios |
 | **Backup and restore** (Android): one passphrase-encrypted file with contacts, channels, chat history, saved PINs and settings | done, not tried on a phone |
 | **History on the phone:** contacts, chats, channels and SOS records encrypted at rest | done, not tried on a phone |
 | iPhone install | on hold, see below |

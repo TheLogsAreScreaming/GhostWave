@@ -109,6 +109,7 @@ enum ToRadio_Request {
   setName,
   requestKey,
   setTx,
+  linkPing,
   notSet
 }
 
@@ -133,6 +134,7 @@ class ToRadio extends $pb.GeneratedMessage {
     SetName? setName,
     RequestKey? requestKey,
     SetTx? setTx,
+    LinkPing? linkPing,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -154,6 +156,7 @@ class ToRadio extends $pb.GeneratedMessage {
     if (setName != null) result.setName = setName;
     if (requestKey != null) result.requestKey = requestKey;
     if (setTx != null) result.setTx = setTx;
+    if (linkPing != null) result.linkPing = linkPing;
     return result;
   }
 
@@ -185,6 +188,7 @@ class ToRadio extends $pb.GeneratedMessage {
     25: ToRadio_Request.setName,
     26: ToRadio_Request.requestKey,
     27: ToRadio_Request.setTx,
+    28: ToRadio_Request.linkPing,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -210,7 +214,8 @@ class ToRadio extends $pb.GeneratedMessage {
       24,
       25,
       26,
-      27
+      27,
+      28
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
@@ -249,6 +254,8 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: RequestKey.$_createMessage)
     ..aOM<SetTx>(27, _omitFieldNames ? '' : 'setTx',
         subBuilder: SetTx.$_createMessage)
+    ..aOM<LinkPing>(28, _omitFieldNames ? '' : 'linkPing',
+        subBuilder: LinkPing.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -289,6 +296,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(25)
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
+  @$pb.TagNumber(28)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -308,6 +316,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(25)
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
+  @$pb.TagNumber(28)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -520,6 +529,18 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearSetTx() => $_clearField(27);
   @$pb.TagNumber(27)
   SetTx ensureSetTx() => $_ensure(18);
+
+  /// protocol 1.9
+  @$pb.TagNumber(28)
+  LinkPing get linkPing => $_getN(19);
+  @$pb.TagNumber(28)
+  set linkPing(LinkPing value) => $_setField(28, value);
+  @$pb.TagNumber(28)
+  $core.bool hasLinkPing() => $_has(19);
+  @$pb.TagNumber(28)
+  void clearLinkPing() => $_clearField(28);
+  @$pb.TagNumber(28)
+  LinkPing ensureLinkPing() => $_ensure(19);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -1676,6 +1697,65 @@ class SetTx extends $pb.GeneratedMessage {
   void clearOn() => $_clearField(1);
 }
 
+/// 1.9: ping a node heard directly (one hop) and measure the link both ways.
+/// Replies Ok when sent; the answer comes as LinkPingResult. NOT_FOUND: not
+/// heard directly; RATE_LIMITED: a ping is out, or the last was under 5 s ago.
+class LinkPing extends $pb.GeneratedMessage {
+  factory LinkPing({
+    $core.int? nodeId,
+  }) {
+    final result = LinkPing._();
+    if (nodeId != null) result.nodeId = nodeId;
+    return result;
+  }
+
+  LinkPing._();
+
+  factory LinkPing.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      LinkPing()..mergeFromBuffer(data, registry);
+  factory LinkPing.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      LinkPing()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LinkPing',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: LinkPing.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LinkPing clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LinkPing copyWith(void Function(LinkPing) updates) =>
+      super.copyWith((message) => updates(message as LinkPing)) as LinkPing;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use LinkPing() / LinkPing.new instead')
+  static LinkPing create() => LinkPing._();
+  static $pb.GeneratedMessage $_createMessage() => LinkPing._();
+  @$core.override
+  LinkPing createEmptyInstance() => LinkPing._();
+  @$core.pragma('dart2js:noInline')
+  static LinkPing getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LinkPing>(LinkPing.$_createMessage);
+  static LinkPing? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get nodeId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set nodeId($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNodeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNodeId() => $_clearField(1);
+}
+
 enum FromRadio_Event {
   nodeInfo,
   text,
@@ -1697,6 +1777,7 @@ enum FromRadio_Event {
   channelsEnd,
   pinChallenge,
   sosCancelled,
+  linkPingResult,
   notSet
 }
 
@@ -1724,6 +1805,7 @@ class FromRadio extends $pb.GeneratedMessage {
     ChannelsEnd? channelsEnd,
     PinChallenge? pinChallenge,
     SosCancelled? sosCancelled,
+    LinkPingResult? linkPingResult,
   }) {
     final result = FromRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -1748,6 +1830,7 @@ class FromRadio extends $pb.GeneratedMessage {
     if (channelsEnd != null) result.channelsEnd = channelsEnd;
     if (pinChallenge != null) result.pinChallenge = pinChallenge;
     if (sosCancelled != null) result.sosCancelled = sosCancelled;
+    if (linkPingResult != null) result.linkPingResult = linkPingResult;
     return result;
   }
 
@@ -1781,6 +1864,7 @@ class FromRadio extends $pb.GeneratedMessage {
     27: FromRadio_Event.channelsEnd,
     28: FromRadio_Event.pinChallenge,
     29: FromRadio_Event.sosCancelled,
+    30: FromRadio_Event.linkPingResult,
     0: FromRadio_Event.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1808,7 +1892,8 @@ class FromRadio extends $pb.GeneratedMessage {
       26,
       27,
       28,
-      29
+      29,
+      30
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'replayed')
@@ -1851,6 +1936,8 @@ class FromRadio extends $pb.GeneratedMessage {
         subBuilder: PinChallenge.$_createMessage)
     ..aOM<SosCancelled>(29, _omitFieldNames ? '' : 'sosCancelled',
         subBuilder: SosCancelled.$_createMessage)
+    ..aOM<LinkPingResult>(30, _omitFieldNames ? '' : 'linkPingResult',
+        subBuilder: LinkPingResult.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1893,6 +1980,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
+  @$pb.TagNumber(30)
   FromRadio_Event whichEvent() => _FromRadio_EventByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -1914,6 +2002,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
+  @$pb.TagNumber(30)
   void clearEvent() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -2156,6 +2245,18 @@ class FromRadio extends $pb.GeneratedMessage {
   void clearSosCancelled() => $_clearField(29);
   @$pb.TagNumber(29)
   SosCancelled ensureSosCancelled() => $_ensure(21);
+
+  /// protocol 1.9
+  @$pb.TagNumber(30)
+  LinkPingResult get linkPingResult => $_getN(22);
+  @$pb.TagNumber(30)
+  set linkPingResult(LinkPingResult value) => $_setField(30, value);
+  @$pb.TagNumber(30)
+  $core.bool hasLinkPingResult() => $_has(22);
+  @$pb.TagNumber(30)
+  void clearLinkPingResult() => $_clearField(30);
+  @$pb.TagNumber(30)
+  LinkPingResult ensureLinkPingResult() => $_ensure(22);
 }
 
 class NodeInfo extends $pb.GeneratedMessage {
@@ -2817,6 +2918,105 @@ class SosCancelled extends $pb.GeneratedMessage {
   $core.bool hasVerified() => $_has(2);
   @$pb.TagNumber(3)
   void clearVerified() => $_clearField(3);
+}
+
+/// A LinkPing ended. answered false: no reply within 10 s (out of range, busy,
+/// or older firmware). forward: how strongly the node heard our ping;
+/// reverse: how strongly we heard its reply. Both measured on the radios.
+class LinkPingResult extends $pb.GeneratedMessage {
+  factory LinkPingResult({
+    $core.int? nodeId,
+    $core.bool? answered,
+    $core.int? forwardRssiDbm,
+    $core.int? reverseRssiDbm,
+  }) {
+    final result = LinkPingResult._();
+    if (nodeId != null) result.nodeId = nodeId;
+    if (answered != null) result.answered = answered;
+    if (forwardRssiDbm != null) result.forwardRssiDbm = forwardRssiDbm;
+    if (reverseRssiDbm != null) result.reverseRssiDbm = reverseRssiDbm;
+    return result;
+  }
+
+  LinkPingResult._();
+
+  factory LinkPingResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      LinkPingResult()..mergeFromBuffer(data, registry);
+  factory LinkPingResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      LinkPingResult()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LinkPingResult',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: LinkPingResult.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
+    ..aOB(2, _omitFieldNames ? '' : 'answered')
+    ..aI(3, _omitFieldNames ? '' : 'forwardRssiDbm',
+        fieldType: $pb.PbFieldType.OS3)
+    ..aI(4, _omitFieldNames ? '' : 'reverseRssiDbm',
+        fieldType: $pb.PbFieldType.OS3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LinkPingResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LinkPingResult copyWith(void Function(LinkPingResult) updates) =>
+      super.copyWith((message) => updates(message as LinkPingResult))
+          as LinkPingResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use LinkPingResult() / LinkPingResult.new instead')
+  static LinkPingResult create() => LinkPingResult._();
+  static $pb.GeneratedMessage $_createMessage() => LinkPingResult._();
+  @$core.override
+  LinkPingResult createEmptyInstance() => LinkPingResult._();
+  @$core.pragma('dart2js:noInline')
+  static LinkPingResult getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<LinkPingResult>(
+          LinkPingResult.$_createMessage);
+  static LinkPingResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get nodeId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set nodeId($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNodeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNodeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get answered => $_getBF(1);
+  @$pb.TagNumber(2)
+  set answered($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAnswered() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAnswered() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get forwardRssiDbm => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set forwardRssiDbm($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasForwardRssiDbm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearForwardRssiDbm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get reverseRssiDbm => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set reverseRssiDbm($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasReverseRssiDbm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearReverseRssiDbm() => $_clearField(4);
 }
 
 class SosAckReceived extends $pb.GeneratedMessage {

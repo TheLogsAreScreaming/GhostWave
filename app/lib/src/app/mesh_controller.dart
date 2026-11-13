@@ -141,6 +141,24 @@ final meshStoreProvider = Provider<MeshStore?>((ref) => null);
 /// Clock, so tests can pin time.
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
+/// How a link ping went: both directions, measured on the radios.
+class LinkPingOutcome {
+  /// Creates an outcome.
+  const LinkPingOutcome({required this.node, required this.answered, this.forwardDbm, this.reverseDbm});
+
+  /// The node pinged.
+  final int node;
+
+  /// Whether it replied within the node's 10 s.
+  final bool answered;
+
+  /// How strongly it heard our ping, dBm.
+  final int? forwardDbm;
+
+  /// How strongly our radio heard its reply, dBm.
+  final int? reverseDbm;
+}
+
 /// The mesh state and the actions on it.
 final meshProvider = NotifierProvider<MeshController, MeshState>(MeshController.new);
 
@@ -297,6 +315,19 @@ class MeshController extends Notifier<MeshState> {
         );
       case pb.FromRadio_Event.neighbor:
         _onNeighbor(e.neighbor);
+      case pb.FromRadio_Event.linkPingResult:
+        final r = e.linkPingResult;
+        final waiting = _pingWaits.remove(r.nodeId);
+        if (waiting != null && !waiting.isCompleted) {
+          waiting.complete(
+            LinkPingOutcome(
+              node: r.nodeId,
+              answered: r.answered,
+              forwardDbm: r.hasForwardRssiDbm() ? r.forwardRssiDbm : null,
+              reverseDbm: r.hasReverseRssiDbm() ? r.reverseRssiDbm : null,
+            ),
+          );
+        }
       case pb.FromRadio_Event.peerIdent:
         _onPeerIdent(e.peerIdent);
       case pb.FromRadio_Event.keyChange:
@@ -574,6 +605,38 @@ class MeshController extends Notifier<MeshState> {
   bool get nodeCanRequestKey {
     final s = _link.state;
     return s is LinkUp && s.info.protocolMinor >= 4 && !s.info.legacy;
+  }
+
+  final Map<int, Completer<LinkPingOutcome>> _pingWaits = {};
+
+  /// Whether the connected node can ping a neighbor both ways (protocol 1.9).
+  bool get nodeCanLinkPing {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 9;
+  }
+
+  /// Pings [node], which our radio must hear directly, and returns how strongly
+  /// each side heard the other. Throws [NodeError] (NOT_FOUND: not heard
+  /// directly; RATE_LIMITED: one ping at a time, 5 s apart) or [StateError].
+  Future<LinkPingOutcome> linkPing(int node) async {
+    final session = _link.session;
+    if (session == null || !nodeCanLinkPing) throw StateError('This node cannot ping from the app.');
+    final done = Completer<LinkPingOutcome>();
+    _pingWaits[node] = done;
+    try {
+      await session.request(pb.ToRadio(linkPing: pb.LinkPing(nodeId: node)));
+    } on Object {
+      _pingWaits.remove(node);
+      rethrow;
+    }
+    // the node gives up after 10 s and says so; this only covers a lost link
+    return done.future.timeout(
+      const Duration(seconds: 15),
+      onTimeout: () {
+        _pingWaits.remove(node);
+        return LinkPingOutcome(node: node, answered: false);
+      },
+    );
   }
 
   /// Whether the connected node's transmitter can be switched from the app
