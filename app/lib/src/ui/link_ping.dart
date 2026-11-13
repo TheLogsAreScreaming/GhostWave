@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app/mesh_controller.dart';
 import '../link/session.dart';
 import 'format.dart';
+import 'link_check_card.dart';
 import 'theme.dart';
 
 /// The result of a link ping, in words: both directions, never guessed.
@@ -40,6 +41,7 @@ class _LinkPingDialog extends ConsumerStatefulWidget {
 
 class _LinkPingDialogState extends ConsumerState<_LinkPingDialog> {
   List<String>? _lines;
+  LinkPingOutcome? _outcome;
   String? _error;
 
   @override
@@ -52,7 +54,12 @@ class _LinkPingDialogState extends ConsumerState<_LinkPingDialog> {
     final name = ref.read(meshProvider).nameOf(widget.node);
     try {
       final o = await ref.read(meshProvider.notifier).linkPing(widget.node);
-      if (mounted) setState(() => _lines = linkPingLines(o, name));
+      if (mounted) {
+        setState(() {
+          _outcome = o;
+          _lines = linkPingLines(o, name);
+        });
+      }
     } on NodeError catch (e) {
       if (mounted) setState(() => _error = e.message);
     } on Object catch (e) {
@@ -88,7 +95,20 @@ class _LinkPingDialogState extends ConsumerState<_LinkPingDialog> {
                   ),
               ],
             ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      actions: [
+        if (_outcome case final o?)
+          TextButton.icon(
+            onPressed: () {
+              final nav = Navigator.of(context);
+              unawaited(openLinkCheckCard(context, ref, o));
+              // the card replaces the dialog; it holds the whole result
+              nav.removeRoute(ModalRoute.of(context)!);
+            },
+            icon: const Icon(Icons.ios_share),
+            label: const Text('Result card'),
+          ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+      ],
     );
   }
 }
