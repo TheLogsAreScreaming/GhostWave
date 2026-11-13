@@ -15,6 +15,20 @@
 //         (+ pins_arduino.h there for SCK/MISO/MOSI/SS, src/configuration.h for
 //          TX_GAIN_LORA, src/mesh/LoRaFEMInterface.cpp for FEM sequencing)
 #define GW_BOARD_NAME "heltec_wireless_tracker_v2"
+// 0.96" ST7735S colour screen, 160x80, powered by Vext (variant.h: ST7735_*,
+// TFT_BL 21). It has its own SPI bus, apart from the radio's.
+#define GW_HAS_OLED 1
+#define GW_DISPLAY_TFT 1
+#define GW_TFT_ST7735 1
+#define GW_TFT_CS 38
+#define GW_TFT_DC 40
+#define GW_TFT_RST 39
+#define GW_TFT_MOSI 42
+#define GW_TFT_SCK 41
+#define GW_TFT_BL 21
+#define GW_TFT_BL_ON HIGH
+#define GW_TFT_W 160
+#define GW_TFT_H 80
 constexpr int kPinLoraSck = 9;
 constexpr int kPinLoraMiso = 11;
 constexpr int kPinLoraMosi = 10;
@@ -206,6 +220,32 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 #endif
 #ifndef GW_OLED_SH1106
 #define GW_OLED_SH1106 0
+#endif
+// Colour TFT instead of the I2C OLED: the same 128x64 pages, drawn into a
+// buffer and copied onto the panel (scaled 2x where it fits).
+#ifndef GW_DISPLAY_TFT
+#define GW_DISPLAY_TFT 0
+#endif
+#ifndef GW_TFT_ST7735
+#define GW_TFT_ST7735 0
+#endif
+#ifndef GW_TFT_RST
+#define GW_TFT_RST -1
+#endif
+#ifndef GW_TFT_BL
+#define GW_TFT_BL -1
+#endif
+#ifndef GW_TFT_BL_ON
+#define GW_TFT_BL_ON HIGH
+#endif
+#ifndef GW_TFT_POWER
+#define GW_TFT_POWER -1   // a separate panel power switch (T114), -1 = none
+#endif
+#ifndef GW_TFT_POWER_ON
+#define GW_TFT_POWER_ON LOW
+#endif
+#ifndef GW_TFT_SHARES_LORA_SPI
+#define GW_TFT_SHARES_LORA_SPI 0
 #endif
 #ifndef GW_HAS_VBAT_ADC
 #define GW_HAS_VBAT_ADC 0

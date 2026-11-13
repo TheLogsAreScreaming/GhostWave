@@ -13,4 +13,9 @@ constexpr bool kVextOn = false;
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0
 #define GW_HAS_BLE 1
+// 0.96" SSD1306 OLED on Wire: SDA P0.09, SCL P0.10 (the NFC pins, freed by
+// CONFIG_NFCT_PINS_AS_GPIOS in boards.d/wio_tracker_l1.ini).
+#define GW_HAS_OLED 1
+#define GW_OLED_SDA 9
+#define GW_OLED_SCL 10
 #define GW_NRF52 1

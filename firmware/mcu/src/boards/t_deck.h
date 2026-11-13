@@ -16,6 +16,18 @@ constexpr bool kVextOn = true;
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0
 #define GW_HAS_BOARD_POWER 1
+// 2.8" ST7789 320x240 on the radio's SPI bus (variant.h: ST7789_*, TFT_BL 42).
+#define GW_HAS_OLED 1
+#define GW_DISPLAY_TFT 1
+#define GW_TFT_SHARES_LORA_SPI 1
+#define GW_TFT_CS 12
+#define GW_TFT_DC 11
+#define GW_TFT_MOSI 41
+#define GW_TFT_SCK 40
+#define GW_TFT_BL 42
+#define GW_TFT_BL_ON HIGH
+#define GW_TFT_W 320
+#define GW_TFT_H 240
 inline void gwBoardPower() {
   // Display and SD card share the radio SPI bus: keep them deselected.
   pinMode(12, OUTPUT);
