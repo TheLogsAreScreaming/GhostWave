@@ -20,6 +20,7 @@ import 'background_setup_screen.dart';
 import 'backup_screen.dart';
 import 'offline_maps_screen.dart';
 import 'privacy_screen.dart';
+import 'transmit.dart';
 import 'theme.dart';
 import 'walkthrough_screen.dart';
 import 'widgets.dart';
@@ -84,6 +85,18 @@ class SettingsScreen extends ConsumerWidget {
                         ? 'Not available on this node: its firmware has no name that other nodes can see.'
                         : 'This node runs an older ghostwaved: update it to rename from the app.',
                   ),
+                ),
+              if (ref.read(meshProvider.notifier).nodeCanSetTx)
+                SwitchListTile(
+                  secondary: const Icon(Icons.cell_tower),
+                  title: const Text('Transmit'),
+                  subtitle: Text(
+                    ref.watch(meshProvider.select((m) => m.txOff))
+                        ? 'Off: the node only listens'
+                        : 'On: the node sends and relays',
+                  ),
+                  value: !ref.watch(meshProvider.select((m) => m.txOff)),
+                  onChanged: (on) => unawaited(confirmSetTransmit(context, ref, on: on)),
                 ),
               ListTile(
                 leading: const Icon(Icons.memory),

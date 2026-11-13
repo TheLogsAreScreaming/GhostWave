@@ -3,9 +3,13 @@
 #if GW_HAS_OLED
 
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include <Arduino.h>
 #include <Wire.h>
+#if GW_OLED_SH1106
+#include <Adafruit_SH110X.h>
+#else
+#include <Adafruit_SSD1306.h>
+#endif
 
 #include "oled_logic.h"
 
@@ -20,9 +24,22 @@ constexpr uint32_t kRedrawMs = 1000;
 constexpr uint32_t kBlinkMs = 500;
 constexpr uint32_t kSplashMs = 2000;
 constexpr size_t kTextMax = 63;   // three lines of 21 characters
-enum Page : uint8_t { kStatusPage, kNeighborPage, kMessagePage };
+enum Page : uint8_t { kStatusPage, kNodePage, kNeighborPage, kMessagePage };
 
+// The panel: SSD1306 (RAK1921, Heltec, T3-S3, T-Beam add-on) or SH1106
+// (T-Beam Supreme). Only switching it on, off and dimming differ; render()
+// draws on either through Adafruit_GFX.
+#if GW_OLED_SH1106
+Adafruit_SH1106G g_d(128, 64, &Wire, -1);
+bool panelBegin() { return g_d.begin(kAddress, true); }
+void panelOn(bool on) { g_d.oled_command(on ? SH110X_DISPLAYON : SH110X_DISPLAYOFF); }
+void panelDim(bool dim) { g_d.setContrast(dim ? 0x08 : 0x7F); }
+#else
 Adafruit_SSD1306 g_d(128, 64, &Wire, -1);
+bool panelBegin() { return g_d.begin(SSD1306_SWITCHCAPVCC, kAddress); }
+void panelOn(bool on) { g_d.ssd1306_command(on ? SSD1306_DISPLAYON : SSD1306_DISPLAYOFF); }
+void panelDim(bool dim) { g_d.dim(dim); }
+#endif
 bool g_ok = false;
 uint32_t g_nextDraw = 0;
 uint32_t g_splashUntil = 0;
@@ -47,10 +64,24 @@ bool g_lastBle = false, g_lastTx = false, g_lastSos = false, g_haveLast = false;
 
 bool begin(const char* version) {
   g_version = version ? version : "";
+  // The board has just switched its display power on (Vext on Heltec boards).
+  delay(50);
+#if GW_OLED_RST >= 0
+  // Heltec boards wire the panel's reset to a GPIO: it stays blank until pulsed.
+  pinMode(GW_OLED_RST, OUTPUT);
+  digitalWrite(GW_OLED_RST, LOW);
+  delay(10);
+  digitalWrite(GW_OLED_RST, HIGH);
+  delay(10);
+#endif
+#if GW_OLED_SDA >= 0
+  Wire.begin(GW_OLED_SDA, GW_OLED_SCL);
+#else
   Wire.begin();
+#endif
   Wire.beginTransmission(kAddress);
   if (Wire.endTransmission() != 0) return false;   // no screen fitted
-  g_ok = g_d.begin(SSD1306_SWITCHCAPVCC, kAddress);
+  g_ok = panelBegin();
   if (g_ok) {
     Wire.setClock(400000);
     g_policy.wake(millis());
@@ -110,10 +141,10 @@ void draw(uint32_t now, const Status& s) {
 
   const ScreenPolicy::Level level = g_policy.level(now);
   if (level != g_shown) {
-    if (level == ScreenPolicy::Level::Off) g_d.ssd1306_command(SSD1306_DISPLAYOFF);
+    if (level == ScreenPolicy::Level::Off) panelOn(false);
     else {
-      if (g_shown == ScreenPolicy::Level::Off) g_d.ssd1306_command(SSD1306_DISPLAYON);
-      g_d.dim(level == ScreenPolicy::Level::Dim);
+      if (g_shown == ScreenPolicy::Level::Off) panelOn(true);
+      panelDim(level == ScreenPolicy::Level::Dim);
     }
     g_shown = level;
   }
@@ -134,9 +165,12 @@ void draw(uint32_t now, const Status& s) {
   } else if (s.rangeShow) {
     v.screen = Screen::Range;
   } else {
-    v.pages = g_msg[0] ? 3 : 2;
+    v.pages = g_msg[0] ? 4 : 3;
     v.page = g_policy.page(now, v.pages);
-    v.screen = v.page == kNeighborPage ? Screen::Neighbors : v.page == kMessagePage ? Screen::Message : Screen::Status;
+    v.screen = v.page == kNodePage       ? Screen::Node
+               : v.page == kNeighborPage ? Screen::Neighbors
+               : v.page == kMessagePage  ? Screen::Message
+                                         : Screen::Status;
   }
   render(g_d, s, v);
   g_d.display();

@@ -78,6 +78,9 @@ class Handler {
     std::function<uint8_t()> batteryPct;
     // True while the node will not transmit (Status.tx_off). Unset: false.
     std::function<bool()> txOff;
+    // Turns transmitting on or off and saves it (SetTx, 1.8). False if it
+    // could not be saved. Unset: UNKNOWN_REQUEST (a node without the gate).
+    std::function<bool(bool)> setTx;
     // Renames the node (SetName, 1.1): ErrorCode::None, or an error with `err`
     // set. Unset: NO_IDENTITY.
     std::function<ErrorCode(const std::string&, std::string&)> setName;
