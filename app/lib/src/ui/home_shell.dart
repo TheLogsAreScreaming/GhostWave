@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/home_surfaces.dart';
 import '../app/background_link.dart';
 import '../app/mesh_alerts.dart';
 import '../app/mesh_controller.dart';
@@ -15,6 +16,7 @@ import 'map_screen.dart';
 import 'me_screen.dart';
 import 'sos_screen.dart';
 import 'status_screen.dart';
+import 'trip_screen.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -31,6 +33,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   static const _mapTab = 1;
   static const _sosTab = 2;
   StreamSubscription<int>? _sosTaps;
+  StreamSubscription<LaunchAction>? _launches;
+  static const _chatsTab = 0;
   static const _statusTab = 4;
   int _tab = 0;
   bool _offeredBackground = false;
@@ -43,6 +47,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     // ask once for notification permission (Android 13+, iOS), after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _askNotificationsOnce());
     _sosTaps = LocalMeshAlerts.sosTaps.listen(_openSos);
+    _launches = ref.read(homeSurfacesProvider).actions.listen(_openLaunch);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (ref.read(nodeLinkProvider).state case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
@@ -52,7 +57,24 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   void dispose() {
     unawaited(_sosTaps?.cancel());
+    unawaited(_launches?.cancel());
     super.dispose();
+  }
+
+  /// An app-icon shortcut or the widget: open the place. Never sends anything;
+  /// an SOS still needs the hold.
+  void _openLaunch(LaunchAction a) {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    switch (a) {
+      case LaunchAction.sos:
+        setState(() => _tab = _sosTab);
+      case LaunchAction.chats:
+        setState(() => _tab = _chatsTab);
+      case LaunchAction.checkin:
+        setState(() => _tab = _sosTab);
+        unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TripScreen())));
+    }
   }
 
   /// A tapped SOS notification: the sender on the map, or the SOS tab without a fix.
@@ -90,6 +112,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(widgetSyncProvider); // keeps the home-screen widget current while the app runs
     ref.listen(linkStateProvider, (_, next) {
       if (next.value case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
       if (next.value is LinkUp) _offerBackgroundOnce();
