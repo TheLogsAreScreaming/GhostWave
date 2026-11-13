@@ -87,7 +87,10 @@ class StoredMesh {
   /// Channel messages by channel, oldest first.
   final Map<String, List<ChannelMessage>> channelMessages;
 
-  /// Unsent DM text, encrypted with the node's history.\n  final Map<int, String> drafts;\n\n  /// Why this snapshot is empty, if the saved one could not be read. Not saved.
+  /// Unsent DM text, encrypted with the node's history.
+  final Map<int, String> drafts;
+
+  /// Why this snapshot is empty, if the saved one could not be read. Not saved.
   final HistoryProblem problem;
 
   /// JSON form.
