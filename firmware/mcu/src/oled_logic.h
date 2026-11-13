@@ -15,6 +15,10 @@ class ScreenPolicy {
   static constexpr uint32_t kDimMs = 60000;      // a minute after the last event
   static constexpr uint32_t kOffMs = 600000;     // ten minutes after it
   static constexpr uint32_t kPageMs = 5000;
+  static constexpr uint32_t kEinkPageMs = 20000;  // e-ink: fewer page turns, fewer refreshes
+
+  // How long each page stays up (kPageMs unless a board changes it).
+  void setPagePeriod(uint32_t ms) { pageMs_ = ms ? ms : kPageMs; }
 
   void wake(uint32_t nowMs) {
     lastWake_ = nowMs;
@@ -35,11 +39,11 @@ class ScreenPolicy {
     return idle >= kDimMs ? Level::Dim : Level::Bright;
   }
 
-  // The page to draw now, advancing every kPageMs through `pages` pages.
+  // The page to draw now, advancing every page period through `pages` pages.
   uint8_t page(uint32_t nowMs, uint8_t pages) {
     if (pages == 0) return 0;
     if (page_ >= pages) page_ = 0;
-    if (nowMs - pageSince_ >= kPageMs) {
+    if (nowMs - pageSince_ >= pageMs_) {
       page_ = static_cast<uint8_t>((page_ + 1) % pages);
       pageSince_ = nowMs;
     }
@@ -49,6 +53,7 @@ class ScreenPolicy {
  private:
   bool awake_ = false;
   uint32_t lastWake_ = 0, pageSince_ = 0;
+  uint32_t pageMs_ = kPageMs;
   uint8_t page_ = 0;
 };
 

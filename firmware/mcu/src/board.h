@@ -247,6 +247,17 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 #ifndef GW_TFT_SHARES_LORA_SPI
 #define GW_TFT_SHARES_LORA_SPI 0
 #endif
+// Black-and-white e-ink instead (T-Echo, SSD1681): the same pages at 1.5x,
+// refreshed only when they change (eink_logic.h).
+#ifndef GW_DISPLAY_EINK
+#define GW_DISPLAY_EINK 0
+#endif
+#ifndef GW_EINK_ROTATION
+#define GW_EINK_ROTATION 0   // Adafruit_GFX rotation, 0-3: how the panel sits in the case
+#endif
+#ifndef GW_EINK_LIGHT
+#define GW_EINK_LIGHT -1     // front light switch, held off; -1 = none
+#endif
 #ifndef GW_HAS_VBAT_ADC
 #define GW_HAS_VBAT_ADC 0
 #endif
