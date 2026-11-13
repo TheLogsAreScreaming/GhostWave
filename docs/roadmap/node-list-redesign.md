@@ -4,7 +4,7 @@ Status: built in the app (Chats → People: node cards with measured chips, filt
 
 ## Requirements
 
-- Use GhostWave charcoal surfaces and cyan/violet accents with compact node cards inspired by the supplied Socialmesh reference.
+- Use GhostWave charcoal surfaces and cyan/violet accents with compact node cards.
 - Search names and node IDs; filter contacts and recently heard nodes with counts derived from real state.
 - Show identity, last heard, trust state, and measured metrics without placeholder telemetry.
 - Keep nodes with pending messages discoverable and preserve contact and messaging actions.
