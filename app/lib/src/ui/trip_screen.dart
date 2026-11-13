@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/backup.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/trip_controller.dart';
 import '../data/models.dart';
+import '../data/team_trails.dart';
 import '../data/trip.dart';
 import 'format.dart';
 import 'theme.dart';
@@ -222,6 +226,7 @@ class _TripScreenState extends ConsumerState<TripScreen> {
                         ),
                     ],
                   ),
+                const _TrailsSection(),
                 const SectionLabel('Reminders'),
                 _Choice(
                   label: 'Remind me to check in every',
@@ -314,6 +319,84 @@ class _TeamRow extends ConsumerWidget {
               : TextStyle(color: scheme.onSurfaceVariant),
         ),
       ),
+    );
+  }
+}
+
+/// The last 24 hours of trails: how much there is, GPX export, clear.
+class _TrailsSection extends ConsumerWidget {
+  const _TrailsSection();
+
+  Future<void> _export(BuildContext context, WidgetRef ref) async {
+    final mesh = ref.read(meshProvider);
+    final names = {for (final id in mesh.trails.keys) id: id == mesh.nodeId ? 'Me' : mesh.nameOf(id)};
+    final gpx = trailsToGpx(pruneTrails(mesh.trails, DateTime.now()), names);
+    final files = ref.read(backupFilesProvider);
+    final now = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final name = 'ghostwave-trails-${now.year}${two(now.month)}${two(now.day)}-${two(now.hour)}${two(now.minute)}.gpx';
+    try {
+      if (files.supported) {
+        if (await files.save(name, Uint8List.fromList(utf8.encode(gpx))) && context.mounted) {
+          showSnack(context, 'Trails saved as GPX');
+        }
+      } else {
+        await Clipboard.setData(ClipboardData(text: gpx));
+        if (context.mounted) showSnack(context, 'GPX copied. Paste it into a .gpx file.');
+      }
+    } on PlatformException catch (e) {
+      if (context.mounted) showSnack(context, 'Not exported: ${e.message ?? e.code}');
+    }
+  }
+
+  Future<void> _clear(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Clear all trails?'),
+        content: const Text('Deletes the recorded trails on this phone. Export them first to keep a copy.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Clear')),
+        ],
+      ),
+    );
+    if (ok == true) ref.read(meshProvider.notifier).clearTrails();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trails = ref.watch(meshProvider.select((m) => m.trails));
+    final points = trails.values.fold(0, (a, t) => a + t.length);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionLabel('Trails'),
+        Text(
+          points == 0
+              ? 'While a trip is on, your position and each trip contact\'s beacons and check-ins are kept for '
+                    '24 hours and drawn on the Map. Nobody else is recorded.'
+              : '${trails.length} ${trails.length == 1 ? 'trail' : 'trails'}, $points points from the last 24 hours. '
+                    'Shown on the Map.',
+        ),
+        const SizedBox(height: GwSpace.sm),
+        Wrap(
+          spacing: GwSpace.sm,
+          runSpacing: GwSpace.sm,
+          children: [
+            OutlinedButton.icon(
+              onPressed: points == 0 ? null : () => unawaited(_export(context, ref)),
+              icon: const Icon(Icons.ios_share),
+              label: const Text('Export GPX'),
+            ),
+            TextButton.icon(
+              onPressed: points == 0 ? null : () => unawaited(_clear(context, ref)),
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Clear trails'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
