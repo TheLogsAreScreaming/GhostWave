@@ -4,7 +4,7 @@
 
 Build env: `heltec_v4` (`cd firmware/mcu && pio run -e heltec_v4`). Pins come from meshtastic/firmware @ 771efca, `variants/esp32s3/heltec_v4 and src/mesh/LoRaFEMInterface.cpp`.
 
-From `firmware/mcu`, flash with `pio run -e heltec_v4 -t upload`. If several serial devices are attached, select this board explicitly with `--upload-port PORT`. Close any serial monitor before uploading. It is serial only: ESP32 builds have no Bluetooth phone link yet.
+From `firmware/mcu`, flash with `pio run -e heltec_v4 -t upload`. If several serial devices are attached, select this board explicitly with `--upload-port PORT`. Close any serial monitor before uploading. The phone app connects over Bluetooth (pairing key `654321`), as on the nRF boards. Built, not yet tried on this board.
 
 Fit the antenna first, then type `tx on`: a fresh board only receives until you do. GPS, buttons and other extras are not used yet.
 

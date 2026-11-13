@@ -12,6 +12,8 @@
 #include <esp_random.h>
 
 #include <cstring>
+#include <map>
+#include <vector>
 
 #include "board.h"
 #include "ghostwave/packet.h"
@@ -58,7 +60,33 @@ bool savePeers(const Settings& s) {
   return nvs.ok() && nvs->putBytes("peers", blob, s.peerCount * kPeerRecord) == s.peerCount * kPeerRecord;
 }
 
+bool g_fresh = false;
+
+// An app-state record (app_state.h encoding) in one NVS blob.
+template <typename T, typename Decode>
+bool loadBlob(const char* key, T& out, Decode decode) {
+  Nvs nvs(true);
+  if (!nvs.ok()) return false;
+  size_t len = nvs->getBytesLength(key);
+  if (!len) return false;
+  std::vector<uint8_t> b(len);
+  if (nvs->getBytes(key, b.data(), len) != len) return false;
+  const bool ok = decode(b, out);
+  gw::wipe(b.data(), b.size());
+  return ok;
+}
+
+bool saveBlob(const char* key, std::vector<uint8_t> b) {
+  if (b.empty()) return false;
+  Nvs nvs(false);
+  const bool ok = nvs.ok() && nvs->putBytes(key, b.data(), b.size()) == b.size();   // NVS writes are atomic
+  gw::wipe(b.data(), b.size());
+  return ok;
+}
+
 }  // namespace
+
+bool settingsWereFresh() { return g_fresh; }
 
 void secureRandom(uint8_t* out, size_t n) {
   // Without Wi-Fi/BT running the RNG needs this source enabled to be a TRNG.
@@ -87,6 +115,7 @@ bool loadSettings(Settings& s) {
     // The key goes last: a power cut before it just makes a new identity next boot.
     if (!nvs->putBool("edid", true) || !nvs->putBool("txoff", true) || !nvs->putUInt("id", s.nodeId)) return false;
     if (nvs->putBytes("idkey", s.secret.data(), s.secret.size()) != s.secret.size()) return false;
+    g_fresh = true;
     Serial.println("generated new identity key");
   }
   {
@@ -105,6 +134,7 @@ bool loadSettings(Settings& s) {
   s.responder = nvs->getBool("responder", false);
   s.requireEnc = nvs->getBool("reqenc", false);
   s.txOn = !nvs->getBool("txoff", false);   // absent on boards from before the gate
+  s.bleOn = !nvs->getBool("bleoff", false);
 
   s.peerCount = 0;
   size_t len = nvs->getBytesLength("peers");
@@ -150,7 +180,36 @@ bool saveFlags(const Settings& s) {
          nvs->putBool("txoff", !s.txOn);
 }
 
-bool saveBle(const Settings&) { return true; }   // no BLE link on the ESP32 builds yet
+bool saveBle(const Settings& s) {
+  Nvs nvs(false);
+  return nvs.ok() && nvs->putBool("bleoff", !s.bleOn);
+}
+
+bool blePinValid(const char* pin) {
+  if (!pin) return false;
+  for (int i = 0; i < 6; ++i)
+    if (pin[i] < '0' || pin[i] > '9') return false;
+  return pin[6] == 0;
+}
+
+void loadBlePin(char out[7]) {
+  std::strcpy(out, kDefaultBlePin);
+  Nvs nvs(true);
+  if (!nvs.ok()) return;
+  char b[8] = {0};
+  if (nvs->getString("blepin", b, sizeof b) == 7 && blePinValid(b)) std::strcpy(out, b);   // length includes the NUL
+}
+
+bool saveBlePin(const char* pin) {
+  if (!blePinValid(pin)) return false;
+  Nvs nvs(false);
+  return nvs.ok() && nvs->putString("blepin", pin) == 6;
+}
+
+bool loadChannels(std::vector<SavedChannel>& out) { return loadBlob("channels", out, app_state::decodeChannels); }
+bool saveChannels(const std::vector<SavedChannel>& in) { return saveBlob("channels", app_state::encodeChannels(in)); }
+bool loadEdKeys(std::map<uint32_t, AppKey>& out) { return loadBlob("edkeys", out, app_state::decodeEdKeys); }
+bool saveEdKeys(const std::map<uint32_t, AppKey>& in) { return saveBlob("edkeys", app_state::encodeEdKeys(in)); }
 
 bool saveName(const Settings& s) {
   Nvs nvs(false);

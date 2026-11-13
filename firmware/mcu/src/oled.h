@@ -1,4 +1,6 @@
-// RAK1921 status screen (128x64 SSD1306 on I2C), on boards with GW_HAS_OLED.
+// Status screen on a 128x64 I2C OLED (SSD1306: RAK1921, Heltec V3/V4, T3-S3,
+// T-LoRa, T-Beam add-on; SH1106: T-Beam Supreme), on boards with GW_HAS_OLED.
+// Pins come from GW_OLED_SDA / GW_OLED_SCL / GW_OLED_RST (board.h).
 // Shows what the node is doing without a phone. It is optional: with no screen
 // on the bus, begin() returns false and everything else does nothing. What it
 // draws is in oled_view.cpp.

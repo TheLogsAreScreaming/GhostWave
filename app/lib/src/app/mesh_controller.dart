@@ -576,6 +576,25 @@ class MeshController extends Notifier<MeshState> {
     return s is LinkUp && s.info.protocolMinor >= 4 && !s.info.legacy;
   }
 
+  /// Whether the connected node's transmitter can be switched from the app
+  /// (SetTx, protocol 1.8). Older firmware needs `tx on` on its serial console.
+  bool get nodeCanSetTx {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 8;
+  }
+
+  /// Turns the node's transmitter on or off (saved on the node), then reads
+  /// back its status. Turning it on sends what was waiting. Throws [NodeError]
+  /// (for example SEND_FAILED: switched, but not saved) or [StateError].
+  Future<void> setTransmit(bool on) async {
+    final session = _link.session;
+    if (session == null || !nodeCanSetTx) throw StateError('This node cannot switch transmit from the app.');
+    await session.request(pb.ToRadio(setTx: pb.SetTx(on: on)));
+    final reply = await session.request(pb.ToRadio(getStatus: pb.GetStatus()));
+    if (reply.hasStatus()) _applyTxOff(reply.status);
+    if (on && !state.txOff) unawaited(_flushOutbox(session).catchError((Object _) {}));
+  }
+
   /// Asks a node in radio range for its key now. Returning means the node asked,
   /// not that the key came: it arrives later as a contact. Throws [NodeError].
   Future<void> requestKey(int peer) async {

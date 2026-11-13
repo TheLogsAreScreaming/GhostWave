@@ -24,6 +24,11 @@ constexpr int kPinLoraRst = 12;
 constexpr float kTcxoVolts = 1.8f;  // DIO3
 constexpr int kPinVext = 36;   // board power switch, -1 = none
 constexpr bool kVextOn = false;
+// 0.96" SSD1306 wired as on the V3: SDA 17, SCL 18, reset 21, powered by Vext.
+#define GW_HAS_OLED 1
+#define GW_OLED_SDA 17
+#define GW_OLED_SCL 18
+#define GW_OLED_RST 21
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0
 #define GW_HAS_BOARD_POWER 1

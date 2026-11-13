@@ -17,6 +17,7 @@ import 'me_screen.dart';
 import 'sos_screen.dart';
 import 'status_screen.dart';
 import 'trip_screen.dart';
+import 'transmit.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -222,13 +223,15 @@ class _Dest {
   final Widget selected;
 }
 
-/// Says why messages are not going out while the node's transmitter is off.
-class _TxOffBanner extends StatelessWidget {
+/// Says why messages are not going out while the node's transmitter is off,
+/// with a button to turn it on where the node allows it (protocol 1.8).
+class _TxOffBanner extends ConsumerWidget {
   const _TxOffBanner();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final canSet = ref.read(meshProvider.notifier).nodeCanSetTx;
     return Material(
       color: scheme.errorContainer,
       child: Padding(
@@ -239,10 +242,20 @@ class _TxOffBanner extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Radio transmit is off. Messages wait here until you type tx on on the node\'s serial console.',
+                canSet
+                    ? 'Radio transmit is off: your node only listens. Messages wait here until it is on.'
+                    : 'Radio transmit is off. Messages wait here until you type tx on on the node\'s serial console.',
                 style: TextStyle(color: scheme.onErrorContainer),
               ),
             ),
+            if (canSet)
+              TextButton(
+                onPressed: () => unawaited(confirmSetTransmit(context, ref, on: true)),
+                child: Text(
+                  'Turn on',
+                  style: TextStyle(color: scheme.onErrorContainer, fontWeight: FontWeight.w700),
+                ),
+              ),
           ],
         ),
       ),

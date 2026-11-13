@@ -187,6 +187,15 @@ const ToRadio$json = {
       '9': 0,
       '10': 'requestKey'
     },
+    {
+      '1': 'set_tx',
+      '3': 27,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.SetTx',
+      '9': 0,
+      '10': 'setTx'
+    },
   ],
   '8': [
     {'1': 'request'},
@@ -216,7 +225,8 @@ final $typed_data.Uint8List toRadioDescriptor = $convert.base64Decode(
     'SAoNbGlzdF9jaGFubmVscxgYIAEoCzIhLmdob3N0d2F2ZS5jbGllbnQudjEuTGlzdENoYW5uZW'
     'xzSABSDGxpc3RDaGFubmVscxI5CghzZXRfbmFtZRgZIAEoCzIcLmdob3N0d2F2ZS5jbGllbnQu'
     'djEuU2V0TmFtZUgAUgdzZXROYW1lEkIKC3JlcXVlc3Rfa2V5GBogASgLMh8uZ2hvc3R3YXZlLm'
-    'NsaWVudC52MS5SZXF1ZXN0S2V5SABSCnJlcXVlc3RLZXlCCQoHcmVxdWVzdA==');
+    'NsaWVudC52MS5SZXF1ZXN0S2V5SABSCnJlcXVlc3RLZXkSMwoGc2V0X3R4GBsgASgLMhouZ2hv'
+    'c3R3YXZlLmNsaWVudC52MS5TZXRUeEgAUgVzZXRUeEIJCgdyZXF1ZXN0');
 
 @$core.Deprecated('Use helloDescriptor instead')
 const Hello$json = {
@@ -464,6 +474,18 @@ const RequestKey$json = {
 /// Descriptor for `RequestKey`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List requestKeyDescriptor = $convert
     .base64Decode('CgpSZXF1ZXN0S2V5EhcKB25vZGVfaWQYASABKAdSBm5vZGVJZA==');
+
+@$core.Deprecated('Use setTxDescriptor instead')
+const SetTx$json = {
+  '1': 'SetTx',
+  '2': [
+    {'1': 'on', '3': 1, '4': 1, '5': 8, '10': 'on'},
+  ],
+};
+
+/// Descriptor for `SetTx`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setTxDescriptor =
+    $convert.base64Decode('CgVTZXRUeBIOCgJvbhgBIAEoCFICb24=');
 
 @$core.Deprecated('Use fromRadioDescriptor instead')
 const FromRadio$json = {

@@ -47,6 +47,8 @@ message ToRadio {
     SetName set_name = 25;
     // protocol 1.4
     RequestKey request_key = 26;
+    // protocol 1.8
+    SetTx set_tx = 27;
   }
 }
 
@@ -148,6 +150,13 @@ message SetName {
 // Errors: BAD_ARGUMENT, RATE_LIMITED (asked within 30 s), NO_IDENTITY (legacy node).
 message RequestKey {
   fixed32 node_id = 1;
+}
+
+// 1.8: transmit on or off, as the `tx on` / `tx off` console command, saved.
+// A fresh board listens only until this (or `tx on`): check the antenna is on
+// and the region is right first. Replies Ok; Status.tx_off shows the result.
+message SetTx {
+  bool on = 1;
 }
 
 // --------------------------------------------------------------- node -> app

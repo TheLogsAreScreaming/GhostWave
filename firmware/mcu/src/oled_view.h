@@ -31,14 +31,19 @@ struct Status {
   bool rangeShow, rangeSender;       // range test: show its page; this node is the one pinging
   uint32_t rangeSent, rangeDelivered, rangeRxSeq, rangeRxCount;
   int rangeRssi;                     // dBm, the last frame heard
+  // Node page
+  float freqMHz;
+  const char* region;                // "US915", "EU868"
+  const char* bleName;               // advertised name, e.g. GhostWave-34e1
+  uint32_t uptimeS;
 };
 
-enum class Screen : uint8_t { Splash, Status, Neighbors, Message, Range, Sos, Passkey };
+enum class Screen : uint8_t { Splash, Status, Node, Neighbors, Message, Range, Sos, Passkey };
 
 struct View {
   Screen screen = Screen::Status;
   uint8_t page = 0, pages = 1;       // page dots on the normal screens
-  const char* version = "";          // splash
+  const char* version = "";          // splash and node page
   const char* passkey = "";          // 6 digits
   uint32_t msgFrom = 0;
   const char* msg = "";
