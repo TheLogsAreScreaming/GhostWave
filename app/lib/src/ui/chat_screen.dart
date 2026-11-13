@@ -34,18 +34,40 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _text = TextEditingController();
+  final TextEditingController _search = TextEditingController();
+  bool _searching = false;
+  int? _loadedNode;
+  bool _restoringDraft = false;
+  static const _quickReplies = ['Received', 'On my way', 'I’m OK', 'Need assistance'];
 
   @override
   void initState() {
     super.initState();
-    _text.addListener(() => setState(() {}));
+    _text.addListener(_onDraftChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(meshProvider.notifier).markRead(widget.peer);
     });
   }
 
+  void _onDraftChanged() {
+    if (!mounted || _restoringDraft) return;
+    setState(() {});
+    if (_loadedNode != null) ref.read(meshProvider.notifier).setDraft(widget.peer, _text.text);
+  }
+
+  void _restoreDraft(MeshState mesh) {
+    if (mesh.nodeId == null || _loadedNode == mesh.nodeId) return;
+    _loadedNode = mesh.nodeId;
+    _restoringDraft = true;
+    _text.text = mesh.drafts[widget.peer] ?? '';
+    _text.selection = TextSelection.collapsed(offset: _text.text.length);
+    _restoringDraft = false;
+  }
+
   @override
   void dispose() {
+    _search.dispose();
+    _text.removeListener(_onDraftChanged);
     _text.dispose();
     super.dispose();
   }
@@ -59,8 +81,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final t = _text.text.trim();
     final max = _max;
     if (t.isEmpty || splitMessage(t, max).length > kMaxMessageParts) return;
-    _text.clear();
-    await ref.read(meshProvider.notifier).sendMessage(widget.peer, t, max);
+    try {
+      await ref.read(meshProvider.notifier).sendMessage(widget.peer, t, max);
+      if (!mounted) return;
+      if (_text.text.trim() == t) _text.clear();
+    } on Object catch (e) {
+      if (mounted) showSnack(context, 'Could not queue message: $e');
+    }
   }
 
   @override
@@ -69,8 +96,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ref.listen(meshProvider.select((m) => m.unread[widget.peer] ?? 0), (_, n) {
       if (n > 0) ref.read(meshProvider.notifier).markRead(widget.peer);
     });
+    _restoreDraft(mesh);
     final contact = mesh.contacts[widget.peer];
-    final msgs = groupThread(mesh.messages[widget.peer] ?? const <ChatMessage>[]);
+    final allMessages = groupThread(mesh.messages[widget.peer] ?? const <ChatMessage>[]);
+    final query = _search.text.trim().toLowerCase();
+    final msgs = query.isEmpty
+        ? allMessages
+        : allMessages
+              .where(
+                (item) => switch (item) {
+                  SingleItem(message: final m) => m.text.toLowerCase().contains(query),
+                  LongMessageItem() => item.text.toLowerCase().contains(query),
+                },
+              )
+              .toList();
     final bytes = utf8Length(_text.text.trim());
     final reportedMax = ref.watch(nodeInfoProvider.select((info) => info?.maxTextBytes ?? 0));
     final max = reportedMax == 0 ? kDefaultMaxTextBytes : reportedMax;
@@ -101,6 +140,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: _searching ? 'Close search' : 'Search messages',
+            icon: Icon(_searching ? Icons.close : Icons.search),
+            onPressed: () => setState(() {
+              _searching = !_searching;
+              if (!_searching) _search.clear();
+            }),
+          ),
           PopupMenuButton<String>(
             onSelected: (c) async {
               if (c == 'copyId') {
@@ -132,6 +179,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: LayoutBuilder(
         builder: (context, box) => Column(
           children: [
+            if (_searching)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: GwSpace.md, vertical: GwSpace.sm),
+                child: TextField(
+                  controller: _search,
+                  autofocus: true,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    hintText: 'Search this conversation',
+                    suffixIcon: query.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            onPressed: () => setState(_search.clear),
+                            icon: const Icon(Icons.clear),
+                          ),
+                  ),
+                ),
+              ),
             // warnings never push the conversation and the message box off a small
             // screen (keyboard open, large text): past a third they scroll
             ConstrainedBox(
@@ -155,7 +222,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             Expanded(
               child: msgs.isEmpty
-                  ? const Center(child: Text('No messages yet.'))
+                  ? Center(child: Text(query.isEmpty ? 'No messages yet.' : 'No matching messages.'))
                   : ListView.builder(
                       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       reverse: true,
@@ -222,6 +289,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       },
                     ),
             ),
+            if (!_searching)
+              SizedBox(
+                height: 46,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: GwSpace.md),
+                  children: [
+                    for (final reply in _quickReplies)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          label: Text(reply),
+                          onPressed: () {
+                            _text.text = reply;
+                            _text.selection = TextSelection.collapsed(offset: _text.text.length);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             SafeArea(
               top: false,
               child: Padding(

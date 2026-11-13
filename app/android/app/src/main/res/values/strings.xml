@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name_short">GhostWave</string>
+    <string name="widget_loading">Open GhostWave to connect</string>
+    <string name="widget_description">Your radio link, unread messages and trip contacts, with Check in and SOS</string>
+    <string name="shortcut_sos">SOS</string>
+    <string name="shortcut_sos_long">Open the SOS screen</string>
+    <string name="shortcut_checkin">Check in</string>
+    <string name="shortcut_checkin_long">Open trip check-ins</string>
+    <string name="shortcut_chats">Chats</string>
+    <string name="shortcut_chats_long">Open chats</string>
+</resources>

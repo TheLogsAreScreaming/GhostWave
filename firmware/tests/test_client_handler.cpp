@@ -594,6 +594,61 @@ void testProtocol11() {
   CHECK(v.size() == 1 && v[0].error == ErrorCode::NoIdentity);
 }
 
+// SetTx (1.8): the app's transmit switch goes through the board's hook, and
+// Status then reports it; a node without the hook says it has none.
+static void testSetTx() {
+  std::printf("client handler: SetTx\n");
+  NullRadio radio;
+  NullApp app;
+  gw::Config cfg = Rig::mkCfg();
+  gw::Router router(cfg, radio, app);
+  gw::Position pos;
+  bool tx = false, saveOk = true;
+  int calls = 0;
+  FakeTransport t;
+  Handler::Hooks hooks;
+  hooks.txOff = [&] { return !tx; };
+  hooks.setTx = [&](bool on) {
+    ++calls;
+    tx = on;
+    return saveOk;
+  };
+  Handler h(router, Rig::ident(), pos, hooks, 0, t);
+  auto& c = t.add("ble");
+  auto send = [&](const ToRadio& m) {
+    Bytes f;
+    frameTo(m, f);
+    FrameReader in;
+    in.push(f.data(), f.size());
+    h.receive(c.conn, in, 1000);
+    return FakeTransport::drain(c);
+  };
+  ToRadio m;
+  m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
+  auto v = send(m);
+  CHECK(v.size() == 1 && v[0].protocolMinor == 8);
+  m = {}, m.reqId = 2, m.kind = ToKind::SetTx, m.on = true;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 2 && tx && calls == 1);
+  m = {}, m.reqId = 3, m.kind = ToKind::GetStatus;
+  v = send(m);
+  CHECK(v.size() == 1 && !v[0].status.txOff);
+  saveOk = false;
+  m = {}, m.reqId = 4, m.kind = ToKind::SetTx, m.on = false;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::SendFailed && !tx);   // off now, but not saved: says so
+
+  Rig plain;   // ghostwaved and other nodes with no gate
+  auto& pc = plain.t.add("tcp");
+  plain.hello(pc);
+  FakeTransport::drain(pc);
+  ToRadio q;
+  q.reqId = 5, q.kind = ToKind::SetTx, q.on = true;
+  plain.req(pc, q);
+  v = FakeTransport::drain(pc);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::UnknownRequest);
+}
+
 // The PIN handshake (protocol 1.2).
 void testPin() {
   std::printf("client handler: PIN\n");
@@ -872,6 +927,7 @@ int main() {
   testRequests();
   testBadFrames();
   testProtocol11();
+  testSetTx();
   testPin();
   testBattery();
   std::printf("client handler: %d passed, %d failed\n", g_pass, g_fail);

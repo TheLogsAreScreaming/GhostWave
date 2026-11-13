@@ -38,7 +38,7 @@ struct Settings {
   bool responder = false;
   bool requireEnc = false;
   bool txOn = true;             // false on a fresh board until `tx on`; see txGateOpen
-  bool bleOn = true;            // nRF52 only: advertise the BLE client link
+  bool bleOn = true;            // advertise the BLE client link (every board with GW_HAS_BLE)
   size_t peerCount = 0;
   std::array<PeerKey, kMaxStoredPeers> peers{};
 };
