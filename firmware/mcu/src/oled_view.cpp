@@ -11,6 +11,7 @@
 #include <Fonts/FreeSansBold9pt7b.h>
 #include <Fonts/TomThumb.h>
 
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 
@@ -128,7 +129,7 @@ void statusPage(Adafruit_GFX& g, const Status& s) {
   }
   char near[24];
   if (!s.radioOk) std::snprintf(near, sizeof near, "check the radio");
-  else if (!s.txOn) std::snprintf(near, sizeof near, "receive only: tx on");
+  else if (!s.txOn) std::snprintf(near, sizeof near, "turn TX on in the app");
   else std::snprintf(near, sizeof near, "%lu node%s nearby", static_cast<unsigned long>(s.neighbors), s.neighbors == 1 ? "" : "s");
   text(g, nullptr, 0, 32, near);
   g.drawFastHLine(0, 41, kW, kOn);
@@ -140,6 +141,27 @@ void statusPage(Adafruit_GFX& g, const Status& s) {
   if (s.batteryPct == 0xFF) std::snprintf(v, sizeof v, "--");
   else std::snprintf(v, sizeof v, "%u%%", s.batteryPct);
   stat(g, 88, "BATTERY", v);
+}
+
+// Who this node is and how it is set up: what you need to pair, to add it as
+// a contact, or to check two boards share a frequency.
+void nodePage(Adafruit_GFX& g, const Status& s, const View& v) {
+  char t[32];
+  std::snprintf(t, sizeof t, "NODE  %08lx", static_cast<unsigned long>(s.nodeId));
+  label(g, 0, 14, t);
+  std::snprintf(t, sizeof t, "%.3f MHz %d dBm", static_cast<double>(s.freqMHz), s.outputDbm);
+  text(g, nullptr, 0, 23, t);
+  char reg[8] = "";
+  for (int i = 0; s.region && s.region[i] && i < 7; ++i) reg[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(s.region[i])));
+  std::snprintf(t, sizeof t, "%s  TX %s", reg, s.txOn ? "on" : "off");
+  text(g, nullptr, 0, 33, t);
+  if (!s.bleEnabled) std::snprintf(t, sizeof t, "Bluetooth off");
+  else if (s.bleConnected) std::snprintf(t, sizeof t, "Phone connected");
+  else std::snprintf(t, sizeof t, "%s", s.bleName && s.bleName[0] ? s.bleName : "Bluetooth on");
+  text(g, nullptr, 0, 43, t);
+  const uint32_t h = s.uptimeS / 3600, m = (s.uptimeS / 60) % 60;
+  std::snprintf(t, sizeof t, "V%s  UP %luH%02luM", v.version, static_cast<unsigned long>(h), static_cast<unsigned long>(m));
+  label(g, 0, 53, t);
 }
 
 void neighborsPage(Adafruit_GFX& g, const Status& s) {
@@ -232,6 +254,7 @@ void render(Adafruit_GFX& g, const Status& s, const View& v) {
     default:
       header(g, s);
       switch (v.screen) {
+        case Screen::Node: nodePage(g, s, v); break;
         case Screen::Neighbors: neighborsPage(g, s); break;
         case Screen::Message: messagePage(g, v); break;
         case Screen::Range: rangePage(g, s); break;

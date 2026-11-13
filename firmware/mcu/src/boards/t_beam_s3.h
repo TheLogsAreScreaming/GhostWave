@@ -14,6 +14,11 @@ constexpr int kPinLoraRst = 5;
 constexpr float kTcxoVolts = 1.8f;  // DIO3
 constexpr int kPinVext = -1;   // board power switch, -1 = none
 constexpr bool kVextOn = false;
+// 1.3" SH1106 on I2C SDA 17, SCL 18; the power chip is on the other bus (42/41).
+#define GW_HAS_OLED 1
+#define GW_OLED_SH1106 1
+#define GW_OLED_SDA 17
+#define GW_OLED_SCL 18
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0
 #define GW_HAS_BOARD_POWER 1

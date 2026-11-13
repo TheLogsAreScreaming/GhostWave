@@ -1,6 +1,6 @@
 #include "ble_link.h"
 
-#if GW_HAS_BLE
+#if GW_HAS_BLE && GW_NRF52
 
 #include <Arduino.h>
 #include <bluefruit.h>
@@ -249,4 +249,4 @@ void BleLink::log(const std::string& line) { Serial.println(line.c_str()); }
 }  // namespace mcu
 }  // namespace gw
 
-#endif  // GW_HAS_BLE
+#endif  // GW_HAS_BLE && GW_NRF52

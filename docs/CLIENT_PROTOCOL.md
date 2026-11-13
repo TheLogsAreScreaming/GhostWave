@@ -22,6 +22,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | 0 | the original set |
 | 2 | the PIN handshake on `Hello` (`PinChallenge`, `Hello.pin_proof`, error `BAD_PIN`) (§7), replaced by 3 |
 | 3 | that handshake also agrees keys, and the link is encrypted after it (`PinChallenge.server_share`, `Hello.client_share`, sealed frames with version byte 2) (§7). Not compatible with minor 2: both ends must be updated. |
+| 8 | `SetTx` (27): turn the node's transmitter on or off from the app, saved, as `tx on`/`tx off`. Nodes without a transmit switch (ghostwaved) answer `UNKNOWN_REQUEST`. |
 | 7 | signal strength: `rssi_dbm` on `TextMessage`, `Delivered`, `Neighbor` and `ChannelMessage`; `Status.last_rssi_dbm` and `last_heard_s` |
 | 1 | group channels (`SendChannelText`, `AddChannel`, `RemoveChannel`, `ListChannels`, `ChannelMessage`, `Channel`, `ChannelsEnd`, `NodeInfo.max_channel_text_bytes`, error `CHANNEL_LIMIT`) and `SetName` |
 
@@ -30,7 +31,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | Transport | Status | Notes |
 |---|---|---|
 | TCP | done (`ghostwaved`) | Off by default. `--client-tcp 4403` listens on 127.0.0.1:4403. A host must be named explicitly to listen anywhere else (see §7). Up to 4 clients at once. |
-| BLE | done (RAK4631, T1000-E) | A GhostWave GATT service: the app writes frames to ToRadio, the node notifies on FromRadio. The same frames, unchanged. Pairing required. See §9. Not on the ESP32 builds yet. |
+| BLE | done (nRF52 boards; ESP32 boards from dev.10, untested) | A GhostWave GATT service: the app writes frames to ToRadio, the node notifies on FromRadio. The same frames, unchanged. Pairing required. See §9. The same service and pairing on both. |
 | USB serial | planned | The same frames. Garbage before a magic is skipped, so boot logs on the same port are harmless. |
 
 All transports carry one byte stream in each direction, made of frames.
@@ -138,6 +139,10 @@ Notes on the requests:
   `ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>`. Anyone with it can read and write the
   channel. An `AddChannel` with a name already in use under another key, or a key already joined
   under another name, gets `BAD_ARGUMENT`.
+- **SetTx (1.8)** turns the node's transmitter on or off and saves it, exactly like the `tx on` /
+  `tx off` console command. A fresh board listens only until this. The app asks the user to check the
+  antenna and region first. `Status.tx_off` shows the result. If the switch flips but cannot be saved,
+  the reply is `SEND_FAILED`.
 - **RequestKey (1.4)** asks a node in radio range for its signed IDENT now, instead of waiting for
   the node's own request (DESIGN §4.5). Beacons carry no key and a node ID is only a hash, so a node
   that was only heard can't be sent a sealed DM: an app should hold a message for it until

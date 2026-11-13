@@ -1,5 +1,5 @@
-// BLE transport for the client link on nRF52 boards (Bluefruit, Adafruit
-// nRF52 core). docs/CLIENT_PROTOCOL.md "BLE transport" is the spec: one
+// BLE transport for the client link: nRF52 boards in ble_link.cpp (Bluefruit,
+// Adafruit nRF52 core), ESP32 boards in ble_link_esp32.cpp (NimBLE). docs/CLIENT_PROTOCOL.md "BLE transport" is the spec: one
 // custom service, ToRadio written by the app (write with response), FromRadio
 // notified by the node, both carrying the same frames as TCP. LE Secure
 // Connections pairing with a passkey printed on the serial console, bonds in
@@ -42,6 +42,8 @@ class BleLink : public gw::client::Transport {
   void setEnabled(bool on);
   bool enabled() const { return enabled_; }
   bool connected() const { return open_; }
+  // The advertised name, e.g. GhostWave-34e1.
+  const std::string& name() const { return name_; }
   // Forgets every bonded phone (and drops the current connection).
   void clearBonds();
   // One line for the `ble` command.

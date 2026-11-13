@@ -108,6 +108,7 @@ enum ToRadio_Request {
   listChannels,
   setName,
   requestKey,
+  setTx,
   notSet
 }
 
@@ -131,6 +132,7 @@ class ToRadio extends $pb.GeneratedMessage {
     ListChannels? listChannels,
     SetName? setName,
     RequestKey? requestKey,
+    SetTx? setTx,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -151,6 +153,7 @@ class ToRadio extends $pb.GeneratedMessage {
     if (listChannels != null) result.listChannels = listChannels;
     if (setName != null) result.setName = setName;
     if (requestKey != null) result.requestKey = requestKey;
+    if (setTx != null) result.setTx = setTx;
     return result;
   }
 
@@ -181,6 +184,7 @@ class ToRadio extends $pb.GeneratedMessage {
     24: ToRadio_Request.listChannels,
     25: ToRadio_Request.setName,
     26: ToRadio_Request.requestKey,
+    27: ToRadio_Request.setTx,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -188,8 +192,26 @@ class ToRadio extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
       createEmptyInstance: ToRadio.$_createMessage)
-    ..oo(
-        0, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
+    ..oo(0, [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27
+    ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
         subBuilder: Hello.$_createMessage)
@@ -225,6 +247,8 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: SetName.$_createMessage)
     ..aOM<RequestKey>(26, _omitFieldNames ? '' : 'requestKey',
         subBuilder: RequestKey.$_createMessage)
+    ..aOM<SetTx>(27, _omitFieldNames ? '' : 'setTx',
+        subBuilder: SetTx.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -264,6 +288,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(24)
   @$pb.TagNumber(25)
   @$pb.TagNumber(26)
+  @$pb.TagNumber(27)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -282,6 +307,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(24)
   @$pb.TagNumber(25)
   @$pb.TagNumber(26)
+  @$pb.TagNumber(27)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -482,6 +508,18 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearRequestKey() => $_clearField(26);
   @$pb.TagNumber(26)
   RequestKey ensureRequestKey() => $_ensure(17);
+
+  /// protocol 1.8
+  @$pb.TagNumber(27)
+  SetTx get setTx => $_getN(18);
+  @$pb.TagNumber(27)
+  set setTx(SetTx value) => $_setField(27, value);
+  @$pb.TagNumber(27)
+  $core.bool hasSetTx() => $_has(18);
+  @$pb.TagNumber(27)
+  void clearSetTx() => $_clearField(27);
+  @$pb.TagNumber(27)
+  SetTx ensureSetTx() => $_ensure(18);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -1577,6 +1615,65 @@ class RequestKey extends $pb.GeneratedMessage {
   $core.bool hasNodeId() => $_has(0);
   @$pb.TagNumber(1)
   void clearNodeId() => $_clearField(1);
+}
+
+/// 1.8: transmit on or off, as the `tx on` / `tx off` console command, saved.
+/// A fresh board listens only until this (or `tx on`): check the antenna is on
+/// and the region is right first. Replies Ok; Status.tx_off shows the result.
+class SetTx extends $pb.GeneratedMessage {
+  factory SetTx({
+    $core.bool? on,
+  }) {
+    final result = SetTx._();
+    if (on != null) result.on = on;
+    return result;
+  }
+
+  SetTx._();
+
+  factory SetTx.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetTx()..mergeFromBuffer(data, registry);
+  factory SetTx.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetTx()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetTx',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: SetTx.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'on')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetTx clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetTx copyWith(void Function(SetTx) updates) =>
+      super.copyWith((message) => updates(message as SetTx)) as SetTx;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SetTx() / SetTx.new instead')
+  static SetTx create() => SetTx._();
+  static $pb.GeneratedMessage $_createMessage() => SetTx._();
+  @$core.override
+  SetTx createEmptyInstance() => SetTx._();
+  @$core.pragma('dart2js:noInline')
+  static SetTx getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetTx>(SetTx.$_createMessage);
+  static SetTx? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get on => $_getBF(0);
+  @$pb.TagNumber(1)
+  set on($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasOn() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearOn() => $_clearField(1);
 }
 
 enum FromRadio_Event {

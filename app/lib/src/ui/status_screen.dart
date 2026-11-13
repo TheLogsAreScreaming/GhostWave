@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'format.dart';
+import '../app/mesh_controller.dart';
 import '../app/providers.dart';
 import '../gen/ghostwave.pb.dart' as pb;
+import 'transmit.dart';
 import 'theme.dart';
 import 'field_tools_screen.dart';
 import 'widgets.dart';
@@ -105,21 +107,22 @@ class _StatusScreenState extends ConsumerState<StatusScreen> with WidgetsBinding
   }
 }
 
-class _StatusList extends StatelessWidget {
+class _StatusList extends ConsumerWidget {
   const _StatusList(this.s);
 
   final pb.Status s;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canSetTx = ref.read(meshProvider.notifier).nodeCanSetTx;
     final tiles = <_Metric>[
       _Metric(Icons.timer_outlined, 'Uptime', formatUptime(s.uptimeS)),
       s.txOff
-          ? const _Metric(
+          ? _Metric(
               Icons.portable_wifi_off,
               'Transmit',
               'OFF',
-              note: 'type tx on on the serial console',
+              note: canSetTx ? 'turn it on below' : 'type tx on on the serial console',
               alert: true,
             )
           : const _Metric(Icons.cell_tower, 'Transmit', 'on', note: 'or not reported'),
@@ -176,6 +179,14 @@ class _StatusList extends StatelessWidget {
                   );
                 },
               ),
+              if (s.txOff && canSetTx) ...[
+                const SizedBox(height: GwSpace.md),
+                FilledButton.icon(
+                  onPressed: () => unawaited(confirmSetTransmit(context, ref, on: true)),
+                  icon: const Icon(Icons.cell_tower),
+                  label: const Text('Turn transmit on'),
+                ),
+              ],
               const SectionLabel('Messages'),
               _Rows(mesh),
               const SectionLabel('Radio'),

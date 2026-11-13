@@ -14,5 +14,9 @@ constexpr float kTcxoVolts = 1.8f;  // DIO3
 #define GW_MAX_OUTPUT_DBM 17
 constexpr int kPinVext = -1;   // board power switch, -1 = none
 constexpr bool kVextOn = false;
+// 0.96" SSD1306 on I2C SDA 21, SCL 22 (LilyGo T-LoRa V2.1-1.6), no reset line.
+#define GW_HAS_OLED 1
+#define GW_OLED_SDA 21
+#define GW_OLED_SCL 22
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0

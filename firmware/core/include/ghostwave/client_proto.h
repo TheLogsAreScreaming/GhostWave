@@ -28,7 +28,7 @@ constexpr uint8_t kProtocolVersion = 1;
 // 3: that handshake also agrees keys, and the link is encrypted after it.
 // 5: SosCancelled.
 // 6: NO_KEY: a DM is never sent unencrypted.
-constexpr uint32_t kProtocolMinor = 7;
+constexpr uint32_t kProtocolMinor = 8;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -111,6 +111,7 @@ enum class ToKind : uint8_t {
   ListChannels = 24,
   SetName = 25,
   RequestKey = 26,        // 1.4
+  SetTx = 27,             // 1.8
 };
 
 struct ToRadio {
@@ -132,6 +133,8 @@ struct ToRadio {
   Pos pos;
   // SosStart: text, batteryPct, accuracyM
   OptU32 batteryPct, accuracyM;
+  // SetTx: on
+  bool on = false;
   // SendChannelText: channel, text, clientMsgId.  AddChannel: channel, psk.
   // RemoveChannel: channel.  SetName: name.
   std::string channel;
