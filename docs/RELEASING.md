@@ -51,5 +51,9 @@ python3 scripts/release.py --out /tmp/gw-release-2 --site ../meshmayhem-site --p
 3. If they did not update within a few minutes, Workers Builds did not run. Deploy from a clean
    checkout of the site's main: `npx wrangler deploy`.
 
+A commit that only changed firmware has no App build (that workflow skips it). Release such
+firmware with `--skip-app`, and the app from the last commit that changed it
+(`--commit SHA --skip-firmware`).
+
 Options: `--commit SHA` (default main's head), `--app-version 0.1.0-dev.N`, `--skip-firmware`,
 `--skip-app`. Tests: `python3 scripts/test-release.py` (offline).
