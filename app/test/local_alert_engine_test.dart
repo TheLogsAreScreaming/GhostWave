@@ -32,8 +32,10 @@ void main() {
     e.heard(4, t);
     expect(e.checkQuiet(t.add(const Duration(minutes: 31)), {4}, connected: false), isEmpty);
     expect(e.checkQuiet(t.add(const Duration(minutes: 29)), {4}, connected: true), isEmpty);
-    expect(e.checkQuiet(t.add(const Duration(minutes: 30)), {4}, connected: true).single.kind,
-        LocalAlertKind.contactQuiet);
+    expect(
+      e.checkQuiet(t.add(const Duration(minutes: 30)), {4}, connected: true).single.kind,
+      LocalAlertKind.contactQuiet,
+    );
     expect(e.checkQuiet(t.add(const Duration(minutes: 40)), {4}, connected: true), isEmpty);
     e.heard(4, t.add(const Duration(minutes: 41)));
     expect(e.checkQuiet(t.add(const Duration(minutes: 72)), {4}, connected: true), hasLength(1));

@@ -33,7 +33,11 @@ class LocalAlertEngine {
   /// Do not interpret a missing or invalid battery reading as low battery.
   LocalAlertEvent? battery(int? percent) {
     if (percent == null || percent < 0 || percent > 100) return null;
-    final level = percent <= criticalBatteryPercent ? 2 : percent <= lowBatteryPercent ? 1 : 0;
+    final level = percent <= criticalBatteryPercent
+        ? 2
+        : percent <= lowBatteryPercent
+        ? 1
+        : 0;
     if (level == 0) {
       _batteryLevel = 0;
       return null;
@@ -67,11 +71,13 @@ class LocalAlertEngine {
       final last = _lastHeard[id];
       if (last == null || now.isBefore(last) || now.difference(last) < quietAfter) continue;
       if (_quietNotified.add(id)) {
-        events.add(LocalAlertEvent(
-          LocalAlertKind.contactQuiet,
-          'Trip contact $id has not been heard for ${now.difference(last).inMinutes} minutes',
-          nodeId: id,
-        ));
+        events.add(
+          LocalAlertEvent(
+            LocalAlertKind.contactQuiet,
+            'Trip contact $id has not been heard for ${now.difference(last).inMinutes} minutes',
+            nodeId: id,
+          ),
+        );
       }
     }
     return events;
