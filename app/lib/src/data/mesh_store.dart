@@ -34,6 +34,7 @@ class StoredMesh {
     this.ownSos = const OwnSos(),
     this.channels = const {},
     this.channelMessages = const {},
+    this.drafts = const {},
     this.problem = HistoryProblem.none,
   });
 
@@ -64,6 +65,7 @@ class StoredMesh {
           if (GroupChannel.fromJson(m(c)) case final ch) ch.name: ch,
       },
       channelMessages: channelMessages,
+      drafts: (j['drafts'] as Map<Object?, Object?>? ?? const {}).map((k, v) => MapEntry(int.parse(k as String), v as String)),
     );
   }
 
@@ -85,7 +87,7 @@ class StoredMesh {
   /// Channel messages by channel, oldest first.
   final Map<String, List<ChannelMessage>> channelMessages;
 
-  /// Why this snapshot is empty, if the saved one could not be read. Not saved.
+  /// Unsent DM text, encrypted with the node's history.\n  final Map<int, String> drafts;\n\n  /// Why this snapshot is empty, if the saved one could not be read. Not saved.
   final HistoryProblem problem;
 
   /// JSON form.
@@ -99,6 +101,7 @@ class StoredMesh {
     'alerts': [for (final a in alerts) a.toJson()],
     'ownSos': ownSos.toJson(),
     'channels': [for (final c in channels.values) c.toJson()],
+    'drafts': {for (final e in drafts.entries) '${e.key}': e.value},
     'channelMessages': [
       for (final l in channelMessages.values)
         for (final msg in l) msg.toJson(),
