@@ -1,5 +1,7 @@
 # Publish selected-board firmware and refresh the flasher
 
+> The usual path is now one command: `scripts/release.py` ([RELEASING.md](../RELEASING.md)). The steps below are what it does, for doing them by hand.
+
 The flasher supports Nordic serial DFU and a separate ESP32 installer using
 ESP Web Tools 10.1.0. New entries remain unavailable until compatible releases
 exist. The nine additional boards remain experimental; build success is not
