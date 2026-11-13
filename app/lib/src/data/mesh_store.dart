@@ -11,6 +11,7 @@ import '../link/contact_card.dart';
 import 'history_crypto.dart';
 import 'models.dart';
 import 'node_journal.dart';
+import 'timeline.dart';
 import 'team_trails.dart';
 
 /// Trails from [toJson]'s `trails`; anything malformed is dropped.
@@ -56,6 +57,7 @@ class StoredMesh {
     this.drafts = const {},
     this.trails = const {},
     this.journal = const NodeJournal(),
+    this.signalLog = const [],
     this.problem = HistoryProblem.none,
   });
 
@@ -91,6 +93,7 @@ class StoredMesh {
       ),
       trails: _trailsFromJson(j['trails']),
       journal: NodeJournal.fromJson(j['journal']),
+      signalLog: signalLogFromJson(j['signal']),
     );
   }
 
@@ -121,6 +124,9 @@ class StoredMesh {
   /// Every node heard while connected to this node.
   final NodeJournal journal;
 
+  /// Signal changes of heard nodes, oldest first (for the timeline).
+  final List<SignalShift> signalLog;
+
   /// Why this snapshot is empty, if the saved one could not be read. Not saved.
   final HistoryProblem problem;
 
@@ -145,6 +151,7 @@ class StoredMesh {
         for (final msg in l) msg.toJson(),
     ],
     if (!journal.isEmpty) 'journal': journal.toJson(),
+    if (signalLog.isNotEmpty) 'signal': [for (final x in signalLog) x.toJson()],
   };
 }
 

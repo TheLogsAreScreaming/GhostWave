@@ -14,6 +14,7 @@ import '../data/message_split.dart';
 import '../data/models.dart';
 import '../data/node_journal.dart';
 import '../data/team_trails.dart';
+import '../data/timeline.dart';
 import '../data/trip.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import '../link/contact_card.dart';
@@ -44,6 +45,7 @@ class MeshState {
     this.drafts = const {},
     this.trails = const {},
     this.journal = const NodeJournal(),
+    this.signalLog = const [],
     this.historyProblem = HistoryProblem.none,
     this.txOff = false,
   });
@@ -90,6 +92,9 @@ class MeshState {
   /// Every node heard while connected to this node (the node journal).
   final NodeJournal journal;
 
+  /// Signal changes of heard nodes, oldest first (the timeline's Signal entries).
+  final List<SignalShift> signalLog;
+
   /// Why this node's saved history did not load, if it didn't.
   final HistoryProblem historyProblem;
 
@@ -128,6 +133,7 @@ class MeshState {
     Map<int, String>? drafts,
     Map<int, List<TrailFix>>? trails,
     NodeJournal? journal,
+    List<SignalShift>? signalLog,
     bool? txOff,
   }) => MeshState(
     nodeId: nodeId ?? this.nodeId,
@@ -144,6 +150,7 @@ class MeshState {
     drafts: drafts ?? this.drafts,
     trails: trails ?? this.trails,
     journal: journal ?? this.journal,
+    signalLog: signalLog ?? this.signalLog,
     historyProblem: historyProblem,
     txOff: txOff ?? this.txOff,
   );
@@ -231,6 +238,7 @@ class MeshController extends Notifier<MeshState> {
         drafts: saved.drafts,
         trails: pruneTrails(saved.trails, _now()),
         journal: saved.journal.markListening(_now()),
+        signalLog: saved.signalLog,
         historyProblem: saved.problem,
       );
     }
@@ -382,8 +390,12 @@ class MeshController extends Notifier<MeshState> {
     final timed = !e.replayed;
     void log(int id, HeardVia via, {LatLon? pos, int? rssi, String? name}) {
       if (id == 0 || id == 0xFFFFFFFF || id == own) return;
+      final now = _now();
+      final before = state.journal.entries[id]?.lastRssi;
       state = state.copyWith(
-        journal: state.journal.record(id, _now(), via, pos: pos, rssiDbm: rssi, name: name, timed: timed),
+        journal: state.journal.record(id, now, via, pos: pos, rssiDbm: rssi, name: name, timed: timed),
+        // replayed events are old: their signal says nothing about now
+        signalLog: rssi == null || !timed ? null : recordSignal(state.signalLog, id, before, rssi, now),
       );
       _save();
     }
@@ -1211,6 +1223,7 @@ class MeshController extends Notifier<MeshState> {
       drafts: _snap.drafts,
       trails: _snap.trails,
       journal: _snap.journal,
+      signalLog: _snap.signalLog,
     );
     // a failed write (disk full, app dir gone) must not crash the app; the
     // next change tries again
