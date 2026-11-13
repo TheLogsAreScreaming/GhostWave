@@ -7,3 +7,5 @@ Build env: `wio_tracker_l1` (`cd firmware/mcu && pio run -e wio_tracker_l1`). Pi
 Flash the UF2 (`.pio/build/wio_tracker_l1/firmware.uf2`) through the bootloader drive. Check `INFO_UF2.TXT` first: this build needs SoftDevice **S140 7.3.0**. It has the Bluetooth phone link.
 
 Fit the antenna first, then type `tx on`: a fresh board only receives until you do. GPS, buttons and other extras are not used yet.
+
+The 0.96" OLED shows the status, node, neighbour and message pages, and the pairing key while the phone pairs. It sits on the NFC pins, so this build switches NFC off.

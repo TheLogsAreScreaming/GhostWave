@@ -8,7 +8,7 @@ From `firmware/mcu`, flash with `pio run -e t_deck -t upload`. If several serial
 
 Fit the antenna first, then type `tx on`: a fresh board only receives until you do. GPS, buttons and other extras are not used yet.
 
-The screen, keyboard and trackball are not used. Use the USB serial console.
+The screen shows the status, node, neighbour and message pages at twice their OLED size, and the pairing key while the phone pairs. The keyboard and trackball are not used yet.
 
 ## After an interrupted upload
 
