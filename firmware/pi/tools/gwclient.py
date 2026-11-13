@@ -68,6 +68,8 @@ TO_REQUESTS = {
     24: ("list_channels", {}),
     25: ("set_name", {1: ("name", "str")}),
     26: ("request_key", {1: ("node_id", "fx32")}),
+    # protocol 1.8
+    27: ("set_tx", {1: ("on", "bool")}),
 }
 
 FROM_EVENTS = {

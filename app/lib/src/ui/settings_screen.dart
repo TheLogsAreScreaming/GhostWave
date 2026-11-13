@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../app/trip_controller.dart';
+import '../app/field_reports_controller.dart';
 import '../app/background_link.dart';
 import '../app/location_share.dart';
 import '../app/backup.dart';
@@ -17,6 +19,8 @@ import '../link/session.dart';
 import 'background_setup_screen.dart';
 import 'backup_screen.dart';
 import 'offline_maps_screen.dart';
+import 'privacy_screen.dart';
+import 'transmit.dart';
 import 'theme.dart';
 import 'walkthrough_screen.dart';
 import 'widgets.dart';
@@ -82,6 +86,18 @@ class SettingsScreen extends ConsumerWidget {
                         : 'This node runs an older ghostwaved: update it to rename from the app.',
                   ),
                 ),
+              if (ref.read(meshProvider.notifier).nodeCanSetTx)
+                SwitchListTile(
+                  secondary: const Icon(Icons.cell_tower),
+                  title: const Text('Transmit'),
+                  subtitle: Text(
+                    ref.watch(meshProvider.select((m) => m.txOff))
+                        ? 'Off: the node only listens'
+                        : 'On: the node sends and relays',
+                  ),
+                  value: !ref.watch(meshProvider.select((m) => m.txOff)),
+                  onChanged: (on) => unawaited(confirmSetTransmit(context, ref, on: on)),
+                ),
               ListTile(
                 leading: const Icon(Icons.memory),
                 title: const Text('Node firmware'),
@@ -126,6 +142,12 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (page) => WalkthroughScreen(onDone: () => Navigator.of(page).pop())),
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.shield_outlined),
+              title: const Text('Privacy & data'),
+              subtitle: const Text('What is kept, what is sent, and deleting it'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PrivacyScreen())),
             ),
             ListTile(
               leading: Icon(Icons.delete_forever_outlined, color: Theme.of(context).colorScheme.error),
@@ -207,14 +229,22 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _reset(BuildContext context, WidgetRef ref) async {
+  Future<void> _reset(BuildContext context, WidgetRef ref) => confirmAndResetAppData(context, ref);
+}
+
+/// Asks, then deletes everything GhostWave keeps on this phone: chats,
+/// contacts, field tests, the trip, offline maps, PINs and settings. The node
+/// keeps its own data. Returns to the first screen.
+Future<void> confirmAndResetAppData(BuildContext context, WidgetRef ref) async {
+  {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
         title: const Text('Reset app data?'),
         content: const Text(
-          'Deletes every chat, contact, the saved node address and other settings on this phone. '
-          'Your node keeps its own contacts and channels. This cannot be undone.',
+          'Deletes every chat, contact, saved field test, your trip plan, offline maps, saved PINs, the saved '
+          'node address and other settings on this phone. Your node keeps its own contacts and channels. '
+          'This cannot be undone.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
@@ -231,9 +261,13 @@ class SettingsScreen extends ConsumerWidget {
     ref.read(nodeAddressProvider.notifier).disconnect();
     await ref.read(meshProvider.notifier).resetLocalData();
     await ref.read(offlineMapsProvider.notifier).reset();
+    ref.read(fieldReportsProvider.notifier).deleteAll();
+    await ref.read(fieldReportStoreProvider)?.idle;
     await ref.read(pinStoreProvider).clear();
     await ref.read(sharedPrefsProvider).clear();
     ref
+      ..invalidate(tripProvider)
+      ..invalidate(fieldReportsProvider)
       ..invalidate(nodeAddressProvider)
       ..invalidate(recentNodesProvider)
       ..invalidate(unitsProvider)

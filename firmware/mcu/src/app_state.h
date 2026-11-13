@@ -124,7 +124,7 @@ inline bool decodeEdKeys(const std::vector<uint8_t>& b, std::map<uint32_t, AppKe
 
 }  // namespace app_state
 
-// Implemented for the nRF52 in settings_nrf52.cpp. Load: false if the file is
+// Implemented in settings_nrf52.cpp (nRF52, files) and settings.cpp (ESP32, NVS). Load: false if the file is
 // missing or damaged (`out` is left alone). Save: false if nothing was written.
 bool loadChannels(std::vector<SavedChannel>& out);
 bool saveChannels(const std::vector<SavedChannel>& in);

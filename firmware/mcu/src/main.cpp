@@ -144,7 +144,7 @@ gw::client::Handler* g_link = nullptr;   // the app link, once BLE is up
 #endif
 
 // Our battery for SOS bodies: percent, or 0xFF where the board cannot read it.
-#if GW_HAS_OLED
+#if GW_HAS_VBAT_ADC
 uint8_t readVbatPct() {
   analogReference(AR_INTERNAL_3_0);
   analogReadResolution(12);
@@ -158,7 +158,7 @@ uint8_t readVbatPct() {
 uint8_t ownBattery() {
 #if GW_HAS_UI
   return gw::mcu::ui::batteryPct();
-#elif GW_HAS_OLED
+#elif GW_HAS_VBAT_ADC
   static uint8_t pct = 0xFF;
   static uint32_t next = 0;
   uint32_t now = millis();
@@ -768,6 +768,15 @@ void startBle() {
   };
   hooks.batteryPct = ownBattery;
   hooks.txOff = [] { return !txOpen(); };
+  // The app's transmit switch (SetTx, 1.8): exactly the `tx on|off` command.
+  hooks.setTx = [](bool on) {
+    g_set.txOn = on;
+    const bool saved = gw::mcu::saveFlags(g_set);
+    Serial.printf("app turned transmit %s%s\n", on ? "on" : "off", saved ? "" : " (not saved: lasts until reboot)");
+    if (on) Serial.printf("region %s, %.3f MHz, %d dBm out\n", gw::mcu::regionInfo(g_set.region).name, g_set.freqMHz,
+                          g_radio.outputDbm());
+    return saved;
+  };
   hooks.edKeys = &g_edKeys;
   loadEdPins();
   g_channels.reset(new SavedChannelBook(*g_router));
@@ -869,7 +878,7 @@ void gwSetup() {
   if (g_set.freqMHz < region.minMHz || g_set.freqMHz > region.maxMHz) g_set.freqMHz = region.defaultMHz;
   g_radio.setTxGate(txOpen);
 #if GW_HAS_OLED
-  Serial.println(gw::mcu::oled::begin(GW_FW_VERSION) ? "display: RAK1921 found" : "display: none found");
+  Serial.println(gw::mcu::oled::begin(GW_FW_VERSION) ? "display: OLED found" : "display: none found");
 #endif
   int16_t st = g_radio.begin(g_cfg.phy, g_set.freqMHz, g_set.outputDbm, region.dutyPermille);
   g_radioOk = st == 0;
@@ -1028,6 +1037,10 @@ void gwLoop() {
     os.rx = st.rx;
     os.bleEnabled = g_ble.enabled();
     os.bleConnected = g_ble.connected();
+    os.bleName = g_ble.name().c_str();
+    os.freqMHz = g_set.freqMHz;
+    os.region = gw::mcu::regionInfo(g_set.region).name;
+    os.uptimeS = static_cast<uint32_t>((now - g_bootMs) / 1000);
     os.batteryPct = ownBattery();
     os.rangeShow = g_rt.active() || now < g_rtShowUntil;
     os.rangeSender = g_rt.sent() > 0 || g_rt.active();

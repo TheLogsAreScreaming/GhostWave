@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'src/app/background_link.dart';
 import 'src/app/field_reports_controller.dart';
 import 'src/app/backup.dart';
+import 'src/app/home_surfaces.dart';
 import 'src/app/location_share.dart';
 import 'src/app/mesh_alerts.dart';
 import 'src/app/mesh_controller.dart';
@@ -46,6 +47,7 @@ Future<void> main() async {
         pinStoreProvider.overrideWithValue(const SecurePinStore()),
         if (Platform.isAndroid) backupFilesProvider.overrideWithValue(const AndroidBackupFiles()),
         if (Platform.isAndroid) backgroundPlatformProvider.overrideWithValue(AndroidBackgroundPlatform()),
+        if (Platform.isAndroid) homeSurfacesProvider.overrideWithValue(AndroidHomeSurfaces()),
       ],
       child: const GhostWaveApp(),
     ),

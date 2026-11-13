@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/home_surfaces.dart';
 import '../app/background_link.dart';
 import '../app/mesh_alerts.dart';
 import '../app/mesh_controller.dart';
@@ -15,6 +16,8 @@ import 'map_screen.dart';
 import 'me_screen.dart';
 import 'sos_screen.dart';
 import 'status_screen.dart';
+import 'trip_screen.dart';
+import 'transmit.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -31,6 +34,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   static const _mapTab = 1;
   static const _sosTab = 2;
   StreamSubscription<int>? _sosTaps;
+  StreamSubscription<LaunchAction>? _launches;
+  static const _chatsTab = 0;
   static const _statusTab = 4;
   int _tab = 0;
   bool _offeredBackground = false;
@@ -43,6 +48,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     // ask once for notification permission (Android 13+, iOS), after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _askNotificationsOnce());
     _sosTaps = LocalMeshAlerts.sosTaps.listen(_openSos);
+    _launches = ref.read(homeSurfacesProvider).actions.listen(_openLaunch);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (ref.read(nodeLinkProvider).state case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
@@ -52,7 +58,24 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   void dispose() {
     unawaited(_sosTaps?.cancel());
+    unawaited(_launches?.cancel());
     super.dispose();
+  }
+
+  /// An app-icon shortcut or the widget: open the place. Never sends anything;
+  /// an SOS still needs the hold.
+  void _openLaunch(LaunchAction a) {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    switch (a) {
+      case LaunchAction.sos:
+        setState(() => _tab = _sosTab);
+      case LaunchAction.chats:
+        setState(() => _tab = _chatsTab);
+      case LaunchAction.checkin:
+        setState(() => _tab = _sosTab);
+        unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TripScreen())));
+    }
   }
 
   /// A tapped SOS notification: the sender on the map, or the SOS tab without a fix.
@@ -90,6 +113,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(widgetSyncProvider); // keeps the home-screen widget current while the app runs
     ref.listen(linkStateProvider, (_, next) {
       if (next.value case final LinkNeedsPin s) unawaited(askForPin(context, ref, s));
       if (next.value is LinkUp) _offerBackgroundOnce();
@@ -199,13 +223,15 @@ class _Dest {
   final Widget selected;
 }
 
-/// Says why messages are not going out while the node's transmitter is off.
-class _TxOffBanner extends StatelessWidget {
+/// Says why messages are not going out while the node's transmitter is off,
+/// with a button to turn it on where the node allows it (protocol 1.8).
+class _TxOffBanner extends ConsumerWidget {
   const _TxOffBanner();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final canSet = ref.read(meshProvider.notifier).nodeCanSetTx;
     return Material(
       color: scheme.errorContainer,
       child: Padding(
@@ -216,10 +242,20 @@ class _TxOffBanner extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Radio transmit is off. Messages wait here until you type tx on on the node\'s serial console.',
+                canSet
+                    ? 'Radio transmit is off: your node only listens. Messages wait here until it is on.'
+                    : 'Radio transmit is off. Messages wait here until you type tx on on the node\'s serial console.',
                 style: TextStyle(color: scheme.onErrorContainer),
               ),
             ),
+            if (canSet)
+              TextButton(
+                onPressed: () => unawaited(confirmSetTransmit(context, ref, on: true)),
+                child: Text(
+                  'Turn on',
+                  style: TextStyle(color: scheme.onErrorContainer, fontWeight: FontWeight.w700),
+                ),
+              ),
           ],
         ),
       ),

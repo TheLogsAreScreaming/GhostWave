@@ -39,6 +39,7 @@ class MeshState {
     this.channels = const {},
     this.channelMessages = const {},
     this.channelUnread = const {},
+    this.drafts = const {},
     this.historyProblem = HistoryProblem.none,
     this.txOff = false,
   });
@@ -76,6 +77,9 @@ class MeshState {
   /// Unread channel messages by channel.
   final Map<String, int> channelUnread;
 
+  /// Unsent drafts per DM peer.
+  final Map<int, String> drafts;
+
   /// Why this node's saved history did not load, if it didn't.
   final HistoryProblem historyProblem;
 
@@ -111,6 +115,7 @@ class MeshState {
     Map<String, GroupChannel>? channels,
     Map<String, List<ChannelMessage>>? channelMessages,
     Map<String, int>? channelUnread,
+    Map<int, String>? drafts,
     bool? txOff,
   }) => MeshState(
     nodeId: nodeId ?? this.nodeId,
@@ -124,6 +129,7 @@ class MeshState {
     channels: channels ?? this.channels,
     channelMessages: channelMessages ?? this.channelMessages,
     channelUnread: channelUnread ?? this.channelUnread,
+    drafts: drafts ?? this.drafts,
     historyProblem: historyProblem,
     txOff: txOff ?? this.txOff,
   );
@@ -187,6 +193,7 @@ class MeshController extends Notifier<MeshState> {
         ownSos: saved.ownSos,
         channels: saved.channels,
         channelMessages: saved.channelMessages,
+        drafts: saved.drafts,
         historyProblem: saved.problem,
       );
     }
@@ -569,6 +576,25 @@ class MeshController extends Notifier<MeshState> {
     return s is LinkUp && s.info.protocolMinor >= 4 && !s.info.legacy;
   }
 
+  /// Whether the connected node's transmitter can be switched from the app
+  /// (SetTx, protocol 1.8). Older firmware needs `tx on` on its serial console.
+  bool get nodeCanSetTx {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 8;
+  }
+
+  /// Turns the node's transmitter on or off (saved on the node), then reads
+  /// back its status. Turning it on sends what was waiting. Throws [NodeError]
+  /// (for example SEND_FAILED: switched, but not saved) or [StateError].
+  Future<void> setTransmit(bool on) async {
+    final session = _link.session;
+    if (session == null || !nodeCanSetTx) throw StateError('This node cannot switch transmit from the app.');
+    await session.request(pb.ToRadio(setTx: pb.SetTx(on: on)));
+    final reply = await session.request(pb.ToRadio(getStatus: pb.GetStatus()));
+    if (reply.hasStatus()) _applyTxOff(reply.status);
+    if (on && !state.txOff) unawaited(_flushOutbox(session).catchError((Object _) {}));
+  }
+
   /// Asks a node in radio range for its key now. Returning means the node asked,
   /// not that the key came: it arrives later as a contact. Throws [NodeError].
   Future<void> requestKey(int peer) async {
@@ -677,9 +703,39 @@ class MeshController extends Notifier<MeshState> {
     _save();
   }
 
+  /// Saves an unsent draft in the encrypted node history.
+  void setDraft(int peer, String text) {
+    if (state.nodeId == null || state.drafts[peer] == text) return;
+    final drafts = Map<int, String>.of(state.drafts);
+    if (text.isEmpty) {
+      drafts.remove(peer);
+    } else {
+      drafts[peer] = text;
+    }
+    state = state.copyWith(drafts: drafts);
+    _save();
+  }
+
+  /// Deletes every DM and channel message, and unsent drafts, on this phone.
+  /// Contacts, channels and SOS records stay; the node keeps its own data.
+  void deleteAllMessages() {
+    state = state.copyWith(
+      messages: const {},
+      unread: const {},
+      channelMessages: const {},
+      channelUnread: const {},
+      drafts: const {},
+    );
+    _flushSave();
+  }
+
   /// Deletes the whole conversation with [peer] (on this phone only).
   void deleteThread(int peer) {
-    state = state.copyWith(messages: {...state.messages}..remove(peer), unread: {...state.unread}..remove(peer));
+    state = state.copyWith(
+      messages: {...state.messages}..remove(peer),
+      unread: {...state.unread}..remove(peer),
+      drafts: {...state.drafts}..remove(peer),
+    );
     _save();
   }
 
@@ -973,6 +1029,7 @@ class MeshController extends Notifier<MeshState> {
       ownSos: _snap.ownSos,
       channels: _snap.channels,
       channelMessages: _snap.channelMessages,
+      drafts: _snap.drafts,
     );
     // a failed write (disk full, app dir gone) must not crash the app; the
     // next change tries again
