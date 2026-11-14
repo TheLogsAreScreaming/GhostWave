@@ -156,10 +156,35 @@ uint8_t readVbatPct() {
 }
 #endif
 
+#if GW_BATT_ADC_PIN >= 0
+// ESP32 boards with a switched VBAT divider (Heltec V3/V4).
+uint8_t readVbatPct() {
+#if GW_BATT_ADC_CTRL >= 0
+  pinMode(GW_BATT_ADC_CTRL, OUTPUT);
+  digitalWrite(GW_BATT_ADC_CTRL, GW_BATT_ADC_CTRL_ON);
+  delay(5);
+#endif
+  analogSetPinAttenuation(GW_BATT_ADC_PIN, ADC_2_5db);
+  uint32_t sum = 0;
+  for (int i = 0; i < 8; ++i) sum += analogReadMilliVolts(GW_BATT_ADC_PIN);
+#if GW_BATT_ADC_CTRL >= 0
+  digitalWrite(GW_BATT_ADC_CTRL, !GW_BATT_ADC_CTRL_ON);   // the divider drains the cell otherwise
+#endif
+  const uint32_t mv = static_cast<uint32_t>((sum / 8) * GW_BATT_ADC_MULT);
+  return mv < 2500 ? 0xFF : gw::mcu::batteryPercent(mv);   // no cell connected: unknown
+}
+#elif GW_HAS_PMU_BATTERY
+uint8_t readVbatPct() {
+  if (!gwPmu || !gwPmu->isBatteryConnect()) return 0xFF;
+  const uint32_t mv = gwPmu->getBattVoltage();
+  return mv < 2500 ? 0xFF : gw::mcu::batteryPercent(mv);
+}
+#endif
+
 uint8_t ownBattery() {
 #if GW_HAS_UI
   return gw::mcu::ui::batteryPct();
-#elif GW_HAS_VBAT_ADC
+#elif GW_HAS_VBAT_ADC || GW_BATT_ADC_PIN >= 0 || GW_HAS_PMU_BATTERY
   static uint8_t pct = 0xFF;
   static uint32_t next = 0;
   uint32_t now = millis();

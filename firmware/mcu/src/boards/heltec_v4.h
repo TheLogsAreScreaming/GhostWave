@@ -29,6 +29,12 @@ constexpr bool kVextOn = false;
 #define GW_OLED_SDA 17
 #define GW_OLED_SCL 18
 #define GW_OLED_RST 21
+// Battery: GPIO 1 through a divider switched in by GPIO 37 HIGH (variant.h:
+// BATTERY_PIN 1, ADC_CTRL 37, ADC_CTRL_ENABLED HIGH, ADC_MULTIPLIER 4.9 * 1.045).
+#define GW_BATT_ADC_PIN 1
+#define GW_BATT_ADC_CTRL 37
+#define GW_BATT_ADC_CTRL_ON HIGH
+#define GW_BATT_ADC_MULT (4.9f * 1.045f)
 #define GW_BUTTON_PIN 0   // PRG, active LOW
 #define GW_BUTTON_SOS 0   // GPIO 0 is on the serial chip's DTR line: pages only
 #define GW_HAS_KCT8103L 0

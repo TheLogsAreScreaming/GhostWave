@@ -94,6 +94,12 @@ constexpr bool kVextOn = false;     // LOW = on
 #define GW_OLED_SDA 17
 #define GW_OLED_SCL 18
 #define GW_OLED_RST 21
+// Battery: VBAT through a divider on GPIO 1, switched in by GPIO 37 LOW
+// (variant.h: BATTERY_PIN 1, ADC_CTRL 37, ADC_CTRL_ENABLED LOW, ADC_MULTIPLIER 4.9 * 1.045).
+#define GW_BATT_ADC_PIN 1
+#define GW_BATT_ADC_CTRL 37
+#define GW_BATT_ADC_CTRL_ON LOW
+#define GW_BATT_ADC_MULT (4.9f * 1.045f)
 // PRG button on GPIO 0 (active LOW) and the white LED on GPIO 35 (variant: LED_POWER LED).
 #define GW_BUTTON_PIN 0
 // GPIO 0 is also wired to the USB serial chip's DTR line (auto-download), so an
@@ -318,6 +324,15 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 #endif
 #ifndef GW_EINK_LIGHT
 #define GW_EINK_LIGHT -1     // front light switch, held off; -1 = none
+#endif
+#ifndef GW_BATT_ADC_PIN
+#define GW_BATT_ADC_PIN -1   // ESP32: VBAT divider on this ADC pin (millivolts x GW_BATT_ADC_MULT)
+#endif
+#ifndef GW_BATT_ADC_CTRL
+#define GW_BATT_ADC_CTRL -1  // the divider's switch, driven to GW_BATT_ADC_CTRL_ON while reading
+#endif
+#ifndef GW_HAS_PMU_BATTERY
+#define GW_HAS_PMU_BATTERY 0 // T-Beams: the AXP power chip reads the cell (gwPmu)
 #endif
 #ifndef GW_HAS_VBAT_ADC
 #define GW_HAS_VBAT_ADC 0
