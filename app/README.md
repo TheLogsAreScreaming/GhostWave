@@ -17,6 +17,7 @@ any other mesh app.
 | **Me:** node ID, name, keys, contact-card QR code (copy as text too) | done |
 | **Contacts:** scan a QR code or paste the card text → `AddContact`; last seen and position from `Neighbor` beacons; "heard nearby" list with "Ask for key" and messages held until the key arrives; key-change warning | done |
 | **Group channels** (node protocol 1.1): create a channel (new random key) and share it by QR code or text (`ghostwave-ch:…`), join by scanning or pasting, channel chat with sender names, leave; best effort (a few hops, no receipts), saved on the phone, offline outbox | done |
+| **Channel QR and chat export**: the channel share dialog warns that the code is the key and shows the card as copyable text; channel cards are versioned (format 1, refuses newer or damaged cards with a reason). Export a DM or channel as plain text or CSV (UTC times, sender ID and name, direction, delivery state, text; RFC 4180 quoting, formula cells made inert, no keys) through the share sheet | done |
 | **Messaging:** unread badges for DMs and channels, tap or long-press to retry a failed message, long-press to copy or delete a message, delete a conversation or clear a channel | done |
 | **Key change:** a contact whose node announced a different key is marked unverified with a prominent warning until you accept the new key (pinned on the node) or keep the old one | done |
 | **Settings** (Me tab, gear): rename the node (`SetName`), reset the app's data, version, licenses (including the bundled fonts) | done |

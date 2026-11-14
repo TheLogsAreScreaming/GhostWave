@@ -61,6 +61,9 @@ class ContactCard {
         name = Uri.decodeComponent(raw);
       } on ArgumentError {
         name = raw;
+      } on FormatException {
+        // percent-escapes that are not UTF-8
+        name = raw;
       }
       name = truncateUtf8(name.trim(), kMaxContactNameBytes);
     }
@@ -74,10 +77,18 @@ const String kChannelScheme = 'ghostwave-ch:';
 /// Longest channel name the node keeps, in UTF-8 bytes.
 const int kMaxChannelNameBytes = 16;
 
+/// The channel card format this app reads and writes.
+///
+/// Format 1 is the text below. It may carry an explicit `?v=1` at the end;
+/// without it a card is format 1, so cards made before the marker existed (and
+/// by `gwclient` and the node console) still read. A later format must bump
+/// this number, and this app refuses any other `v` instead of guessing.
+const int kChannelCardFormat = 1;
+
 /// A group channel to share or join: name and 32-byte key.
 ///
 /// ```
-/// ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>
+/// ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>[?v=1]
 /// ```
 /// Anyone with this text can read and write the channel: share it like a password.
 class ChannelCard {
@@ -90,29 +101,95 @@ class ChannelCard {
   /// The pre-shared key.
   final Uint8List psk;
 
-  /// The text a QR code carries.
+  /// The text a QR code carries: format 1, written without the `?v=1` marker
+  /// so apps and tools that predate the marker read it too.
   String encode() => '$kChannelScheme${Uri.encodeComponent(name)}:${hexEncode(psk)}';
 
   /// Parses card text; null if it is not a valid channel card.
-  static ChannelCard? tryParse(String text) {
+  static ChannelCard? tryParse(String text) => switch (parse(text)) {
+    ChannelCardOk(:final card) => card,
+    ChannelCardRejected() => null,
+  };
+
+  /// Parses card text and says why it was refused.
+  static ChannelCardResult parse(String text) {
     final s = text.trim();
     if (s.length < kChannelScheme.length || s.substring(0, kChannelScheme.length).toLowerCase() != kChannelScheme) {
-      return null;
+      return const ChannelCardRejected(ChannelCardProblem.notAChannelCard);
     }
-    final rest = s.substring(kChannelScheme.length);
+    var rest = s.substring(kChannelScheme.length);
+    final q = rest.indexOf('?');
+    if (q >= 0) {
+      final query = rest.substring(q + 1);
+      rest = rest.substring(0, q);
+      final m = RegExp(r'^v=([0-9]{1,6})$').firstMatch(query);
+      if (m == null) return const ChannelCardRejected(ChannelCardProblem.badVersion);
+      final v = int.parse(m.group(1)!);
+      if (v > kChannelCardFormat) return const ChannelCardRejected(ChannelCardProblem.newerFormat);
+      if (v != kChannelCardFormat) return const ChannelCardRejected(ChannelCardProblem.badVersion);
+    }
     final colon = rest.lastIndexOf(':');
-    if (colon <= 0) return null;
+    if (colon < 0) return const ChannelCardRejected(ChannelCardProblem.badKey);
     final key = hexDecode(rest.substring(colon + 1));
-    if (key == null || key.length != 32) return null;
+    if (key == null || key.length != 32) return const ChannelCardRejected(ChannelCardProblem.badKey);
     String name;
     try {
       name = Uri.decodeComponent(rest.substring(0, colon));
     } on ArgumentError {
-      return null;
+      return const ChannelCardRejected(ChannelCardProblem.badName);
+    } on FormatException {
+      // percent-escapes that are not UTF-8
+      return const ChannelCardRejected(ChannelCardProblem.badName);
     }
-    if (!validChannelName(name)) return null;
-    return ChannelCard(name: name, psk: key);
+    if (!validChannelName(name)) return const ChannelCardRejected(ChannelCardProblem.badName);
+    return ChannelCardOk(ChannelCard(name: name, psk: key));
   }
+}
+
+/// Why a channel card was refused.
+enum ChannelCardProblem {
+  /// Not `ghostwave-ch:` text at all.
+  notAChannelCard('Not a GhostWave channel card'),
+
+  /// A `v` this app does not know, or a malformed marker.
+  badVersion('This channel card has an unknown format marker'),
+
+  /// Made by a newer GhostWave app.
+  newerFormat('This channel card was made by a newer GhostWave app. Update the app to join it.'),
+
+  /// The key is missing or not 64 hex digits.
+  badKey('The channel key in this card is missing or damaged'),
+
+  /// The name is empty, too long, badly encoded or has control characters.
+  badName('The channel name in this card is not valid');
+
+  const ChannelCardProblem(this.message);
+
+  /// What to tell the user.
+  final String message;
+}
+
+/// The outcome of [ChannelCard.parse].
+sealed class ChannelCardResult {
+  const ChannelCardResult();
+}
+
+/// A valid card.
+final class ChannelCardOk extends ChannelCardResult {
+  /// Wraps [card].
+  const ChannelCardOk(this.card);
+
+  /// The card.
+  final ChannelCard card;
+}
+
+/// A refused card.
+final class ChannelCardRejected extends ChannelCardResult {
+  /// Refused for [problem].
+  const ChannelCardRejected(this.problem);
+
+  /// Why.
+  final ChannelCardProblem problem;
 }
 
 /// Whether [name] is a usable channel name: 1..16 bytes, no control characters.

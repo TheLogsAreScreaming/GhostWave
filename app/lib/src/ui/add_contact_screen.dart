@@ -30,6 +30,7 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
   bool _scanning = false;
   bool _busy = false;
   String? _pasteError;
+  String? _lastRefused;
 
   @override
   void dispose() {
@@ -140,7 +141,14 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
 
   void _onPasteSubmit() {
     if (!_handle(_paste.text)) {
-      setState(() => _pasteError = 'Not a GhostWave card (ghostwave:<id>:<key>[:name] or ghostwave-ch:<name>:<key>)');
+      final problem = switch (ChannelCard.parse(_paste.text)) {
+        ChannelCardRejected(:final problem) when problem != ChannelCardProblem.notAChannelCard => problem.message,
+        _ => null,
+      };
+      setState(
+        () =>
+            _pasteError = problem ?? 'Not a GhostWave card (ghostwave:<id>:<key>[:name] or ghostwave-ch:<name>:<key>)',
+      );
       return;
     }
     setState(() => _pasteError = null);
@@ -167,6 +175,12 @@ class _AddContactScreenState extends ConsumerState<AddContactScreen> {
                           setState(() => _scanning = false);
                           _handle(raw);
                           return;
+                        }
+                        // a channel card this app refuses (newer format, damaged): say why, once per code
+                        if (ChannelCard.parse(raw) case ChannelCardRejected(:final problem)
+                            when problem != ChannelCardProblem.notAChannelCard && raw != _lastRefused) {
+                          _lastRefused = raw;
+                          showSnack(context, problem.message);
                         }
                       }
                     },
