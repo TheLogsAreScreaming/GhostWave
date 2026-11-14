@@ -5,6 +5,7 @@ library;
 
 import '../link/contact_card.dart';
 import '../link/geo.dart';
+import 'message_refs.dart';
 import 'models.dart';
 import 'node_journal.dart';
 import 'trip.dart';
@@ -193,6 +194,8 @@ List<TimelineEvent> buildTimeline({
     for (final m in thread) {
       // coverage-walk probes are quiet by design: keep them out of the feed
       if (m.text.startsWith('[Coverage] ')) continue;
+      // reactions show on their message, not as events of their own
+      if (parseMeshText(m.text) is ReactionText) continue;
       final who = nameOf(m.peer);
       final wpEvent = _waypointEvent(
         m.text,
@@ -225,7 +228,7 @@ List<TimelineEvent> buildTimeline({
           kind: TimelineKind.message,
           at: m.at,
           title: m.outgoing ? 'You to $who' : '$who to you',
-          detail: '${_preview(m.text)}${m.outgoing ? '' : _dbm(m.rssiDbm)}',
+          detail: '${_preview(friendlyText(m.text))}${m.outgoing ? '' : _dbm(m.rssiDbm)}',
           nodeId: m.peer,
         ),
       );
@@ -234,6 +237,7 @@ List<TimelineEvent> buildTimeline({
 
   for (final e in channelMessages.entries) {
     for (final m in e.value) {
+      if (parseMeshText(m.text) is ReactionText) continue;
       final who = m.outgoing ? 'You' : nameOf(m.src);
       final wpEvent = _waypointEvent(
         m.text,
@@ -268,7 +272,7 @@ List<TimelineEvent> buildTimeline({
           kind: TimelineKind.message,
           at: m.at,
           title: '$who in #${e.key}',
-          detail: '${_preview(m.text)}${m.outgoing ? '' : _dbm(m.rssiDbm)}',
+          detail: '${_preview(friendlyText(m.text))}${m.outgoing ? '' : _dbm(m.rssiDbm)}',
           nodeId: m.outgoing ? null : m.src,
           channel: e.key,
         ),
