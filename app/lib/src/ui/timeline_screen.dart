@@ -26,6 +26,7 @@ IconData timelineIcon(TimelineKind k) => switch (k) {
   TimelineKind.signal => Icons.network_check,
   TimelineKind.alert => Icons.sos,
   TimelineKind.position => Icons.place_outlined,
+  TimelineKind.waypoint => Icons.push_pin_outlined,
 };
 
 /// The singular word read out for one entry of each kind.
@@ -35,6 +36,7 @@ String timelineKindWord(TimelineKind k) => switch (k) {
   TimelineKind.signal => 'Signal change',
   TimelineKind.alert => 'Alert',
   TimelineKind.position => 'Shared position',
+  TimelineKind.waypoint => 'Waypoint',
 };
 
 /// "Today", "Yesterday" or the date, for the day headers.
@@ -108,7 +110,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               title: 'Everything, newest first',
               detail: all.isEmpty
                   ? 'Nothing yet. Messages, nodes heard for the first time, signal changes of '
-                        '$kSignalShiftDb dB or more, SOS alerts and shared positions show up here '
+                        '$kSignalShiftDb dB or more, SOS alerts, shared positions and waypoints show up here '
                         'as they happen.'
                   : '${all.length} entries kept on this phone with this node\'s history. '
                         'Signal changes are logged when a node is $kSignalShiftDb dB stronger or weaker '
@@ -198,7 +200,8 @@ class _EventTile extends ConsumerWidget {
 
   Widget? _target(WidgetRef ref) {
     final e = event;
-    if (e.kind == TimelineKind.message && e.channel != null) return ChannelChatScreen(channel: e.channel!);
+    final inChannel = e.kind == TimelineKind.message || e.kind == TimelineKind.waypoint;
+    if (inChannel && e.channel != null) return ChannelChatScreen(channel: e.channel!);
     final id = e.nodeId;
     if (id == null) return null;
     return switch (e.kind) {

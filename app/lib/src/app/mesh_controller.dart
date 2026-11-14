@@ -17,6 +17,7 @@ import '../data/path_trace.dart';
 import '../data/team_trails.dart';
 import '../data/timeline.dart';
 import '../data/trip.dart';
+import '../data/waypoints.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import '../link/contact_card.dart';
 import '../link/geo.dart';
@@ -47,6 +48,7 @@ class MeshState {
     this.trails = const {},
     this.journal = const NodeJournal(),
     this.signalLog = const [],
+    this.waypoints = const WaypointBook(),
     this.historyProblem = HistoryProblem.none,
     this.txOff = false,
   });
@@ -96,6 +98,9 @@ class MeshState {
   /// Signal changes of heard nodes, oldest first (the timeline's Signal entries).
   final List<SignalShift> signalLog;
 
+  /// Waypoints, ours and others' (see waypoint_actions.dart).
+  final WaypointBook waypoints;
+
   /// Why this node's saved history did not load, if it didn't.
   final HistoryProblem historyProblem;
 
@@ -135,6 +140,7 @@ class MeshState {
     Map<int, List<TrailFix>>? trails,
     NodeJournal? journal,
     List<SignalShift>? signalLog,
+    WaypointBook? waypoints,
     bool? txOff,
   }) => MeshState(
     nodeId: nodeId ?? this.nodeId,
@@ -152,6 +158,7 @@ class MeshState {
     trails: trails ?? this.trails,
     journal: journal ?? this.journal,
     signalLog: signalLog ?? this.signalLog,
+    waypoints: waypoints ?? this.waypoints,
     historyProblem: historyProblem,
     txOff: txOff ?? this.txOff,
   );
@@ -244,6 +251,7 @@ class MeshController extends Notifier<MeshState> {
         trails: pruneTrails(saved.trails, _now()),
         journal: saved.journal.markListening(_now()),
         signalLog: saved.signalLog,
+        waypoints: saved.waypoints,
         historyProblem: saved.problem,
       );
     }
@@ -481,6 +489,7 @@ class MeshController extends Notifier<MeshState> {
       contacts: contacts,
       unread: quiet ? null : {...state.unread, t.src: (state.unread[t.src] ?? 0) + 1},
     );
+    _takeWaypoint(msg.text, t.src, peer: t.src);
     _save();
     if (!quiet && !ref.read(appForegroundProvider)) {
       unawaited(
@@ -638,6 +647,7 @@ class MeshController extends Notifier<MeshState> {
       },
       channelUnread: {...state.channelUnread, c.channel: (state.channelUnread[c.channel] ?? 0) + 1},
     );
+    _takeWaypoint(msg.text, c.src, channel: c.channel);
     _save();
     if (!ref.read(appForegroundProvider)) {
       unawaited(
@@ -647,7 +657,7 @@ class MeshController extends Notifier<MeshState> {
               // one notification per channel, kept apart from the sender's DMs
               peer: c.channel.hashCode | 0x20000000,
               from: '#${c.channel} · ${state.nameOf(c.src)}',
-              text: msg.text,
+              text: _notificationText(msg.text),
             )
             .catchError((Object _) {}),
       );
@@ -860,6 +870,14 @@ class MeshController extends Notifier<MeshState> {
   /// A received part's text without its "(2/3#a7) " label, for a notification.
   static String _notificationText(String text) {
     if (parseCheckIn(text) case final c?) return 'Check-in: ${c.kind.label}';
+    switch (parseWaypoint(text)) {
+      case WaypointPut(:final kind, :final name):
+        return 'Waypoint: ${kind.label} · $name';
+      case WaypointRemoval(:final name):
+        return name.isEmpty ? 'Waypoint removed' : 'Waypoint removed: $name';
+      case null:
+        break;
+    }
     final p = parsePart(text);
     return p == null ? text : 'Part ${p.index} of ${p.total}: ${p.body}';
   }
@@ -1274,6 +1292,25 @@ class MeshController extends Notifier<MeshState> {
     _save();
   }
 
+  // ------------------------------------------------------------- waypoints --
+
+  /// Applies a received waypoint message (a DM from [peer] or a post in
+  /// [channel]) to the book. Ordinary text is left alone.
+  void _takeWaypoint(String text, int src, {int? peer, String? channel}) {
+    final wp = parseWaypoint(text);
+    if (wp == null || src == state.nodeId) return;
+    state = state.copyWith(
+      waypoints: state.waypoints.receive(src, wp, _now(), peer: peer, channel: channel),
+    );
+  }
+
+  /// Replaces the waypoint book with [f] of it (the actions in
+  /// waypoint_actions.dart send the messages).
+  void updateWaypoints(WaypointBook Function(WaypointBook) f) {
+    state = state.copyWith(waypoints: f(state.waypoints));
+    _save();
+  }
+
   // ----------------------------------------------------------- persistence --
 
   void _save() {
@@ -1298,6 +1335,7 @@ class MeshController extends Notifier<MeshState> {
       trails: _snap.trails,
       journal: _snap.journal,
       signalLog: _snap.signalLog,
+      waypoints: _snap.waypoints,
     );
     // a failed write (disk full, app dir gone) must not crash the app; the
     // next change tries again

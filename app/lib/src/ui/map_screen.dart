@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +15,7 @@ import 'coverage_screen.dart' show coverageLook;
 import 'format.dart';
 import 'offline_maps_screen.dart';
 import 'tile_provider.dart';
+import 'waypoint_screens.dart';
 import 'widgets.dart';
 import 'theme.dart';
 
@@ -137,6 +140,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final mesh = ref.watch(meshProvider);
     final pins = _pins(mesh);
+    final waypoints = [
+      for (final w in mesh.waypoints.all.reversed)
+        if (!w.hidden) w,
+    ];
     final units = ref.watch(unitsProvider);
     final source = ref.watch(tileSourceProvider);
     final off = ref.watch(offlineMapsProvider);
@@ -206,6 +213,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               icon: const Icon(Icons.radar_outlined),
               selectedIcon: const Icon(Icons.radar),
             ),
+          IconButton(
+            tooltip: 'Waypoints',
+            onPressed: () {
+              final c = _map.camera.center;
+              unawaited(
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => WaypointsScreen(center: LatLon(c.latitude, c.longitude))),
+                ),
+              );
+            },
+            icon: const Icon(Icons.push_pin_outlined),
+          ),
           IconButton(tooltip: 'Show all', onPressed: () => _fit(pins), icon: const Icon(Icons.fit_screen)),
         ],
       ),
@@ -213,7 +232,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         children: [
           FlutterMap(
             mapController: _map,
-            options: const MapOptions(initialCenter: ll.LatLng(46.87, -113.99), initialZoom: 11),
+            options: MapOptions(
+              initialCenter: const ll.LatLng(46.87, -113.99),
+              initialZoom: 11,
+              // long-press drops a waypoint (the Waypoints list has a button too)
+              onLongPress: (_, p) => unawaited(openNewWaypoint(context, pos: LatLon(p.latitude, p.longitude))),
+            ),
             children: [
               TileLayer(
                 urlTemplate: source.urlTemplate,
@@ -244,6 +268,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         color: coverageLook(s).$2,
                         borderColor: Colors.black87,
                         borderStrokeWidth: 1,
+                      ),
+                  ],
+                ),
+              if (waypoints.isNotEmpty)
+                MarkerLayer(
+                  markers: [
+                    for (final w in waypoints)
+                      Marker(
+                        point: ll.LatLng(w.pos.lat, w.pos.lon),
+                        width: 44,
+                        height: 44,
+                        child: WaypointMarker(waypoint: w),
                       ),
                   ],
                 ),
@@ -334,7 +370,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             ),
-          if (pins.isEmpty && focus == null)
+          if (pins.isEmpty && waypoints.isEmpty && focus == null)
             Positioned(
               top: 12,
               left: 12,
@@ -343,7 +379,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Text(
-                    'No positions yet. Your node\'s fix and its neighbors\' beacons appear here.',
+                    'No positions yet. Your node\'s fix and its neighbors\' beacons appear here. '
+                    'Long-press the map to drop a waypoint.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
