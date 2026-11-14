@@ -452,7 +452,7 @@ void Router::tick(uint64_t now) {
   }
   if (beaconSoonAt_ && now >= beaconSoonAt_) {
     beaconSoonAt_ = 0;
-    if (havePos_ && (!beaconed_ || now - lastBeaconT_ >= kBeaconReplyMinMs)) sendBeacon(now);
+    if (!beaconed_ || now - lastBeaconT_ >= kBeaconReplyMinMs) sendBeacon(now);
   }
   seekTick(now);
   sosTick(now);
@@ -600,7 +600,8 @@ size_t Router::freshNeighbors(uint64_t now, uint32_t* out, size_t max) const {
 bool Router::closerNeighbor(const Position& tgt, uint64_t maxAge, uint64_t now) const {
   double mine = distanceM(pos_, tgt);
   for (auto& [id, n] : nb_)
-    if (now - n.heardMs < maxAge && distanceM(n.pos, tgt) < mine - cfg_.progressThresholdM) return true;
+    if (now - n.heardMs < maxAge && n.pos.valid && distanceM(n.pos, tgt) < mine - cfg_.progressThresholdM)
+      return true;
   return false;
 }
 
@@ -780,7 +781,8 @@ void Router::unicast(const Packet& f, uint16_t nh, int copies, uint64_t now) {
 // ---------------------------------------------------------------- receive --
 
 void Router::onBeacon(const Packet& p, uint64_t now) {
-  if (!p.hasFwdPos) return;
+  // A beacon without a position (the sender has no fix) still makes it a
+  // neighbor: it can take direct messages, though not geographic forwarding.
   auto old = nb_.find(p.src);
   bool isNew = old == nb_.end() || now - old->second.heardMs >= kNbFreshMs;
   const uint8_t* bloom = p.payload.size() >= kBeaconFixed ? p.payload.data() + kBloomOff : nullptr;
@@ -824,8 +826,8 @@ void Router::onBeacon(const Packet& p, uint64_t now) {
   Velocity velocity;
   if (p.payload.size() >= kBeaconFixed)
     velocity = unpackVelocity(static_cast<uint16_t>(p.payload[1] | (p.payload[2] << 8)));
-  nb_[p.src] = {p.fwdPos, now, answered, velocity};
-  learn(p.src, p.fwdPos, now);
+  nb_[p.src] = {p.hasFwdPos ? p.fwdPos : Position{}, now, answered, velocity};
+  if (p.hasFwdPos) learn(p.src, p.fwdPos, now);
   app_.onNeighbor(p.src, p.fwdPos, isNew);
   wantIdent(p.src, now);
   if (p.payload.size() >= kBeaconFixed) {
@@ -887,13 +889,20 @@ void Router::onLinkAck(const Packet& p, uint64_t now) {
     implicitAck(k);
     return;
   }
-  bool toDst = shortId(u->second.orig.dst) == p.prevHop;
+  const uint32_t dst = u->second.orig.dst;
+  bool toDst = shortId(dst) == p.prevHop;
   int given = u->second.copies;
   uni_.erase(u);
   auto se = store_.find(k);
   if (toDst) {
     if (se != store_.end()) store_.erase(se);
-    seen_[k].acked = true;
+    Seen& ds = seen_[k];
+    const bool first = !ds.acked;
+    ds.acked = true;
+    // Handed straight to the destination (no position to route on, or it was
+    // a neighbor): its link ack is the receipt, as the end-to-end ack that
+    // follows finds the message already acked.
+    if (first && k.type == static_cast<uint8_t>(PType::Data) && k.src == cfg_.nodeId) app_.onDelivered(dst, k.mid);
   } else if (se != store_.end()) {
     se->second.copies -= given;
     if (se->second.copies < 1) store_.erase(se);
@@ -963,8 +972,12 @@ void Router::onData(const Packet& p, float rssi, uint64_t now) {
       }
       fresherTarget(a, now);
       seen_[keyOf(a)].t = now;
+      auto srcNb = nb_.find(p.src);
+      bool direct = srcNb != nb_.end() && now - srcNb->second.heardMs < kNbFreshMs;
       if (a.hasDstPos && havePos_)
         geoSend(a, now, 2);
+      else if (direct)
+        unicast(a, shortId(p.src), 1, now);   // no position on one side: the sender is a neighbor, hand it over
       else if (p.mode != Mode::Unicast)
         sendLinkAck(k, p.prevHop, now);   // no way to route an ack: at least stop the last hop
     }
@@ -1138,10 +1151,16 @@ void Router::beaconTick(uint64_t now) {
   if (now > utilT_) util_ = double(heardAirMs_ - heardMark_) / double(now - utilT_);
   heardMark_ = heardAirMs_;
   utilT_ = now;
-  if (havePos_) {
+  {
+    // A node with no position (no GPS fix, none set) still beacons, so its
+    // neighbors hear it and direct messages reach it; it just never moves. A
+    // position that appears after a position-less beacon counts as a move.
     double scale = std::max(1.0, util_ / cfg_.utilTarget);
     uint64_t el = now - lastBeaconT_;
-    double moved = beaconed_ ? distanceM(pos_, lastBeaconPos_) : 1e9;
+    double moved = !beaconed_                                     ? 1e9
+                   : !havePos_                                    ? 0
+                   : !lastBeaconPos_.valid                        ? 1e9
+                                                                  : distanceM(pos_, lastBeaconPos_);
     if (!beaconed_ || (el >= cfg_.beaconMinMs * scale &&
                        (moved >= cfg_.beaconMoveM || el >= cfg_.beaconMaxMs * scale))) {
       bool boot = !beaconed_;
@@ -1178,7 +1197,7 @@ void Router::seekTick(uint64_t now) {
     auto nb = nb_.find(identProbeId_);
     if ((nb != nb_.end() && now - nb->second.heardMs < kNbFreshMs) || !holding() || seekTokens_ == 0) {
       identProbeAt_ = 0;
-    } else if (havePos_ && gapOk) {
+    } else if (gapOk) {
       identProbeAt_ = 0;
       --seekTokens_;
       sendBeacon(now, shortId(identProbeId_));
@@ -1186,12 +1205,12 @@ void Router::seekTick(uint64_t now) {
     }
   }
   if (!seekAt_ || now < seekAt_) return;
-  if (seekHeard_ || (!seekBoot_ && !holding()) || seekTokens_ == 0 || !havePos_) {
+  if (seekHeard_ || (!seekBoot_ && !holding()) || seekTokens_ == 0) {
     seekAt_ = 0;
     return;
   }
   // still walking: the next 250 m beacon is the retry, so spend nothing yet
-  if (distanceM(pos_, seekPos_) > kSeekStillM) {
+  if (havePos_ && seekPos_.valid && distanceM(pos_, seekPos_) > kSeekStillM) {
     seekPos_ = pos_;
     seekAt_ = now + kSeekBaseMs;
     return;
@@ -1259,10 +1278,10 @@ void Router::sendBeacon(uint64_t now, uint16_t to, bool seek) {
   b.hopsLeft = 0;
   b.prevHop = me16();
   b.nextHop = to;           // non-zero: that neighbor should answer with its beacon
-  b.hasFwdPos = true;
-  b.fwdPos = pos_;
+  b.hasFwdPos = havePos_;   // a node with no position beacons without one
+  if (havePos_) b.fwdPos = pos_;
   auto& pl = b.payload;
-  pl.push_back(kBeaconHasGps | (sos_.empty() ? 0 : kBeaconSos) | (seek ? kBeaconSeek : 0));
+  pl.push_back((havePos_ ? kBeaconHasGps : 0) | (sos_.empty() ? 0 : kBeaconSos) | (seek ? kBeaconSeek : 0));
   uint16_t vel = packVelocity(now - velT_ <= kVelStaleMs ? velSpeed_ : Velocity{});
   pl.push_back(static_cast<uint8_t>(vel));
   pl.push_back(static_cast<uint8_t>(vel >> 8));
@@ -1673,7 +1692,7 @@ void Router::sosTick(uint64_t now) {
   // one probe per beacon gap; the others wait their turn
   for (auto it = sosProbe_.begin(); it != sosProbe_.end(); ++it) {
     if (now < it->second) continue;
-    if (havePos_ && (!beaconed_ || now - lastBeaconT_ >= kBeaconReplyMinMs)) {
+    if (!beaconed_ || now - lastBeaconT_ >= kBeaconReplyMinMs) {
       uint16_t to = it->first;
       sosProbe_.erase(it);
       sendBeacon(now, to);
@@ -1791,7 +1810,7 @@ void Router::onIdent(const Packet& p, uint64_t now) {
   // IDENT is one hop, so its sender is in range; a message waits and its beacon
   // never got through: ask for that beacon instead of waiting for its next one.
   auto nb = nb_.find(p.src);
-  if (holding() && havePos_ && !identProbeAt_ && (nb == nb_.end() || now - nb->second.heardMs >= kNbFreshMs)) {
+  if (holding() && !identProbeAt_ && (nb == nb_.end() || now - nb->second.heardMs >= kNbFreshMs)) {
     identProbeId_ = p.src;
     identProbeAt_ = now + rng_.range(500, 3000);
   }
