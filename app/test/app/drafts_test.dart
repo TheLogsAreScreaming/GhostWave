@@ -31,8 +31,16 @@ void main() {
     prefs = await SharedPreferences.getInstance();
   });
   tearDown(() async {
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    if (dir.existsSync()) await dir.delete(recursive: true);
+    // a disposed controller's last save can still be landing: retry until
+    // the folder is quiet instead of racing it
+    for (var i = 0; i < 20 && dir.existsSync(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      try {
+        await dir.delete(recursive: true);
+      } on FileSystemException {
+        // a file appeared mid-delete; try again
+      }
+    }
   });
 
   Future<ProviderContainer> connected() async {
