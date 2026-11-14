@@ -8,9 +8,11 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
+import '../data/chat_export.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
+import 'chat_export_sheet.dart';
 import 'connection_strip.dart';
 import 'format.dart';
 import 'message_bubble.dart';
@@ -182,46 +184,94 @@ Future<void> showNewChannelDialog(BuildContext context) async {
   }
 }
 
-/// Shows [card] as a QR code (and text) for others to join.
+/// Shows [card] as a QR code (and text) for others to join, with a plain
+/// warning that the code is the channel's key.
 Future<void> showChannelShare(BuildContext context, ChannelCard card) => showDialog<void>(
   context: context,
-  builder: (dialog) => AlertDialog(
-    title: Text('Share #${card.name}'),
-    content: SizedBox(
-      width: 280,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(12),
-            child: QrImageView(
-              data: card.encode(),
-              size: 240,
-              backgroundColor: Colors.white,
-              semanticsLabel: 'QR code for channel ${card.name}',
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Anyone with this code can read and write the channel. Share it like a password, in person.',
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () async {
-          await Clipboard.setData(ClipboardData(text: card.encode()));
-          if (dialog.mounted) showSnack(dialog, 'Channel card copied');
-        },
-        child: const Text('Copy as text'),
-      ),
-      FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('Done')),
-    ],
-  ),
+  builder: (dialog) => ChannelShareDialog(card: card),
 );
+
+/// The "Share channel" dialog: QR code, the card as copyable text, and the warning.
+class ChannelShareDialog extends StatelessWidget {
+  /// Creates the dialog for [card].
+  const ChannelShareDialog({required this.card, super.key});
+
+  /// The channel to share.
+  final ChannelCard card;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = card.encode();
+    final scheme = Theme.of(context).colorScheme;
+    final styles = Theme.of(context).textTheme;
+    return AlertDialog(
+      title: Text('Share #${card.name}'),
+      scrollable: true,
+      content: SizedBox(
+        width: 300,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              container: true,
+              label: 'Warning',
+              child: Container(
+                padding: const EdgeInsets.all(GwSpace.md),
+                decoration: BoxDecoration(
+                  color: scheme.errorContainer,
+                  borderRadius: BorderRadius.circular(GwRadius.md),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
+                    const SizedBox(width: GwSpace.sm),
+                    Expanded(
+                      child: Text(
+                        'This code is the channel\'s key. Anyone who sees it, or a photo or screenshot of it, '
+                        'can read every message on #${card.name} and write to it. '
+                        'Show it in person, only to people you trust.',
+                        style: styles.bodyMedium?.copyWith(color: scheme.onErrorContainer),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: GwSpace.md),
+            Center(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.all(12),
+                child: QrImageView(
+                  data: text,
+                  size: 220,
+                  backgroundColor: Colors.white,
+                  semanticsLabel: 'QR code for channel ${card.name}',
+                ),
+              ),
+            ),
+            const SizedBox(height: GwSpace.md),
+            Text('Channel card (text)', style: styles.labelMedium),
+            const SizedBox(height: GwSpace.xs),
+            SelectableText(text, style: GwText.mono.copyWith(fontSize: 12)),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: text));
+            if (context.mounted) showSnack(context, 'Channel card copied. Anyone with this text can read the channel.');
+          },
+          child: const Text('Copy as text'),
+        ),
+        FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
+      ],
+    );
+  }
+}
 
 /// A group channel's messages.
 class ChannelChatScreen extends ConsumerStatefulWidget {
@@ -272,6 +322,17 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
       case 'share':
         final psk = ch == null ? null : hexDecode(ch.pskHex);
         if (psk != null && psk.length == 32) await showChannelShare(context, ChannelCard(name: ch!.name, psk: psk));
+      case 'export':
+        final m = ref.read(meshProvider);
+        await showChatExportSheet(
+          context,
+          ChatExport.channel(
+            channel: widget.channel,
+            messages: m.channelMessages[widget.channel] ?? const [],
+            ownId: m.nodeId,
+            nameOf: m.nameOf,
+          ),
+        );
       case 'clear':
         if (await _confirm('Clear history?', 'Deletes the messages on this phone. You stay in the channel.')) {
           ctl.clearChannelHistory(widget.channel);
@@ -333,6 +394,7 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
             onSelected: (c) => unawaited(_menu(c)),
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'share', child: Text('Share (QR code)')),
+              PopupMenuItem(value: 'export', child: Text('Export chat')),
               PopupMenuItem(value: 'clear', child: Text('Clear history')),
               PopupMenuItem(value: 'leave', child: Text('Leave channel')),
             ],

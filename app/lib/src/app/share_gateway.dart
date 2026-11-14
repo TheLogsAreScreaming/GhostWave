@@ -17,6 +17,9 @@ abstract interface class ShareGateway {
 
   /// Offers a PNG image ([png], saved as [fileName]) with [text] as caption.
   Future<void> shareImage(Uint8List png, String fileName, {String? text, String? subject, Rect? origin});
+
+  /// Offers a file ([data], saved as [fileName], of [mimeType]).
+  Future<void> shareFile(Uint8List data, String fileName, String mimeType, {String? subject, Rect? origin});
 }
 
 /// The platform share sheet (share_plus).
@@ -36,6 +39,18 @@ class PlatformShare implements ShareGateway {
         files: [XFile.fromData(png, mimeType: 'image/png', name: fileName)],
         fileNameOverrides: [fileName],
         text: text,
+        subject: subject,
+        sharePositionOrigin: origin,
+      ),
+    );
+  }
+
+  @override
+  Future<void> shareFile(Uint8List data, String fileName, String mimeType, {String? subject, Rect? origin}) async {
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile.fromData(data, mimeType: mimeType, name: fileName)],
+        fileNameOverrides: [fileName],
         subject: subject,
         sharePositionOrigin: origin,
       ),

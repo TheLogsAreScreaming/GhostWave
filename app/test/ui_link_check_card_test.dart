@@ -28,6 +28,9 @@ class FakeShare implements ShareGateway {
   @override
   Future<void> shareImage(Uint8List png, String fileName, {String? text, String? subject, Rect? origin}) async =>
       images.add((png, fileName, text));
+
+  @override
+  Future<void> shareFile(Uint8List data, String fileName, String mimeType, {String? subject, Rect? origin}) async {}
 }
 
 final DateTime at = DateTime(2026, 11, 13, 14, 5);
