@@ -49,7 +49,8 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.protocolMinor == b.protocolMinor && a.maxChannelTextBytes == b.maxChannelTextBytes &&
          a.channel == b.channel && a.psk == b.psk && a.nonce == b.nonce && a.rssiDbm == b.rssiDbm &&
          a.answered == b.answered && a.reverseDbm == b.reverseDbm && a.fwdNodes == b.fwdNodes &&
-         a.fwdRssi == b.fwdRssi && a.backNodes == b.backNodes && a.backRssi == b.backRssi;
+         a.fwdRssi == b.fwdRssi && a.backNodes == b.backNodes && a.backRssi == b.backRssi &&
+         a.batteryMv == b.batteryMv && a.uptimeS == b.uptimeS && a.ageS == b.ageS;
 }
 
 static std::vector<ToRadio> sampleTo() {
@@ -107,6 +108,8 @@ static std::vector<ToRadio> sampleTo() {
   m = {}, m.reqId = 25, m.kind = ToKind::Traceroute, m.nodeId = 0x9F219DBB, m.maxHops = 6;   // 1.10
   v.push_back(m);
   m = {}, m.reqId = 26, m.kind = ToKind::Traceroute, m.nodeId = 7;   // default hops
+  v.push_back(m);
+  m = {}, m.reqId = 27, m.kind = ToKind::GetTelemetry, m.nodeId = 0x9F219DBB;   // 1.12
   v.push_back(m);
   m = {}, m.reqId = 19, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientName = "app", m.clientShare = Bytes(16, 7),
   m.pinProof = key(2);   // 1.2
@@ -173,6 +176,11 @@ static std::vector<FromRadio> sampleFrom() {
   m.backNodes = {0xB6888904, 1}, m.backRssi = {-64, -1};
   v.push_back(m);
   m = {}, m.kind = FromKind::TraceResult, m.nodeId = 3;   // unanswered: empty
+  v.push_back(m);
+  m = {}, m.kind = FromKind::NodeTelemetry, m.nodeId = 0x9F219DBB;   // 1.12
+  m.batteryPct.set(0), m.batteryMv.set(3100), m.uptimeS.set(0xFFFFFFFE), m.ageS = 61, m.rssiDbm.set(-120);
+  v.push_back(m);
+  m = {}, m.reqId = 87, m.kind = FromKind::NodeTelemetry, m.nodeId = 4;   // nothing reported
   v.push_back(m);
   m = {}, m.kind = FromKind::ChannelMessage, m.channel = "camp", m.src = 1, m.msgId = 2, m.text = B("x");
   m.rssiDbm.set(-1);
@@ -344,6 +352,18 @@ static void testUnknownAndMalformed() {
   // a request from a newer protocol: field 99, length-delimited -> no request
   const uint8_t future[] = {0x08, 0x05, 0x9A, 0x06, 0x02, 0x08, 0x01};
   CHECK(decodeTo(future, sizeof future, t) && t.kind == ToKind::None && t.reqId == 5);
+  // 1.11's oneof numbers (30-34 / 32-33) are not this version's: skipped too
+  for (uint8_t f : {30, 31, 32, 33, 34, 36, 37}) {
+    const uint8_t other[] = {0x08, 0x05, static_cast<uint8_t>(((f << 3) | 2) | 0x80),
+                             static_cast<uint8_t>(((f << 3) | 2) >> 7), 0x02, 0x08, 0x01};   // tag is a 2-byte varint
+    CHECK(decodeTo(other, sizeof other, t) && t.kind == ToKind::None && t.reqId == 5);
+  }
+  for (uint8_t f : {32, 33, 35, 36}) {
+    FromRadio fr;
+    const uint8_t other[] = {0x08, 0x05, static_cast<uint8_t>(((f << 3) | 2) | 0x80),
+                             static_cast<uint8_t>(((f << 3) | 2) >> 7), 0x02, 0x08, 0x01};   // tag is a 2-byte varint
+    CHECK(decodeFrom(other, sizeof other, fr) && fr.kind == FromKind::None && fr.reqId == 5);
+  }
   // unknown fields inside a known request are skipped (every wire type)
   const uint8_t extra[] = {0x5A, 0x18,                               // SendText, 24 bytes
                            0x0D, 0x01, 0x00, 0x00, 0x00,             // dest = 1

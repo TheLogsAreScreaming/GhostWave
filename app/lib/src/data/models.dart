@@ -334,6 +334,40 @@ class Neighbor {
   final int? rssiDbm;
 }
 
+/// A node's own readings, from the telemetry its beacons carry (client
+/// protocol 1.12). Each value is null when that node did not report it: the
+/// app never guesses one. Live only, not saved.
+class NodeTelemetry {
+  /// Creates a reading.
+  const NodeTelemetry({required this.nodeId, required this.heardAt, this.batteryPct, this.batteryMv, this.uptime});
+
+  /// The node.
+  final int nodeId;
+
+  /// When the beacon that carried it was heard.
+  final DateTime heardAt;
+
+  /// Battery charge, 0-100 %.
+  final int? batteryPct;
+
+  /// Battery voltage, mV.
+  final int? batteryMv;
+
+  /// How long it had been running when that beacon was sent.
+  final Duration? uptime;
+
+  /// Its uptime at [now], assuming it has not restarted since [heardAt].
+  Duration? uptimeAt(DateTime now) {
+    final u = uptime;
+    if (u == null) return null;
+    final since = now.difference(heardAt);
+    return since.isNegative ? u : u + since;
+  }
+
+  /// Whether it carries anything at all.
+  bool get isEmpty => batteryPct == null && batteryMv == null && uptime == null;
+}
+
 /// An SOS from another node.
 class SosAlertEntry {
   /// Creates an alert.

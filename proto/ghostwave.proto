@@ -53,6 +53,9 @@ message ToRadio {
     LinkPing link_ping = 28;
     // protocol 1.10
     Traceroute traceroute = 29;
+    // 30-34: protocol 1.11
+    // protocol 1.12
+    GetTelemetry get_telemetry = 35;
   }
 }
 
@@ -179,6 +182,14 @@ message Traceroute {
   uint32 max_hops = 2;   // 1-8; 0 = the node's default (5)
 }
 
+// 1.12: the latest telemetry a neighbor's beacon carried (battery, uptime).
+// Replies NodeTelemetry. node_id = this node's own ID: its own readings.
+// NOT_FOUND: no beacon with telemetry heard from it (older firmware, out of
+// range, or it shares none); BAD_ARGUMENT: node_id 0 or broadcast.
+message GetTelemetry {
+  fixed32 node_id = 1;
+}
+
 // --------------------------------------------------------------- node -> app
 
 message FromRadio {
@@ -212,6 +223,9 @@ message FromRadio {
     LinkPingResult link_ping_result = 30;
     // protocol 1.10
     TraceResult trace_result = 31;
+    // 32-33: protocol 1.11
+    // protocol 1.12
+    NodeTelemetry node_telemetry = 34;
   }
 }
 
@@ -290,6 +304,19 @@ message TraceResult {
   repeated sint32 forward_rssi_dbm = 4;
   repeated fixed32 back_nodes = 5;
   repeated sint32 back_rssi_dbm = 6;
+}
+
+// 1.12: a node's own readings, as its beacon carried them (DESIGN §4.4).
+// Unsolicited (req_id 0) when a neighbor's beacon carries them, live only, never
+// replayed; or the answer to GetTelemetry. A field is absent when that node
+// cannot read it: never guessed.
+message NodeTelemetry {
+  fixed32 node_id = 1;
+  optional uint32 battery_pct = 2;   // 0-100
+  optional uint32 battery_mv = 3;    // cell voltage, mV
+  optional uint32 uptime_s = 4;      // seconds since it booted, when its beacon was sent
+  uint32 age_s = 5;                  // seconds since that beacon was heard (0 for the live event)
+  optional sint32 rssi_dbm = 6;      // signal of that beacon (live event only)
 }
 
 message SosAckReceived {

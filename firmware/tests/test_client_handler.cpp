@@ -626,7 +626,7 @@ static void testSetTx() {
   ToRadio m;
   m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
   auto v = send(m);
-  CHECK(v.size() == 1 && v[0].protocolMinor == 10);
+  CHECK(v.size() == 1 && v[0].protocolMinor == kProtocolMinor);
   m = {}, m.reqId = 2, m.kind = ToKind::SetTx, m.on = true;
   v = send(m);
   CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 2 && tx && calls == 1);
@@ -962,7 +962,84 @@ static void testStatusTxOff() {
   CHECK(txOff([] { return true; }));
 }
 
+// Telemetry (1.12): the beacon event carries only what the node reported, and
+// GetTelemetry answers from the router's table (or NOT_FOUND, never a guess).
+static void testTelemetry() {
+  std::printf("client handler: telemetry\n");
+  Rig r;
+  auto& c = r.t.add("ble");
+  r.hello(c);
+  auto v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].protocolMinor == 12);
+
+  gw::Telemetry t;
+  t.batteryPct = 64, t.batteryMv = 3801, t.uptimeS = 7200;
+  r.h.onTelemetry(0x77777777, t);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::NodeTelemetry && v[0].reqId == 0 && v[0].nodeId == 0x77777777);
+  CHECK(v[0].batteryPct.has && v[0].batteryPct.v == 64 && v[0].batteryMv.has && v[0].batteryMv.v == 3801);
+  CHECK(v[0].uptimeS.has && v[0].uptimeS.v == 7200 && v[0].ageS == 0);
+  r.h.onTelemetry(0x77777777, gw::Telemetry{});   // nothing readable: every field absent
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && !v[0].batteryPct.has && !v[0].batteryMv.has && !v[0].uptimeS.has);
+
+  // live only: nothing held for a later client
+  Rig q;
+  q.h.onTelemetry(0x77777777, t);
+  CHECK(q.h.queued() == 0);
+
+  ToRadio m;
+  m.reqId = 5, m.kind = ToKind::GetTelemetry, m.nodeId = 0x77777777;
+  r.req(c, m, 2000);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].reqId == 5 && v[0].error == ErrorCode::NotFound);
+  m.nodeId = 0;
+  r.req(c, m, 2000);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument);
+  m.nodeId = r.self.id ? r.self.id : 0x11111111;   // our own: none set yet
+  m.nodeId = 0x11111111;
+  r.req(c, m, 2000);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NotFound);
+
+  // a neighbor's beacon with a trailer reaches the router's table
+  gw::Packet b;
+  b.type = gw::PType::Beacon;
+  b.mode = gw::Mode::Unicast;
+  b.src = 0x77777777;
+  b.dst = gw::kBroadcast;
+  b.msgId = 1;
+  b.prevHop = gw::shortId(b.src);
+  b.hasFwdPos = true;
+  b.fwdPos = {45, -110, true};
+  b.payload.assign(13, 0);
+  b.payload[0] = 0x81;
+  const uint8_t tr[7] = {64, 0xD9, 0x0E, 0x20, 0x1C, 0, 0};   // 64 %, 3801 mV, 7200 s
+  b.payload.insert(b.payload.end(), tr, tr + 7);
+  uint8_t buf[200];
+  size_t n = gw::encode(b, buf, sizeof buf);
+  CHECK(n > 0);
+  r.router.onReceive(buf, n, -100, 3000);
+  m.nodeId = 0x77777777;
+  r.req(c, m, 64000);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::NodeTelemetry && v[0].reqId == 5 && v[0].nodeId == 0x77777777);
+  CHECK(v[0].batteryPct.v == 64 && v[0].batteryMv.v == 3801 && v[0].uptimeS.v == 7200 && v[0].ageS == 61);
+
+  // our own, once the board sets it: the uptime has moved on
+  gw::Telemetry own;
+  own.batteryPct = 100, own.uptimeS = 10;
+  r.router.setOwnTelemetry(own, 1000);
+  m.nodeId = 0x11111111;
+  r.req(c, m, 11000);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::NodeTelemetry && v[0].nodeId == 0x11111111);
+  CHECK(v[0].batteryPct.v == 100 && !v[0].batteryMv.has && v[0].uptimeS.v == 20 && v[0].ageS == 0);
+}
+
 int main() {
+  testTelemetry();
   testStatusTxOff();
   testHelloGate();
   testQueueAndReplay();

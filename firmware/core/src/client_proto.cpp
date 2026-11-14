@@ -278,6 +278,17 @@ bool StatusInfo::operator==(const StatusInfo& o) const {
          lastRssiDbm == o.lastRssiDbm && lastHeardS == o.lastHeardS;
 }
 
+// Oneof fields this version knows. Others (newer, or another minor's numbers)
+// are skipped, so the message reads as no request / no event.
+static bool knownTo(uint32_t f) {
+  return (f >= 10 && f <= static_cast<uint32_t>(ToKind::Traceroute)) ||
+         f == static_cast<uint32_t>(ToKind::GetTelemetry);
+}
+static bool knownFrom(uint32_t f) {
+  return (f >= 10 && f <= static_cast<uint32_t>(FromKind::TraceResult)) ||
+         f == static_cast<uint32_t>(FromKind::NodeTelemetry);
+}
+
 // ------------------------------------------------------------- ToRadio --
 
 bool encodeTo(const ToRadio& m, Bytes& out) {
@@ -329,7 +340,8 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
     case ToKind::SetName: s.str(1, m.name); break;
     case ToKind::RequestKey: s.fx32(1, m.nodeId); break;
     case ToKind::SetTx: s.boolean(1, m.on); break;
-    case ToKind::LinkPing: s.fx32(1, m.nodeId); break;
+    case ToKind::LinkPing:
+    case ToKind::GetTelemetry: s.fx32(1, m.nodeId); break;
     case ToKind::Traceroute:
       s.fx32(1, m.nodeId);
       s.u32(2, m.maxHops);
@@ -349,7 +361,7 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
   m = ToRadio{};
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
-    if (f < 10 || f > static_cast<uint32_t>(ToKind::Traceroute)) return 0;   // newer requests: ignored
+    if (!knownTo(f)) return 0;   // newer requests: ignored
     if (v.wt != kLen) return -1;
     ToKind k = static_cast<ToKind>(f);
     m.kind = k;
@@ -409,6 +421,7 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
           if (g == 1) return ok(x.boolean(m.on));
           return 0;
         case ToKind::LinkPing:
+        case ToKind::GetTelemetry:
           if (g == 1) return ok(x.fx32(m.nodeId));
           return 0;
         case ToKind::Traceroute:
@@ -489,6 +502,14 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.packedFx32(5, m.backNodes);
       s.packedSint(6, m.backRssi);
       break;
+    case FromKind::NodeTelemetry:
+      s.fx32(1, m.nodeId);
+      s.opt(2, m.batteryPct);
+      s.opt(3, m.batteryMv);
+      s.opt(4, m.uptimeS);
+      s.u32(5, m.ageS);
+      s.optSint(6, m.rssiDbm);
+      break;
     case FromKind::Neighbor:
       s.fx32(1, m.nodeId);
       s.pos(2, m.pos);
@@ -568,7 +589,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
     if (f == 2) return ok(v.boolean(m.replayed));
-    if (f < 10 || f > static_cast<uint32_t>(FromKind::TraceResult)) return 0;   // newer events: ignored
+    if (!knownFrom(f)) return 0;   // newer events: ignored
     if (v.wt != kLen) return -1;
     FromKind k = static_cast<FromKind>(f);
     m.kind = k;
@@ -640,6 +661,16 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 4: return ok(x.repSint(m.fwdRssi));
             case 5: return ok(x.repFx32(m.backNodes));
             case 6: return ok(x.repSint(m.backRssi));
+          }
+          return 0;
+        case FromKind::NodeTelemetry:
+          switch (g) {
+            case 1: return ok(x.fx32(m.nodeId));
+            case 2: return ok(x.opt(m.batteryPct));
+            case 3: return ok(x.opt(m.batteryMv));
+            case 4: return ok(x.opt(m.uptimeS));
+            case 5: return ok(x.u32(m.ageS));
+            case 6: return ok(x.optSint(m.rssiDbm));
           }
           return 0;
         case FromKind::Neighbor:

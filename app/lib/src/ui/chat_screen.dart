@@ -13,6 +13,7 @@ import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'connection_strip.dart';
 import 'format.dart';
+import 'node_details_screen.dart';
 import 'link_ping.dart';
 import 'message_bubble.dart';
 import 'trace_route.dart';
@@ -160,6 +161,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 unawaited(showTraceRoute(context, widget.peer));
                 return;
               }
+              if (c == 'details') {
+                unawaited(openNodeDetails(context, widget.peer));
+                return;
+              }
               if (c == 'copyId') {
                 await Clipboard.setData(ClipboardData(text: nodeIdHex(widget.peer)));
                 if (context.mounted) showSnack(context, 'Node ID copied');
@@ -184,6 +189,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 const PopupMenuItem(value: 'ping', child: Text('Ping (one hop, both ways)')),
               if (ref.read(meshProvider.notifier).nodeCanTrace)
                 const PopupMenuItem(value: 'trace', child: Text('Trace route')),
+              const PopupMenuItem(value: 'details', child: Text('Node details')),
               const PopupMenuItem(value: 'copyId', child: Text('Copy node ID')),
               const PopupMenuItem(value: 'delete', child: Text('Delete conversation')),
             ],

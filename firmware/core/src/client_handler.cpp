@@ -449,6 +449,26 @@ void Handler::onTrace(const gw::TraceResult& r) {
   event(m, false);   // a stale result is useless: not held for a later app
 }
 
+namespace {
+// NodeTelemetry with only what the node reported (unknown fields absent).
+FromRadio telemetryMsg(uint32_t id, const gw::Telemetry& t, uint32_t ageS) {
+  FromRadio m;
+  m.kind = FromKind::NodeTelemetry;
+  m.nodeId = id;
+  if (t.batteryPct <= 100) m.batteryPct.set(t.batteryPct);
+  if (t.batteryMv) m.batteryMv.set(t.batteryMv);
+  if (t.uptimeS != gw::Telemetry::kNoUptime) m.uptimeS.set(t.uptimeS);
+  m.ageS = ageS;
+  return m;
+}
+}  // namespace
+
+void Handler::onTelemetry(uint32_t id, const gw::Telemetry& t) {
+  FromRadio m = telemetryMsg(id, t, 0);
+  stampSignal(m);
+  event(m, false);   // live view only; GetTelemetry catches up
+}
+
 void Handler::onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) {
   FromRadio m;
   m.kind = FromKind::Neighbor;
@@ -539,7 +559,8 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
     case ToKind::RequestKey:
     case ToKind::SetTx:
     case ToKind::LinkPing:
-    case ToKind::Traceroute: break;
+    case ToKind::Traceroute:
+    case ToKind::GetTelemetry: break;
     default: return false;
   }
   switch (m.kind) {
@@ -643,6 +664,22 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
         case TS::TooSoon: error(c, req, ErrorCode::RateLimited, "one trace every 30 seconds"); break;
         case TS::BadHops: error(c, req, ErrorCode::BadArgument, "max_hops is 1 to 8"); break;
         case TS::BadNode: error(c, req, ErrorCode::BadArgument, "bad node ID"); break;
+      }
+      return true;
+    }
+    case ToKind::GetTelemetry: {
+      gw::Telemetry t;
+      uint64_t heard = now;
+      bool own = m.nodeId == self_.id;
+      if (!usableDest(m.nodeId) && !own) {
+        error(c, req, ErrorCode::BadArgument, "bad node ID");
+      } else if (own ? !r_.ownTelemetry(now, t) : !r_.neighborTelemetry(m.nodeId, t, heard)) {
+        error(c, req, ErrorCode::NotFound,
+              own ? "this node reports no telemetry" : "no telemetry heard from that node");
+      } else {
+        FromRadio q = telemetryMsg(m.nodeId, t, static_cast<uint32_t>((now > heard ? now - heard : 0) / 1000));
+        q.reqId = req;
+        send(c, q);
       }
       return true;
     }

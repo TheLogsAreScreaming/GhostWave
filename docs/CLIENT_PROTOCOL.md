@@ -22,6 +22,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | 0 | the original set |
 | 2 | the PIN handshake on `Hello` (`PinChallenge`, `Hello.pin_proof`, error `BAD_PIN`) (§7), replaced by 3 |
 | 3 | that handshake also agrees keys, and the link is encrypted after it (`PinChallenge.server_share`, `Hello.client_share`, sealed frames with version byte 2) (§7). Not compatible with minor 2: both ends must be updated. |
+| 12 | `GetTelemetry` (35) and `NodeTelemetry` (34): battery %, battery mV and uptime that neighbors carry in their beacons (DESIGN §4.4). Live `NodeTelemetry` events as beacons arrive; `GetTelemetry` asks for the latest one held. A field is absent when that node cannot read it. Oneof numbers 30–34 / 32–33 belong to 1.11. |
 | 10 | `Traceroute` (29) and `TraceResult` (31): trace the path to any node through relays, both ways, with each node's own signal reading (docs/TRACEROUTE.md). `max_hops` 1–8 (0 = 5). `RATE_LIMITED` while one is out or within 30 s; `BAD_ARGUMENT` for more than 8 hops. |
 | 9 | `LinkPing` (28) and `LinkPingResult` (30): ping a node heard directly and measure the link both ways (docs/TRACEROUTE.md). `NOT_FOUND` if not heard directly, `RATE_LIMITED` while one is out or within 5 s. |
 | 8 | `SetTx` (27): turn the node's transmitter on or off from the app, saved, as `tx on`/`tx off`. Nodes without a transmit switch (ghostwaved) answer `UNKNOWN_REQUEST`. |
@@ -117,6 +118,7 @@ gets zero or more `Channel` and then `ChannelsEnd`.
 | 23 | `RemoveChannel` (1.1) | `name` | `Ok` / `NOT_FOUND` |
 | 24 | `ListChannels` (1.1) | none | `Channel`…, `ChannelsEnd{count}` |
 | 25 | `SetName` (1.1) | `name` (≤ 9 bytes UTF-8) | `Ok` / `BAD_ARGUMENT` / `NO_IDENTITY`. The node re-signs and announces its IDENT. |
+| 35 | `GetTelemetry` (1.12) | `node_id` (a neighbor, or this node's own ID) | `NodeTelemetry{age_s}` / `NOT_FOUND` (no beacon with telemetry held for it) / `BAD_ARGUMENT` (0 or broadcast) |
 
 Notes on the requests:
 
@@ -152,6 +154,12 @@ Notes on the requests:
   range or never reply. `Ok` also means the key is already held (see `ListContacts`). Asking the
   same node again within 30 s gets `RATE_LIMITED`, and `NO_IDENTITY` means this node has no signing
   key to ask with.
+- **Telemetry (1.12)** comes from beacons (DESIGN §4.4), so only from neighbors: a node a few hops
+  away is never reported. The node keeps the latest reading per neighbor while it stays in the
+  neighbor table, and drops it when a beacon arrives without one. `age_s` says how old it is; a
+  beacon can be 15 minutes apart. `uptime_s` is as of that beacon (add `age_s` for now). For this
+  node's own ID the answer is what its next beacon would carry (`NOT_FOUND` if it sends none).
+  Battery is in Status as before; `ghostwaved` has no battery reading, only uptime.
 - **SetName** changes the IDENT name (`ghostwaved` keeps it across restarts). Nodes without an
   Ed25519 identity, such as the MCU firmware today, answer `NO_IDENTITY`. Peers see it as
   `PeerIdent{is_new = false}`. A new `Hello` returns it in `NodeInfo.name`.
@@ -180,6 +188,7 @@ Notes on the requests:
 | 26 | `Channel` (1.1) | `name`, `psk` | reply to `ListChannels` (the key lets the app share the channel) |
 | 27 | `ChannelsEnd` (1.1) | `count` | ends `ListChannels` |
 | 28 | `PinChallenge` (1.2) | `nonce` (16 bytes) | reply to `Hello` on a link that needs a PIN (§7) |
+| 34 | `NodeTelemetry` (1.12) | `node_id`, `battery_pct`, `battery_mv`, `uptime_s` (each optional), `age_s`, `rssi_dbm` | a neighbor's beacon carried telemetry (live only, not queued, `age_s` 0), or reply to `GetTelemetry` |
 
 `NodeInfo` (1.1) also carries `protocol_minor` and `max_channel_text_bytes`.
 
@@ -225,8 +234,8 @@ Notes on the events:
 ## 5. No client connected: the event queue
 
 While no client has completed `Hello`, the node holds these events in memory: `TextMessage`,
-`Delivered`, `SosAlert`, `SosAckReceived`, `PeerIdent` and `KeyChange`. `Neighbor` is not held,
-because it is only useful live.
+`Delivered`, `SosAlert`, `SosAckReceived`, `PeerIdent` and `KeyChange`. `Neighbor` and
+`NodeTelemetry` are not held, because they are only useful live (`GetTelemetry` catches up).
 
 - **Capacity:** at most 64 events. When the queue is full, the oldest non-SOS event is dropped.
   SOS alerts are dropped last.

@@ -49,6 +49,7 @@ class MeshState {
     this.signalLog = const [],
     this.historyProblem = HistoryProblem.none,
     this.txOff = false,
+    this.telemetry = const {},
   });
 
   /// The node this history belongs to (null before the first connect).
@@ -102,6 +103,9 @@ class MeshState {
   /// Whether the connected node reports that it is not transmitting.
   final bool txOff;
 
+  /// The latest telemetry heard from each node (protocol 1.12). Live only.
+  final Map<int, NodeTelemetry> telemetry;
+
   /// All unread DMs and channel messages.
   int get totalUnread => unread.values.fold(0, (a, b) => a + b) + channelUnread.values.fold(0, (a, b) => a + b);
 
@@ -136,6 +140,7 @@ class MeshState {
     NodeJournal? journal,
     List<SignalShift>? signalLog,
     bool? txOff,
+    Map<int, NodeTelemetry>? telemetry,
   }) => MeshState(
     nodeId: nodeId ?? this.nodeId,
     contacts: contacts ?? this.contacts,
@@ -154,6 +159,7 @@ class MeshState {
     signalLog: signalLog ?? this.signalLog,
     historyProblem: historyProblem,
     txOff: txOff ?? this.txOff,
+    telemetry: telemetry ?? this.telemetry,
   );
 }
 
@@ -348,6 +354,8 @@ class MeshController extends Notifier<MeshState> {
         );
       case pb.FromRadio_Event.neighbor:
         _onNeighbor(e.neighbor);
+      case pb.FromRadio_Event.nodeTelemetry:
+        _onTelemetry(e.nodeTelemetry);
       case pb.FromRadio_Event.linkPingResult:
         final r = e.linkPingResult;
         final waiting = _pingWaits.remove(r.nodeId);
@@ -584,6 +592,40 @@ class MeshController extends Notifier<MeshState> {
           : null,
     );
     if (state.contacts.containsKey(n.nodeId)) _save();
+  }
+
+  NodeTelemetry _onTelemetry(pb.NodeTelemetry t) {
+    final reading = NodeTelemetry(
+      nodeId: t.nodeId,
+      heardAt: _now().subtract(Duration(seconds: t.ageS)),
+      batteryPct: t.hasBatteryPct() && t.batteryPct <= 100 ? t.batteryPct : null,
+      batteryMv: t.hasBatteryMv() ? t.batteryMv : null,
+      uptime: t.hasUptimeS() ? Duration(seconds: t.uptimeS) : null,
+    );
+    state = state.copyWith(telemetry: {...state.telemetry, t.nodeId: reading});
+    return reading;
+  }
+
+  /// Whether the connected node reports neighbors' telemetry (protocol 1.12).
+  bool get nodeCanTelemetry {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 12;
+  }
+
+  /// Asks the connected node for the latest telemetry it holds for [node] (a
+  /// neighbor, or the node itself) and keeps it in [MeshState.telemetry].
+  /// Null when it holds none (older firmware on that node, not heard
+  /// directly, or it shares none) or this node cannot say (before 1.12).
+  Future<NodeTelemetry?> requestTelemetry(int node) async {
+    final session = _link.session;
+    if (session == null || !nodeCanTelemetry) return null;
+    try {
+      final r = await session.request(pb.ToRadio(getTelemetry: pb.GetTelemetry(nodeId: node)));
+      return r.hasNodeTelemetry() ? _onTelemetry(r.nodeTelemetry) : null;
+    } on NodeError catch (e) {
+      if (e.code == pb.Error_Code.NOT_FOUND) return null;
+      rethrow;
+    }
   }
 
   void _onPeerIdent(pb.PeerIdent p) {
