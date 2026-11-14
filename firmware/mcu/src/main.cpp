@@ -395,8 +395,10 @@ void printHelp() {
       "screen: display (wake it; it sleeps 10 minutes after the last event)\n"
 #endif
 #endif
-#if GW_HAS_BOARD_IO && GW_BUTTON_PIN >= 0
+#if GW_HAS_BOARD_IO && GW_BUTTON_PIN >= 0 && GW_BUTTON_SOS
       "button: press = next screen page, hold 3 s = SOS on, double press = SOS off\n"
+#elif GW_HAS_BOARD_IO && GW_BUTTON_PIN >= 0
+      "button: press = next screen page (start an SOS from the app or with sos)\n"
 #endif
   );
 }
@@ -1070,7 +1072,7 @@ void pollBoardIo(uint64_t now) {
   const bool phone = false;
 #endif
   const Ev ev = gw::mcu::boardio::poll(static_cast<uint32_t>(now), r.sosActive(), phone);
-  if (ev == Ev::Long) {
+  if (ev == Ev::Long && GW_BUTTON_SOS) {
     if (r.sosActive()) {
       Serial.println("button: SOS already on (double press stops it)");
     } else if (r.startSos("SOS (button)", ownBattery(), 0xFF, now)) {
@@ -1078,7 +1080,7 @@ void pollBoardIo(uint64_t now) {
     } else {
       Serial.println("button: SOS rate limited, try again in a minute");
     }
-  } else if (ev == Ev::Double) {
+  } else if (ev == Ev::Double && GW_BUTTON_SOS) {
     if (r.sosActive()) {
       r.stopSos(nowMs());
       Serial.println("button: SOS off");

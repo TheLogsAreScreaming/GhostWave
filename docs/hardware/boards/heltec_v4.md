@@ -6,7 +6,7 @@ Build env: `heltec_v4` (`cd firmware/mcu && pio run -e heltec_v4`). Pins come fr
 
 From `firmware/mcu`, flash with `pio run -e heltec_v4 -t upload`. If several serial devices are attached, select this board explicitly with `--upload-port PORT`. Close any serial monitor before uploading. The phone app connects over Bluetooth (pairing key `654321`), as on the nRF boards. Built, not yet tried on this board.
 
-Fit the antenna first, then type `tx on`: a fresh board only receives until you do. The button: press it to turn the screen page (or wake a dark screen), hold it 3 seconds to start an SOS, double-press to stop it. GPS is not used yet.
+Fit the antenna first, then type `tx on`: a fresh board only receives until you do. The PRG button turns the screen page (or wakes a dark screen). It does not start an SOS: it shares a line with the USB serial chip, so an open serial terminal can hold it down. Start an SOS from the app or with `sos`. GPS is not used yet.
 
 This board has an amplifier after the radio chip. `power` sets the level at the antenna port using Meshtastic's gain tables, which nobody has measured for GhostWave. Output stays capped at 22 dBm.
 

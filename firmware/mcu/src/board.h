@@ -96,6 +96,9 @@ constexpr bool kVextOn = false;     // LOW = on
 #define GW_OLED_RST 21
 // PRG button on GPIO 0 (active LOW) and the white LED on GPIO 35 (variant: LED_POWER LED).
 #define GW_BUTTON_PIN 0
+// GPIO 0 is also wired to the USB serial chip's DTR line (auto-download), so an
+// open serial terminal can hold it low: the button only turns pages here.
+#define GW_BUTTON_SOS 0
 #define GW_LED_PIN 35
 #define GW_LED_ON HIGH
 
@@ -226,6 +229,9 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 // The board's button and status LEDs (board_io.h), -1 = none.
 #ifndef GW_BUTTON_PIN
 #define GW_BUTTON_PIN -1
+#endif
+#ifndef GW_BUTTON_SOS
+#define GW_BUTTON_SOS 1   // 0 where a serial cable can hold the button down (DTR)
 #endif
 #ifndef GW_BUTTON_ACTIVE_LOW
 #define GW_BUTTON_ACTIVE_LOW 1
