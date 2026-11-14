@@ -8,6 +8,6 @@ Flash with `pio run -t upload`. The phone app connects over Bluetooth (pairing k
 
 Fit the antenna first, then type `tx on`: a fresh board only receives until you do. The middle button: press it to turn the screen page, hold it 3 seconds to start an SOS, double-press to stop it. GPS is not used yet: it needs the power chip switched on for it.
 
-The GPS and power-chip battery reading are not used.
+GPS is not used yet.
 
 The battery level shows on the screen and in the app, read by the power chip.
