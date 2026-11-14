@@ -35,6 +35,20 @@ struct Velocity {
   double headingDeg = 0;   // true, clockwise from north
 };
 
+// A node's own readings, carried in an optional beacon trailer (DESIGN §4.4).
+// Each field has an "unknown" value; nothing is guessed when a board cannot
+// read it.
+struct Telemetry {
+  static constexpr uint8_t kNoBattery = 0xFF;
+  static constexpr uint32_t kNoUptime = 0xFFFFFFFF;
+  uint8_t batteryPct = kNoBattery;   // 0-100, kNoBattery unknown
+  uint16_t batteryMv = 0;            // cell voltage in mV, 0 unknown
+  uint32_t uptimeS = kNoUptime;      // seconds since the node booted
+  bool operator==(const Telemetry& o) const {
+    return batteryPct == o.batteryPct && batteryMv == o.batteryMv && uptimeS == o.uptimeS;
+  }
+};
+
 // SOS body (DESIGN §8). Position travels in the frame's src_pos.
 struct SosInfo {
   uint32_t src = 0;
@@ -105,6 +119,9 @@ class AppPort {
   }
   // A traceroute we started (Router::traceroute) ended (TraceResult below).
   virtual void onTrace(const TraceResult& r) { (void)r; }
+  // A neighbor's beacon carried its telemetry (DESIGN §4.4); called after
+  // onNeighbor for the same beacon. As the neighbor reported it.
+  virtual void onTelemetry(uint32_t id, const Telemetry& t) { (void)id, (void)t; }
 };
 
 
@@ -310,6 +327,23 @@ class Router {
   // The velocity in a neighbor's latest beacon. False for an unknown neighbor.
   // Informational: no forwarding decision uses it yet.
   bool neighborVelocity(uint32_t id, Velocity& out) const;
+  // Our own readings for the beacon trailer (DESIGN §4.4). Until this is called
+  // beacons carry no telemetry. The uptime advances on its own from `nowMs`;
+  // call again when the battery reading changes.
+  void setOwnTelemetry(const Telemetry& t, uint64_t nowMs);
+  void clearOwnTelemetry() { ownTelSet_ = false; }
+  // Where we think `id` is (beacon, gossip, contact card). False if unknown.
+  bool knownPosition(uint32_t id, Position& out) const {
+    auto it = loc_.find(id);
+    if (it == loc_.end()) return false;
+    out = it->second.pos;
+    return true;
+  }
+  // Our telemetry as the next beacon would carry it. False if none is set.
+  bool ownTelemetry(uint64_t nowMs, Telemetry& out) const;
+  // The telemetry in a neighbor's latest beacon and when that beacon was
+  // heard. False if its latest beacon carried none, or it is not a neighbor.
+  bool neighborTelemetry(uint32_t id, Telemetry& out, uint64_t& heardMs) const;
   size_t seenSize() const { return seen_.size(); }
   uint32_t id() const { return cfg_.nodeId; }
 
@@ -329,6 +363,8 @@ class Router {
     uint64_t heardMs;
     uint64_t bloomAnswered;   // its Bloom filter we last answered with an early beacon
     Velocity velocity;
+    bool hasTel = false;      // its latest beacon carried telemetry
+    Telemetry tel = {};
   };
   struct Seen {
     uint64_t t = 0;
@@ -470,6 +506,9 @@ class Router {
   std::map<Key, StoreEntry> store_;
   std::map<std::pair<Key, uint16_t>, UniAwait> uni_;
 
+  bool ownTelSet_ = false;
+  Telemetry ownTel_;
+  uint64_t ownTelAt_ = 0;
   uint64_t nextBeaconCheck_ = 0;
   uint64_t lastBeaconT_ = 0;
   bool beaconed_ = false;

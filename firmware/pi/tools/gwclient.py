@@ -75,6 +75,8 @@ TO_REQUESTS = {
     28: ("link_ping", {1: ("node_id", "fx32")}),
     # protocol 1.10
     29: ("traceroute", {1: ("node_id", "fx32"), 2: ("max_hops", "u32")}),
+    # protocol 1.12 (30-34 are 1.11's)
+    35: ("get_telemetry", {1: ("node_id", "fx32")}),
 }
 
 FROM_EVENTS = {
@@ -120,6 +122,9 @@ FROM_EVENTS = {
     31: ("trace_result", {1: ("node_id", "fx32"), 2: ("answered", "bool"),
                           3: ("forward_nodes", "pfx32"), 4: ("forward_rssi_dbm", "psint"),
                           5: ("back_nodes", "pfx32"), 6: ("back_rssi_dbm", "psint")}),
+    # protocol 1.12 (32-33 are 1.11's)
+    34: ("node_telemetry", {1: ("node_id", "fx32"), 2: ("battery_pct", "opt"), 3: ("battery_mv", "opt"),
+                            4: ("uptime_s", "opt"), 5: ("age_s", "u32"), 6: ("rssi_dbm", "osint")}),
 }
 
 ERRORS = ["NONE", "BAD_FRAME", "BAD_VERSION", "UNKNOWN_REQUEST", "NEED_HELLO", "BAD_ARGUMENT",

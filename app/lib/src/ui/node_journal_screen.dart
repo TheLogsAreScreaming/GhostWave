@@ -13,6 +13,7 @@ import '../data/node_journal.dart';
 import '../link/contact_card.dart';
 import 'chat_screen.dart';
 import 'format.dart';
+import 'node_details_screen.dart';
 import 'node_mark.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -407,6 +408,11 @@ class _JournalNodeScreenState extends ConsumerState<JournalNodeScreen> {
       appBar: AppBar(
         title: Text(name, overflow: TextOverflow.ellipsis),
         actions: [
+          IconButton(
+            tooltip: 'Node details',
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => unawaited(openNodeDetails(context, e.nodeId)),
+          ),
           if (isContact)
             IconButton(
               tooltip: 'Open chat',
