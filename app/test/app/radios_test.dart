@@ -22,6 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../link/fake_node.dart';
 import '../support/history_keys.dart';
+import '../support/wait.dart';
 
 const int alice = 0x0A0A0A0A;
 const String addrA = '10.0.0.1:47800';
@@ -177,7 +178,7 @@ void main() {
 
     await c.read(radiosProvider.notifier).switchTo(addrB);
     expect(connA.closed, isTrue, reason: 'old radio disconnected before the new one opens');
-    await settle();
+    await settleUntil(() => c.read(meshProvider).nodeId == radioB.nodeId);
     expect(c.read(nodeLinkProvider).state, isA<LinkUp>());
     expect((c.read(nodeLinkProvider).state as LinkUp).info.nodeId, radioB.nodeId);
     final onB = c.read(meshProvider);
@@ -187,7 +188,7 @@ void main() {
     expect(c.read(sharedPrefsProvider).getString('node_address'), addrB);
 
     await c.read(radiosProvider.notifier).switchTo(addrA);
-    await settle();
+    await settleUntil(() => c.read(meshProvider).messages[alice] != null);
     expect(c.read(meshProvider).nodeId, radioA.nodeId);
     expect(c.read(meshProvider).messages[alice]!.single.text, 'hi from A');
     // each history is in its own file, sealed for its own node ID

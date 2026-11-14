@@ -16,6 +16,7 @@ import 'package:ghostwave_app/src/link/geo.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/history_keys.dart';
+import '../support/wait.dart';
 import 'mesh_controller_test.dart' show answeringNode, settle;
 
 const int ann = 0xA0000001, ben = 0xB0000002, me = 0x11223344;
@@ -139,6 +140,7 @@ void main() {
 
       final again = await connected();
       addTearDown(again.dispose);
+      await settleUntil(() => again.read(meshProvider).trails[ann] != null);
       expect(again.read(meshProvider).trails[ann], hasLength(2));
       again.read(meshProvider.notifier).clearTrails();
       expect(again.read(meshProvider).trails, isEmpty);
