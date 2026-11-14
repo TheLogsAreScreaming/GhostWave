@@ -13,6 +13,7 @@ import 'src/app/home_surfaces.dart';
 import 'src/app/location_share.dart';
 import 'src/app/mesh_alerts.dart';
 import 'src/app/mesh_controller.dart';
+import 'src/app/notification_actions.dart';
 import 'src/app/preferences.dart';
 import 'src/app/providers.dart';
 import 'src/app/radios.dart';
@@ -44,6 +45,7 @@ Future<void> main() async {
         sharedPrefsProvider.overrideWithValue(prefs),
         meshStoreProvider.overrideWithValue(MeshStore(dir, const SecureHistoryKeys())),
         meshAlertsProvider.overrideWithValue(alerts),
+        if (alerts is LocalMeshAlerts) notificationActionSourceProvider.overrideWithValue(LocalMeshAlerts.actions),
         offlineStoreProvider.overrideWithValue(OfflineStore(dir)),
         coverageStoreProvider.overrideWithValue(CoverageStore(dir)),
         fieldReportStoreProvider.overrideWithValue(FieldReportStore(dir)),
@@ -109,6 +111,8 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
     ref.watch(backgroundLinkProvider);
     // and the radio list, which records each radio as it connects
     ref.watch(radiosProvider.select((_) => 0));
+    // and Reply / Mark read from message notifications
+    ref.watch(notificationActionsProvider);
     final hasAddress = ref.watch(nodeAddressProvider) != null;
     return MaterialApp(
       title: 'GhostWave',
