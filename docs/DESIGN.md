@@ -128,7 +128,8 @@ UNICAST and add `dst_pos` en route. Everything else is authenticated end to end 
 ```
  0   1    beacon_flags   bit0 has_gps, bit1 stationary, bit2 mains_power, bit3 gateway,
                          bit4 carrying_sos, bit5 seek (heard nobody: please answer, §6.2),
-                         bit6 has_mac (body ends in a 4-byte MAC, §9.1)
+                         bit6 has_mac (body ends in a 4-byte MAC, §9.1),
+                         bit7 has_telemetry (a telemetry trailer follows the gossip)
  1   2    velocity       u16 LE: heading (top 7 bits, 2.8° steps) + speed (low 9 bits, 0.1 m/s);
                          measured over ≥ 20 s of position fixes, 0 = stopped or not measured
  3   1    util           channel utilization this node measures, 0..255 = 0..100 %
@@ -136,15 +137,25 @@ UNICAST and add `dst_pos` en route. Everything else is authenticated end to end 
  5   8    dtn_summary    64-bit Bloom filter over carried (src,msg_id) keys, k = 2
                          (DTN store entries and held SOS frames)
  13  11×n gossip         up to 3 entries: node ID (4) + pos (6) + age (1)
+  …  7       telemetry      only if has_telemetry: battery % (1, 0xFF unknown), battery mV
+                            (u16 LE, 0 unknown), uptime s (u32 LE, 0xFFFFFFFF unknown)
   …  4       mac            only if has_mac (§9.1)
 ```
+
+**Telemetry trailer.** Optional, added in client protocol 1.12. It is shorter than a gossip entry,
+so firmware that predates it reads the gossip exactly as before and skips the trailer as a partial
+entry (its loop needs 11 whole bytes); its flag bit was always ignored. A receiver finds it as
+`(body − 13) mod 11` bytes after the gossip, which must be at least 7. A later version may lengthen
+it up to 10 bytes and older readers take the first 7; it must never reach 11. A beacon without it
+clears what the receiver held for that node. It is covered by the MAC like the rest of the body,
+but not encrypted: anyone in range can read a node's battery and uptime (as with an SOS's battery).
 
 A beacon is anycast (`next_hop = 0`), except when an SOS holder checks an offer it made (§8) or
 a node asks a peer it knows only from IDENT (§6.2): then `next_hop` is that neighbor, which
 answers with its own beacon.
 
 The beacon's own position is in `fwd_pos`. Size with 3 gossip entries: 19 + 6 + 13 + 33 + 4 =
-**75 bytes**, or 79 with a MAC. (The simulator models 64 B; the 11 extra bytes don't change any conclusion.)
+**75 bytes**, or 79 with a MAC, 86 with telemetry too. (The simulator models 64 B; the 11 extra bytes don't change any conclusion.)
 
 ### 4.5 IDENT body
 

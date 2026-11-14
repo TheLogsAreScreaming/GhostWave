@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +13,7 @@ import '../map/offline_maps.dart';
 import '../data/coverage_sample.dart';
 import 'coverage_screen.dart' show coverageLook;
 import 'format.dart';
+import 'node_details_screen.dart';
 import 'offline_maps_screen.dart';
 import 'tile_provider.dart';
 import 'widgets.dart';
@@ -29,12 +32,15 @@ class MapScreen extends ConsumerStatefulWidget {
 enum _Kind { me, contact, nearby, sos }
 
 class _Pin {
-  const _Pin(this.kind, this.pos, this.title, this.detail);
+  const _Pin(this.kind, this.pos, this.title, this.detail, {this.nodeId});
 
   final _Kind kind;
   final LatLon pos;
   final String title;
   final String detail;
+
+  /// The node it stands for; tapping opens its details. Null for an SOS spot.
+  final int? nodeId;
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
@@ -92,18 +98,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   List<_Pin> _pins(MeshState m) {
     final pins = <_Pin>[];
-    if (m.ownPos case final p?) pins.add(_Pin(_Kind.me, p, 'My node', p.toString()));
+    if (m.ownPos case final p?) pins.add(_Pin(_Kind.me, p, 'My node', p.toString(), nodeId: m.nodeId));
     final ids = <int>{};
     for (final c in m.contacts.values) {
       final p = c.pos ?? m.neighbors[c.nodeId]?.pos;
       if (p == null) continue;
       ids.add(c.nodeId);
       final seen = c.lastSeen ?? m.neighbors[c.nodeId]?.lastSeen;
-      pins.add(_Pin(_Kind.contact, p, m.nameOf(c.nodeId), seen == null ? p.toString() : 'seen ${timeAgo(seen)}'));
+      pins.add(
+        _Pin(
+          _Kind.contact,
+          p,
+          m.nameOf(c.nodeId),
+          seen == null ? p.toString() : 'seen ${timeAgo(seen)}',
+          nodeId: c.nodeId,
+        ),
+      );
     }
     for (final n in m.neighbors.values) {
       if (n.pos == null || ids.contains(n.nodeId)) continue;
-      pins.add(_Pin(_Kind.nearby, n.pos!, m.nameOf(n.nodeId), 'heard ${timeAgo(n.lastSeen)}'));
+      pins.add(_Pin(_Kind.nearby, n.pos!, m.nameOf(n.nodeId), 'heard ${timeAgo(n.lastSeen)}', nodeId: n.nodeId));
     }
     for (final a in m.alerts) {
       if (a.pos == null) continue;
@@ -257,8 +271,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       child: Semantics(
                         button: true,
                         label: '${p.title}. ${p.detail}',
+                        hint: p.nodeId == null ? null : 'Opens node details',
                         child: GestureDetector(
-                          onTap: () => showSnack(context, '${p.title}: ${p.detail}'),
+                          onTap: () => p.nodeId == null
+                              ? showSnack(context, '${p.title}: ${p.detail}')
+                              : unawaited(openNodeDetails(context, p.nodeId!)),
                           child: ExcludeSemantics(
                             child: Icon(iconOf(p.kind), color: colorOf(p.kind), size: p.kind == _Kind.sos ? 44 : 36),
                           ),

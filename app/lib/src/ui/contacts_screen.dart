@@ -15,6 +15,7 @@ import 'add_contact_screen.dart';
 import 'channel_screens.dart';
 import 'chat_screen.dart';
 import 'format.dart';
+import 'node_details_screen.dart';
 import 'link_ping.dart';
 import 'node_journal_screen.dart';
 import 'node_mark.dart';
@@ -192,8 +193,12 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                         padding: const EdgeInsets.only(top: GwSpace.xs),
                         child: NodeMetrics(nodeId: n.nodeId, mesh: mesh, waiting: waiting(n.nodeId), keyKnown: false),
                       ),
-                      trailing: const Icon(Icons.info_outline, semanticLabel: 'What this means'),
-                      onTap: () => _showHeardNode(context, ref, n),
+                      trailing: IconButton(
+                        tooltip: 'What this means',
+                        icon: const Icon(Icons.info_outline),
+                        onPressed: () => _showHeardNode(context, ref, n),
+                      ),
+                      onTap: () => unawaited(openNodeDetails(context, n.nodeId)),
                     ),
                   ),
               ],
@@ -489,6 +494,7 @@ class _ContactTile extends ConsumerWidget {
           ],
         ),
         onTap: open,
+        onLongPress: () => unawaited(openNodeDetails(context, c.nodeId)),
       ),
     );
   }
@@ -695,6 +701,13 @@ void _showHeardNode(BuildContext context, WidgetRef ref, Neighbor n) {
                       unawaited(_askForKey(ctl, messenger, n.nodeId));
                     },
                     child: Text(ref.read(meshProvider.notifier).nodeCanRequestKey ? 'Ask for key' : 'Check again'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(sheet).pop();
+                      unawaited(openNodeDetails(context, n.nodeId));
+                    },
+                    child: const Text('Details'),
                   ),
                   if (ref.read(meshProvider).journal.entries.containsKey(n.nodeId))
                     TextButton(

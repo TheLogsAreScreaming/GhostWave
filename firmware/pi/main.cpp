@@ -378,6 +378,9 @@ class StdoutApp : public gw::AppPort {
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) override {
     if (link) link->onNeighbor(id, pos, isNew);
   }
+  void onTelemetry(uint32_t id, const gw::Telemetry& t) override {
+    if (link) link->onTelemetry(id, t);
+  }
   void onSos(const gw::SosInfo& s) override {
     std::printf("SOS from %08x seq %u", s.src, s.seq);
     if (s.pos.valid) std::printf(" at %.6f %.6f", s.pos.lat, s.pos.lon);
@@ -743,6 +746,12 @@ int main(int argc, char** argv) {
   }
   StdoutApp app;
   gw::Router router(cfg, *radio, app);
+  {
+    // Beacons carry our uptime (DESIGN §4.4); a Pi has no battery reading.
+    gw::Telemetry tel;
+    tel.uptimeS = 0;
+    router.setOwnTelemetry(tel, nowMs());
+  }
   if (pub.legacy) {
     router.setIdentityKey(secret.data());
   } else if (!router.setSigningKey(secret.data(), o.name)) {

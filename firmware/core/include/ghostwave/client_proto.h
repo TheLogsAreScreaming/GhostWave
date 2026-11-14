@@ -30,7 +30,8 @@ constexpr uint8_t kProtocolVersion = 1;
 // 6: NO_KEY: a DM is never sent unencrypted.
 // 10: Traceroute / TraceResult (multi-hop).
 // 11: GetSettings / SetSettings / Settings (radio and device settings).
-constexpr uint32_t kProtocolMinor = 11;
+// 12: GetTelemetry / NodeTelemetry (battery and uptime from neighbors' beacons).
+constexpr uint32_t kProtocolMinor = 12;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -149,6 +150,7 @@ enum class ToKind : uint8_t {
   Traceroute = 29,        // 1.10
   GetSettings = 30,       // 1.11
   SetSettings = 31,       // 1.11
+  GetTelemetry = 35,      // 1.12
 };
 
 struct ToRadio {
@@ -172,6 +174,7 @@ struct ToRadio {
   OptU32 batteryPct, accuracyM;
   // SetTx: on
   bool on = false;
+  // GetTelemetry: nodeId (this node's own ID: its own readings)
   // Traceroute: nodeId, maxHops (0 = the node's default)
   uint32_t maxHops = 0;
   // SendChannelText: channel, text, clientMsgId.  AddChannel: channel, psk.
@@ -209,6 +212,7 @@ enum class FromKind : uint8_t {
   LinkPingResult = 30,   // 1.9
   TraceResult = 31,      // 1.10
   Settings = 32,         // 1.11
+  NodeTelemetry = 34,    // 1.12
 };
 
 struct StatusInfo {
@@ -268,6 +272,10 @@ struct FromRadio {
   // that node heard the frame at. Empty when unanswered.
   std::vector<uint32_t> fwdNodes, backNodes;
   std::vector<int32_t> fwdRssi, backRssi;
+  // NodeTelemetry: nodeId, batteryPct, batteryMv, uptimeS (each absent when
+  // the node did not report it), ageS (since the beacon that carried it), rssiDbm
+  OptU32 batteryMv, uptimeS;
+  uint32_t ageS = 0;
   uint32_t count = 0;
   StatusInfo status;
   // Text / Delivered / Neighbor / ChannelMessage: signal of the frame that
