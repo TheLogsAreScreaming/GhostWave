@@ -840,6 +840,33 @@ class MeshController extends Notifier<MeshState> {
     if (on && !state.txOff) unawaited(_flushOutbox(session).catchError((Object _) {}));
   }
 
+  /// Whether the connected node takes radio and device settings from the app
+  /// (GetSettings / SetSettings, protocol 1.11).
+  bool get nodeCanSettings {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 11;
+  }
+
+  /// Reads the node's settings and limits. Throws [NodeError] or [StateError].
+  Future<pb.Settings> readNodeSettings() async {
+    final session = _link.session;
+    if (session == null || !nodeCanSettings) throw StateError('This node cannot change settings from the app.');
+    final reply = await session.request(pb.ToRadio(getSettings: pb.GetSettings()));
+    if (!reply.hasSettings()) throw StateError('The node answered without its settings.');
+    return reply.settings;
+  }
+
+  /// Changes the fields set in [change] on the node (all or none) and returns
+  /// the settings as they are now. Throws [NodeError] (BAD_ARGUMENT names the
+  /// field) or [StateError].
+  Future<pb.Settings> changeNodeSettings(pb.Settings change) async {
+    final session = _link.session;
+    if (session == null || !nodeCanSettings) throw StateError('This node cannot change settings from the app.');
+    await session.request(pb.ToRadio(setSettings: change));
+    if (change.hasName()) await _link.rehello(); // NodeInfo carries the name
+    return readNodeSettings();
+  }
+
   /// Asks a node in radio range for its key now. Returning means the node asked,
   /// not that the key came: it arrives later as a contact. Throws [NodeError].
   Future<void> requestKey(int peer) async {

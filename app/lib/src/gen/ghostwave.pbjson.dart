@@ -214,6 +214,24 @@ const ToRadio$json = {
       '9': 0,
       '10': 'traceroute'
     },
+    {
+      '1': 'get_settings',
+      '3': 30,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.GetSettings',
+      '9': 0,
+      '10': 'getSettings'
+    },
+    {
+      '1': 'set_settings',
+      '3': 31,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.Settings',
+      '9': 0,
+      '10': 'setSettings'
+    },
   ],
   '8': [
     {'1': 'request'},
@@ -246,8 +264,10 @@ final $typed_data.Uint8List toRadioDescriptor = $convert.base64Decode(
     'NsaWVudC52MS5SZXF1ZXN0S2V5SABSCnJlcXVlc3RLZXkSMwoGc2V0X3R4GBsgASgLMhouZ2hv'
     'c3R3YXZlLmNsaWVudC52MS5TZXRUeEgAUgVzZXRUeBI8CglsaW5rX3BpbmcYHCABKAsyHS5naG'
     '9zdHdhdmUuY2xpZW50LnYxLkxpbmtQaW5nSABSCGxpbmtQaW5nEkEKCnRyYWNlcm91dGUYHSAB'
-    'KAsyHy5naG9zdHdhdmUuY2xpZW50LnYxLlRyYWNlcm91dGVIAFIKdHJhY2Vyb3V0ZUIJCgdyZX'
-    'F1ZXN0');
+    'KAsyHy5naG9zdHdhdmUuY2xpZW50LnYxLlRyYWNlcm91dGVIAFIKdHJhY2Vyb3V0ZRJFCgxnZX'
+    'Rfc2V0dGluZ3MYHiABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYxLkdldFNldHRpbmdzSABSC2dl'
+    'dFNldHRpbmdzEkIKDHNldF9zZXR0aW5ncxgfIAEoCzIdLmdob3N0d2F2ZS5jbGllbnQudjEuU2'
+    'V0dGluZ3NIAFILc2V0U2V0dGluZ3NCCQoHcmVxdWVzdA==');
 
 @$core.Deprecated('Use helloDescriptor instead')
 const Hello$json = {
@@ -534,6 +554,184 @@ final $typed_data.Uint8List tracerouteDescriptor = $convert.base64Decode(
     'CgpUcmFjZXJvdXRlEhcKB25vZGVfaWQYASABKAdSBm5vZGVJZBIZCghtYXhfaG9wcxgCIAEoDV'
     'IHbWF4SG9wcw==');
 
+@$core.Deprecated('Use getSettingsDescriptor instead')
+const GetSettings$json = {
+  '1': 'GetSettings',
+};
+
+/// Descriptor for `GetSettings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getSettingsDescriptor =
+    $convert.base64Decode('CgtHZXRTZXR0aW5ncw==');
+
+@$core.Deprecated('Use settingsDescriptor instead')
+const Settings$json = {
+  '1': 'Settings',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 12, '9': 0, '10': 'name', '17': true},
+    {'1': 'region', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'region', '17': true},
+    {
+      '1': 'freq_khz',
+      '3': 3,
+      '4': 1,
+      '5': 13,
+      '9': 2,
+      '10': 'freqKhz',
+      '17': true
+    },
+    {
+      '1': 'output_dbm',
+      '3': 4,
+      '4': 1,
+      '5': 17,
+      '9': 3,
+      '10': 'outputDbm',
+      '17': true
+    },
+    {'1': 'channel_key', '3': 5, '4': 1, '5': 12, '10': 'channelKey'},
+    {
+      '1': 'channel_key_on',
+      '3': 6,
+      '4': 1,
+      '5': 8,
+      '9': 4,
+      '10': 'channelKeyOn',
+      '17': true
+    },
+    {
+      '1': 'require_encryption',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '9': 5,
+      '10': 'requireEncryption',
+      '17': true
+    },
+    {
+      '1': 'responder',
+      '3': 8,
+      '4': 1,
+      '5': 8,
+      '9': 6,
+      '10': 'responder',
+      '17': true
+    },
+    {
+      '1': 'ble_pin',
+      '3': 9,
+      '4': 1,
+      '5': 9,
+      '9': 7,
+      '10': 'blePin',
+      '17': true
+    },
+    {
+      '1': 'screen_off_s',
+      '3': 10,
+      '4': 1,
+      '5': 13,
+      '9': 8,
+      '10': 'screenOffS',
+      '17': true
+    },
+    {'1': 'leds', '3': 11, '4': 1, '5': 8, '9': 9, '10': 'leds', '17': true},
+    {
+      '1': 'button_sos',
+      '3': 12,
+      '4': 1,
+      '5': 8,
+      '9': 10,
+      '10': 'buttonSos',
+      '17': true
+    },
+    {
+      '1': 'min_freq_khz',
+      '3': 20,
+      '4': 1,
+      '5': 13,
+      '9': 11,
+      '10': 'minFreqKhz',
+      '17': true
+    },
+    {
+      '1': 'max_freq_khz',
+      '3': 21,
+      '4': 1,
+      '5': 13,
+      '9': 12,
+      '10': 'maxFreqKhz',
+      '17': true
+    },
+    {
+      '1': 'min_output_dbm',
+      '3': 22,
+      '4': 1,
+      '5': 17,
+      '9': 13,
+      '10': 'minOutputDbm',
+      '17': true
+    },
+    {
+      '1': 'max_output_dbm',
+      '3': 23,
+      '4': 1,
+      '5': 17,
+      '9': 14,
+      '10': 'maxOutputDbm',
+      '17': true
+    },
+    {'1': 'screen_fitted', '3': 24, '4': 1, '5': 8, '10': 'screenFitted'},
+    {'1': 'leds_fitted', '3': 25, '4': 1, '5': 8, '10': 'ledsFitted'},
+    {'1': 'button_fitted', '3': 26, '4': 1, '5': 8, '10': 'buttonFitted'},
+    {
+      '1': 'button_sos_allowed',
+      '3': 27,
+      '4': 1,
+      '5': 8,
+      '10': 'buttonSosAllowed'
+    },
+    {'1': 'restart_needed', '3': 28, '4': 1, '5': 8, '10': 'restartNeeded'},
+  ],
+  '8': [
+    {'1': '_name'},
+    {'1': '_region'},
+    {'1': '_freq_khz'},
+    {'1': '_output_dbm'},
+    {'1': '_channel_key_on'},
+    {'1': '_require_encryption'},
+    {'1': '_responder'},
+    {'1': '_ble_pin'},
+    {'1': '_screen_off_s'},
+    {'1': '_leds'},
+    {'1': '_button_sos'},
+    {'1': '_min_freq_khz'},
+    {'1': '_max_freq_khz'},
+    {'1': '_min_output_dbm'},
+    {'1': '_max_output_dbm'},
+  ],
+};
+
+/// Descriptor for `Settings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List settingsDescriptor = $convert.base64Decode(
+    'CghTZXR0aW5ncxIXCgRuYW1lGAEgASgMSABSBG5hbWWIAQESGwoGcmVnaW9uGAIgASgJSAFSBn'
+    'JlZ2lvbogBARIeCghmcmVxX2toehgDIAEoDUgCUgdmcmVxS2h6iAEBEiIKCm91dHB1dF9kYm0Y'
+    'BCABKBFIA1IJb3V0cHV0RGJtiAEBEh8KC2NoYW5uZWxfa2V5GAUgASgMUgpjaGFubmVsS2V5Ei'
+    'kKDmNoYW5uZWxfa2V5X29uGAYgASgISARSDGNoYW5uZWxLZXlPbogBARIyChJyZXF1aXJlX2Vu'
+    'Y3J5cHRpb24YByABKAhIBVIRcmVxdWlyZUVuY3J5cHRpb26IAQESIQoJcmVzcG9uZGVyGAggAS'
+    'gISAZSCXJlc3BvbmRlcogBARIcCgdibGVfcGluGAkgASgJSAdSBmJsZVBpbogBARIlCgxzY3Jl'
+    'ZW5fb2ZmX3MYCiABKA1ICFIKc2NyZWVuT2ZmU4gBARIXCgRsZWRzGAsgASgISAlSBGxlZHOIAQ'
+    'ESIgoKYnV0dG9uX3NvcxgMIAEoCEgKUglidXR0b25Tb3OIAQESJQoMbWluX2ZyZXFfa2h6GBQg'
+    'ASgNSAtSCm1pbkZyZXFLaHqIAQESJQoMbWF4X2ZyZXFfa2h6GBUgASgNSAxSCm1heEZyZXFLaH'
+    'qIAQESKQoObWluX291dHB1dF9kYm0YFiABKBFIDVIMbWluT3V0cHV0RGJtiAEBEikKDm1heF9v'
+    'dXRwdXRfZGJtGBcgASgRSA5SDG1heE91dHB1dERibYgBARIjCg1zY3JlZW5fZml0dGVkGBggAS'
+    'gIUgxzY3JlZW5GaXR0ZWQSHwoLbGVkc19maXR0ZWQYGSABKAhSCmxlZHNGaXR0ZWQSIwoNYnV0'
+    'dG9uX2ZpdHRlZBgaIAEoCFIMYnV0dG9uRml0dGVkEiwKEmJ1dHRvbl9zb3NfYWxsb3dlZBgbIA'
+    'EoCFIQYnV0dG9uU29zQWxsb3dlZBIlCg5yZXN0YXJ0X25lZWRlZBgcIAEoCFINcmVzdGFydE5l'
+    'ZWRlZEIHCgVfbmFtZUIJCgdfcmVnaW9uQgsKCV9mcmVxX2toekINCgtfb3V0cHV0X2RibUIRCg'
+    '9fY2hhbm5lbF9rZXlfb25CFQoTX3JlcXVpcmVfZW5jcnlwdGlvbkIMCgpfcmVzcG9uZGVyQgoK'
+    'CF9ibGVfcGluQg8KDV9zY3JlZW5fb2ZmX3NCBwoFX2xlZHNCDQoLX2J1dHRvbl9zb3NCDwoNX2'
+    '1pbl9mcmVxX2toekIPCg1fbWF4X2ZyZXFfa2h6QhEKD19taW5fb3V0cHV0X2RibUIRCg9fbWF4'
+    'X291dHB1dF9kYm0=');
+
 @$core.Deprecated('Use fromRadioDescriptor instead')
 const FromRadio$json = {
   '1': 'FromRadio',
@@ -738,6 +936,15 @@ const FromRadio$json = {
       '9': 0,
       '10': 'traceResult'
     },
+    {
+      '1': 'settings',
+      '3': 32,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.Settings',
+      '9': 0,
+      '10': 'settings'
+    },
   ],
   '8': [
     {'1': 'event'},
@@ -772,7 +979,8 @@ final $typed_data.Uint8List fromRadioDescriptor = $convert.base64Decode(
     'F2ZS5jbGllbnQudjEuU29zQ2FuY2VsbGVkSABSDHNvc0NhbmNlbGxlZBJPChBsaW5rX3Bpbmdf'
     'cmVzdWx0GB4gASgLMiMuZ2hvc3R3YXZlLmNsaWVudC52MS5MaW5rUGluZ1Jlc3VsdEgAUg5saW'
     '5rUGluZ1Jlc3VsdBJFCgx0cmFjZV9yZXN1bHQYHyABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYx'
-    'LlRyYWNlUmVzdWx0SABSC3RyYWNlUmVzdWx0QgcKBWV2ZW50');
+    'LlRyYWNlUmVzdWx0SABSC3RyYWNlUmVzdWx0EjsKCHNldHRpbmdzGCAgASgLMh0uZ2hvc3R3YX'
+    'ZlLmNsaWVudC52MS5TZXR0aW5nc0gAUghzZXR0aW5nc0IHCgVldmVudA==');
 
 @$core.Deprecated('Use nodeInfoDescriptor instead')
 const NodeInfo$json = {

@@ -540,6 +540,13 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
     case ToKind::SetTx:
     case ToKind::LinkPing:
     case ToKind::Traceroute: break;
+    case ToKind::GetSettings:
+    case ToKind::SetSettings:
+      if (!hooks_.getSettings || !hooks_.setSettings) {
+        error(c, req, ErrorCode::UnknownRequest, "settings are not available on this node");
+        return true;
+      }
+      break;
     default: return false;
   }
   switch (m.kind) {
@@ -644,6 +651,25 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
         case TS::BadHops: error(c, req, ErrorCode::BadArgument, "max_hops is 1 to 8"); break;
         case TS::BadNode: error(c, req, ErrorCode::BadArgument, "bad node ID"); break;
       }
+      return true;
+    }
+    case ToKind::GetSettings: {
+      FromRadio s;
+      s.reqId = req;
+      s.kind = FromKind::Settings;
+      hooks_.getSettings(s.settings);
+      send(c, s);
+      return true;
+    }
+    case ToKind::SetSettings: {
+      std::string err;
+      const ErrorCode e = hooks_.setSettings(m.settings, err);
+      if (e != ErrorCode::None) {
+        error(c, req, e, err.empty() ? "settings not changed" : err);
+        return true;
+      }
+      t_.log("client changed settings");
+      reply(c, req, FromKind::Ok);
       return true;
     }
     case ToKind::SetTx: {

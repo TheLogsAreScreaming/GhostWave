@@ -15,6 +15,7 @@ namespace {
 #if GW_BUTTON_PIN >= 0
 ButtonGesture g_button;
 #endif
+bool g_ledsOn = true;
 
 void led(int pin, int onLevel, bool on) {
   if (pin >= 0) digitalWrite(pin, on ? onLevel : !onLevel);
@@ -36,8 +37,11 @@ void begin() {
 #endif
 }
 
+void setLeds(bool on) { g_ledsOn = on; }
+
 ButtonGesture::Event poll(uint32_t now, bool sosActive, bool phoneConnected) {
-  const LedState st = ledState(now, sosActive, phoneConnected, GW_LED2_PIN >= 0);
+  LedState st = ledState(now, sosActive, phoneConnected, GW_LED2_PIN >= 0);
+  if (!g_ledsOn) st = LedState{false, false};
   led(GW_LED_PIN, GW_LED_ON, st.status);
   led(GW_LED2_PIN, GW_LED2_ON, st.link);
 #if GW_BUTTON_PIN >= 0

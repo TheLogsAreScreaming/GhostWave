@@ -22,6 +22,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | 0 | the original set |
 | 2 | the PIN handshake on `Hello` (`PinChallenge`, `Hello.pin_proof`, error `BAD_PIN`) (§7), replaced by 3 |
 | 3 | that handshake also agrees keys, and the link is encrypted after it (`PinChallenge.server_share`, `Hello.client_share`, sealed frames with version byte 2) (§7). Not compatible with minor 2: both ends must be updated. |
+| 11 | `GetSettings` (30), `SetSettings` (31) and `Settings` (32): the node's radio and device settings from the app: name, region, frequency, output power, channel key, require-encryption, SOS responder, Bluetooth PIN, screen timeout, status LEDs and button SOS, with the board's limits and what it has. A request changes all its fields or none (`BAD_ARGUMENT` names the field). Nodes without the hooks (ghostwaved) answer `UNKNOWN_REQUEST`. |
 | 10 | `Traceroute` (29) and `TraceResult` (31): trace the path to any node through relays, both ways, with each node's own signal reading (docs/TRACEROUTE.md). `max_hops` 1–8 (0 = 5). `RATE_LIMITED` while one is out or within 30 s; `BAD_ARGUMENT` for more than 8 hops. |
 | 9 | `LinkPing` (28) and `LinkPingResult` (30): ping a node heard directly and measure the link both ways (docs/TRACEROUTE.md). `NOT_FOUND` if not heard directly, `RATE_LIMITED` while one is out or within 5 s. |
 | 8 | `SetTx` (27): turn the node's transmitter on or off from the app, saved, as `tx on`/`tx off`. Nodes without a transmit switch (ghostwaved) answer `UNKNOWN_REQUEST`. |
@@ -141,6 +142,15 @@ Notes on the requests:
   `ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>`. Anyone with it can read and write the
   channel. An `AddChannel` with a name already in use under another key, or a key already joined
   under another name, gets `BAD_ARGUMENT`.
+- **Settings (1.11).** `GetSettings` answers with a `Settings` event: every value the board
+  supports, its limits (`min/max_freq_khz` for the region, `min/max_output_dbm` at the antenna
+  port) and what it has (`screen_fitted`, `leds_fitted`, `button_fitted`, `button_sos_allowed`).
+  `SetSettings` carries the same message with only the fields to change; each does exactly what
+  its console command does, and all are saved. `channel_key` is set-only and never reported;
+  `channel_key_on = false` removes the key. Region, frequency, responder, require-encryption,
+  removing the key and a new PIN take effect after a restart, which `restart_needed` reports.
+  Screen timeout, LEDs, button SOS, power, name and a new key apply at once. The whole request is
+  checked before anything changes; if storage fails part-way the reply is `SEND_FAILED`.
 - **SetTx (1.8)** turns the node's transmitter on or off and saves it, exactly like the `tx on` /
   `tx off` console command. A fresh board listens only until this. The app asks the user to check the
   antenna and region first. `Status.tx_off` shows the result. If the switch flips but cannot be saved,

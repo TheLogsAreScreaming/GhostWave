@@ -84,6 +84,12 @@ class Handler {
     // Renames the node (SetName, 1.1): ErrorCode::None, or an error with `err`
     // set. Unset: NO_IDENTITY.
     std::function<ErrorCode(const std::string&, std::string&)> setName;
+    // Settings (1.11): fills every value and limit the node supports. Unset:
+    // GetSettings / SetSettings get UNKNOWN_REQUEST.
+    std::function<void(SettingsMsg&)> getSettings;
+    // Applies the fields present, all or none, and saves them: ErrorCode::None,
+    // or an error with `err` naming the field. Unset: UNKNOWN_REQUEST.
+    std::function<ErrorCode(const SettingsMsg&, std::string&)> setSettings;
   };
 
   static constexpr size_t kDefaultQueueMax = 64;

@@ -594,6 +594,75 @@ void testProtocol11() {
   CHECK(v.size() == 1 && v[0].error == ErrorCode::NoIdentity);
 }
 
+// Settings (1.11): GetSettings returns the board's values, SetSettings goes
+// through the board's hook and its error comes back; a node without the hooks
+// says settings are unavailable.
+static void testSettings() {
+  std::printf("client handler: Settings\n");
+  NullRadio radio;
+  NullApp app;
+  gw::Config cfg = Rig::mkCfg();
+  gw::Router router(cfg, radio, app);
+  gw::Position pos;
+  int dbm = 10;
+  FakeTransport t;
+  Handler::Hooks hooks;
+  hooks.getSettings = [&](SettingsMsg& s) {
+    s.outputDbm.set(dbm);
+    s.minOutputDbm.set(-9), s.maxOutputDbm.set(30);
+    s.hasLeds = true, s.leds.set(true);
+  };
+  hooks.setSettings = [&](const SettingsMsg& s, std::string& err) {
+    if (s.outputDbm.has && s.outputDbm.v > 30) {
+      err = "output_dbm: at most 30";
+      return ErrorCode::BadArgument;
+    }
+    if (s.outputDbm.has) dbm = s.outputDbm.v;
+    return ErrorCode::None;
+  };
+  Handler h(router, Rig::ident(), pos, hooks, 0, t);
+  auto& c = t.add("ble");
+  auto send = [&](const ToRadio& m) {
+    Bytes f;
+    frameTo(m, f);
+    FrameReader in;
+    in.push(f.data(), f.size());
+    h.receive(c.conn, in, 1000);
+    return FakeTransport::drain(c);
+  };
+  ToRadio m;
+  m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
+  send(m);
+  m = {}, m.reqId = 2, m.kind = ToKind::GetSettings;
+  auto v = send(m);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Settings && v[0].reqId == 2 && v[0].settings.outputDbm.v == 10 &&
+        v[0].settings.maxOutputDbm.v == 30 && v[0].settings.hasLeds);
+  m = {}, m.reqId = 3, m.kind = ToKind::SetSettings, m.settings.outputDbm.set(27);
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && dbm == 27);
+  m.reqId = 4, m.settings.outputDbm.set(33);
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument && v[0].detail == "output_dbm: at most 30" && dbm == 27);
+
+  Handler::Hooks none;
+  FakeTransport t2;
+  Handler h2(router, Rig::ident(), pos, none, 0, t2);
+  auto& c2 = t2.add("ble");
+  auto send2 = [&](const ToRadio& x) {
+    Bytes f;
+    frameTo(x, f);
+    FrameReader in;
+    in.push(f.data(), f.size());
+    h2.receive(c2.conn, in, 1000);
+    return FakeTransport::drain(c2);
+  };
+  m = {}, m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
+  send2(m);
+  m = {}, m.reqId = 5, m.kind = ToKind::GetSettings;
+  v = send2(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::UnknownRequest);
+}
+
 // SetTx (1.8): the app's transmit switch goes through the board's hook, and
 // Status then reports it; a node without the hook says it has none.
 static void testSetTx() {
@@ -626,7 +695,7 @@ static void testSetTx() {
   ToRadio m;
   m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
   auto v = send(m);
-  CHECK(v.size() == 1 && v[0].protocolMinor == 10);
+  CHECK(v.size() == 1 && v[0].protocolMinor == 11);
   m = {}, m.reqId = 2, m.kind = ToKind::SetTx, m.on = true;
   v = send(m);
   CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 2 && tx && calls == 1);
@@ -972,6 +1041,7 @@ int main() {
   testBadFrames();
   testProtocol11();
   testSetTx();
+  testSettings();
   testPin();
   testBattery();
   std::printf("client handler: %d passed, %d failed\n", g_pass, g_fail);

@@ -206,6 +206,21 @@ bool saveBlePin(const char* pin) {
   return nvs.ok() && nvs->putString("blepin", pin) == 6;
 }
 
+void loadDevice(DeviceSettings& d) {
+  d = DeviceSettings{};
+  Nvs nvs(true);
+  if (!nvs.ok()) return;
+  d.screenOffS = nvs->getUInt("scroff", d.screenOffS);
+  d.leds = nvs->getBool("leds", d.leds);
+  d.buttonSos = nvs->getBool("btnsos", d.buttonSos);
+}
+
+bool saveDevice(const DeviceSettings& d) {
+  Nvs nvs(false);
+  return nvs.ok() && nvs->putUInt("scroff", d.screenOffS) == 4 && nvs->putBool("leds", d.leds) == 1 &&
+         nvs->putBool("btnsos", d.buttonSos) == 1;
+}
+
 bool loadChannels(std::vector<SavedChannel>& out) { return loadBlob("channels", out, app_state::decodeChannels); }
 bool saveChannels(const std::vector<SavedChannel>& in) { return saveBlob("channels", app_state::encodeChannels(in)); }
 bool loadEdKeys(std::map<uint32_t, AppKey>& out) { return loadBlob("edkeys", out, app_state::decodeEdKeys); }

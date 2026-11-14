@@ -30,6 +30,8 @@ void clearPasskey();
 void wake();
 // The board button: turns to the next page, or wakes a dark screen.
 void nextPage();
+// The screen timeout (app setting, 1.11): off this long after the last event; 0 = never.
+void setOffAfterS(uint32_t s);
 // Whether draw() has work to do now; once a second at most (twice while an SOS
 // flashes), unless something new happened, so filling Status and the I2C
 // transfer cannot crowd the radio.

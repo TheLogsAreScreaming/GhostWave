@@ -53,6 +53,9 @@ message ToRadio {
     LinkPing link_ping = 28;
     // protocol 1.10
     Traceroute traceroute = 29;
+    // protocol 1.11
+    GetSettings get_settings = 30;
+    Settings set_settings = 31;
   }
 }
 
@@ -179,6 +182,41 @@ message Traceroute {
   uint32 max_hops = 2;   // 1-8; 0 = the node's default (5)
 }
 
+// 1.11: read the node's settings. Replies with a Settings event holding
+// every value this node supports and its limits.
+message GetSettings {}
+
+// 1.11: the node's radio and device settings. As a request (set_settings),
+// only the fields present change, each exactly like its console command, and
+// all are saved; the reply is Ok, or Error BAD_ARGUMENT (detail says which
+// field) with nothing changed. As an event (settings), the current values;
+// the limit and capability fields are report-only. (The capability
+// fields are named *_fitted, not has_*: has_ clashes with protobuf presence.)
+message Settings {
+  optional bytes name = 1;            // IDENT name, <= 9 bytes (`name`); empty = clear
+  optional string region = 2;         // "us915" or "eu868" (`region`)
+  optional uint32 freq_khz = 3;       // within the region (`freq`)
+  optional sint32 output_dbm = 4;     // at the antenna port (`power`)
+  bytes channel_key = 5;              // set only: 32 bytes (`psk`); never reported
+  optional bool channel_key_on = 6;   // event: a channel key is set. Request: false = remove it (`psk off`)
+  optional bool require_encryption = 7;   // `requireenc`
+  optional bool responder = 8;        // SOS responder (`responder`)
+  optional string ble_pin = 9;        // 6 digits (`ble pin`); takes effect for new pairings
+  optional uint32 screen_off_s = 10;  // screen sleeps this long after the last event; 0 = never
+  optional bool leds = 11;            // status LEDs on
+  optional bool button_sos = 12;      // holding the button starts an SOS
+  // report-only
+  optional uint32 min_freq_khz = 20;
+  optional uint32 max_freq_khz = 21;
+  optional sint32 min_output_dbm = 22;
+  optional sint32 max_output_dbm = 23;
+  bool screen_fitted = 24;            // the board has a screen and it answered at boot
+  bool leds_fitted = 25;
+  bool button_fitted = 26;
+  bool button_sos_allowed = 27;       // false where a serial cable can hold the button (Heltec)
+  bool restart_needed = 28;           // saved changes (region, frequency, responder, encryption, removed key, PIN) wait for a restart
+}
+
 // --------------------------------------------------------------- node -> app
 
 message FromRadio {
@@ -212,6 +250,8 @@ message FromRadio {
     LinkPingResult link_ping_result = 30;
     // protocol 1.10
     TraceResult trace_result = 31;
+    // protocol 1.11
+    Settings settings = 32;
   }
 }
 
@@ -224,7 +264,7 @@ message NodeInfo {
   bool legacy = 6;               // X25519-only node: no ed25519_pub, no IDENT
   string firmware = 7;
   uint32 max_text_bytes = 8;     // SendText.text limit with a DM key
-  uint32 protocol_minor = 9;     // 0 = original 1.0 node; 1 = channels, SetName; 3 = encrypted PIN link; 4 = RequestKey
+  uint32 protocol_minor = 9;     // 0 = original 1.0 node; 1 = channels, SetName; 3 = encrypted PIN link; 4 = RequestKey; 11 = Settings
   uint32 max_channel_text_bytes = 10;   // SendChannelText.text limit (1.1)
 }
 

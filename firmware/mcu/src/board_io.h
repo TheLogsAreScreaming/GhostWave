@@ -23,6 +23,8 @@ namespace mcu {
 namespace boardio {
 
 void begin();
+// Status LEDs on or off (app setting, 1.11). Off: both stay dark.
+void setLeds(bool on);
 // Call every loop. Returns a button gesture, if one completed.
 ButtonGesture::Event poll(uint32_t nowMs, bool sosActive, bool phoneConnected);
 

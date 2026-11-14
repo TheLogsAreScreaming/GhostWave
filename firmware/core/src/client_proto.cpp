@@ -72,6 +72,15 @@ struct Writer {
     bytes(f, sub);
   }
   void str(uint32_t f, const std::string& s) { bytes(f, reinterpret_cast<const uint8_t*>(s.data()), s.size()); }
+  // proto3 `optional`: sent whenever present, even at the default.
+  void optBool(uint32_t f, const OptBool& v) {
+    if (v.has) tag(f, kVarint), varint(v.v ? 1 : 0);
+  }
+  void bytesAlways(uint32_t f, const uint8_t* p, size_t n) {
+    tag(f, kLen);
+    varint(n);
+    b.insert(b.end(), p, p + n);
+  }
   // Sub-messages are always sent, even empty: presence is meaningful (oneof,
   // Position = fix).
   void msg(uint32_t f, const Bytes& sub) {
@@ -197,6 +206,11 @@ struct Field {
     }
     return true;
   }
+  bool optBool(OptBool& out) const {
+    if (wt != kVarint) return false;
+    out.set(v != 0);
+    return true;
+  }
   bool bytes(Bytes& out) const {
     if (wt != kLen) return false;
     out.assign(data, data + len);
@@ -257,6 +271,57 @@ bool parsePos(const Field& f, Pos& out) {
 
 inline int ok(bool b) { return b ? 1 : -1; }
 
+void writeSettings(Writer& s, const SettingsMsg& t) {
+  if (t.hasName) s.bytesAlways(1, t.name.data(), t.name.size());
+  if (t.hasRegion) s.bytesAlways(2, reinterpret_cast<const uint8_t*>(t.region.data()), t.region.size());
+  s.opt(3, t.freqKhz);
+  s.optSint(4, t.outputDbm);
+  s.bytes(5, t.channelKey);
+  s.optBool(6, t.channelKeyOn);
+  s.optBool(7, t.requireEncryption);
+  s.optBool(8, t.responder);
+  if (t.hasBlePin) s.bytesAlways(9, reinterpret_cast<const uint8_t*>(t.blePin.data()), t.blePin.size());
+  s.opt(10, t.screenOffS);
+  s.optBool(11, t.leds);
+  s.optBool(12, t.buttonSos);
+  s.opt(20, t.minFreqKhz);
+  s.opt(21, t.maxFreqKhz);
+  s.optSint(22, t.minOutputDbm);
+  s.optSint(23, t.maxOutputDbm);
+  s.boolean(24, t.hasScreen);
+  s.boolean(25, t.hasLeds);
+  s.boolean(26, t.hasButton);
+  s.boolean(27, t.buttonSosAllowed);
+  s.boolean(28, t.restartNeeded);
+}
+
+int readSettings(uint32_t g, const Field& x, SettingsMsg& t) {
+  switch (g) {
+    case 1: t.hasName = true; return ok(x.bytes(t.name));
+    case 2: t.hasRegion = true; return ok(x.str(t.region));
+    case 3: return ok(x.opt(t.freqKhz));
+    case 4: return ok(x.optSint(t.outputDbm));
+    case 5: return ok(x.bytes(t.channelKey));
+    case 6: return ok(x.optBool(t.channelKeyOn));
+    case 7: return ok(x.optBool(t.requireEncryption));
+    case 8: return ok(x.optBool(t.responder));
+    case 9: t.hasBlePin = true; return ok(x.str(t.blePin));
+    case 10: return ok(x.opt(t.screenOffS));
+    case 11: return ok(x.optBool(t.leds));
+    case 12: return ok(x.optBool(t.buttonSos));
+    case 20: return ok(x.opt(t.minFreqKhz));
+    case 21: return ok(x.opt(t.maxFreqKhz));
+    case 22: return ok(x.optSint(t.minOutputDbm));
+    case 23: return ok(x.optSint(t.maxOutputDbm));
+    case 24: return ok(x.boolean(t.hasScreen));
+    case 25: return ok(x.boolean(t.hasLeds));
+    case 26: return ok(x.boolean(t.hasButton));
+    case 27: return ok(x.boolean(t.buttonSosAllowed));
+    case 28: return ok(x.boolean(t.restartNeeded));
+    default: return 0;
+  }
+}
+
 }  // namespace
 
 Pos posFromDegrees(double lat, double lon, bool valid) {
@@ -267,6 +332,17 @@ Pos posFromDegrees(double lat, double lon, bool valid) {
     p.lonE7 = static_cast<int32_t>(std::lround(lon * 1e7));
   }
   return p;
+}
+
+bool SettingsMsg::operator==(const SettingsMsg& o) const {
+  return hasName == o.hasName && name == o.name && hasRegion == o.hasRegion && region == o.region &&
+         freqKhz == o.freqKhz && outputDbm == o.outputDbm && channelKey == o.channelKey &&
+         channelKeyOn == o.channelKeyOn && requireEncryption == o.requireEncryption && responder == o.responder &&
+         hasBlePin == o.hasBlePin && blePin == o.blePin && screenOffS == o.screenOffS && leds == o.leds &&
+         buttonSos == o.buttonSos && minFreqKhz == o.minFreqKhz && maxFreqKhz == o.maxFreqKhz &&
+         minOutputDbm == o.minOutputDbm && maxOutputDbm == o.maxOutputDbm && hasScreen == o.hasScreen &&
+         hasLeds == o.hasLeds && hasButton == o.hasButton && buttonSosAllowed == o.buttonSosAllowed &&
+         restartNeeded == o.restartNeeded;
 }
 
 bool StatusInfo::operator==(const StatusInfo& o) const {
@@ -334,6 +410,8 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
       s.fx32(1, m.nodeId);
       s.u32(2, m.maxHops);
       break;
+    case ToKind::SetSettings: writeSettings(s, m.settings); break;
+    case ToKind::GetSettings:
     case ToKind::ListChannels:
     case ToKind::ListContacts:
     case ToKind::SosStop:
@@ -349,7 +427,7 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
   m = ToRadio{};
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
-    if (f < 10 || f > static_cast<uint32_t>(ToKind::Traceroute)) return 0;   // newer requests: ignored
+    if (f < 10 || f > static_cast<uint32_t>(ToKind::SetSettings)) return 0;   // newer requests: ignored
     if (v.wt != kLen) return -1;
     ToKind k = static_cast<ToKind>(f);
     m.kind = k;
@@ -415,6 +493,7 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
           if (g == 1) return ok(x.fx32(m.nodeId));
           if (g == 2) return ok(x.u32(m.maxHops));
           return 0;
+        case ToKind::SetSettings: return readSettings(g, x, m.settings);
         default: return 0;
       }
     }));
@@ -489,6 +568,7 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.packedFx32(5, m.backNodes);
       s.packedSint(6, m.backRssi);
       break;
+    case FromKind::Settings: writeSettings(s, m.settings); break;
     case FromKind::Neighbor:
       s.fx32(1, m.nodeId);
       s.pos(2, m.pos);
@@ -568,7 +648,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
     if (f == 2) return ok(v.boolean(m.replayed));
-    if (f < 10 || f > static_cast<uint32_t>(FromKind::TraceResult)) return 0;   // newer events: ignored
+    if (f < 10 || f > static_cast<uint32_t>(FromKind::Settings)) return 0;   // newer events: ignored
     if (v.wt != kLen) return -1;
     FromKind k = static_cast<FromKind>(f);
     m.kind = k;
@@ -642,6 +722,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 6: return ok(x.repSint(m.backRssi));
           }
           return 0;
+        case FromKind::Settings: return readSettings(g, x, m.settings);
         case FromKind::Neighbor:
           if (g == 1) return ok(x.fx32(m.nodeId));
           if (g == 2) return ok(parsePos(x, m.pos));
