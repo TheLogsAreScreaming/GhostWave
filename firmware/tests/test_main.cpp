@@ -489,6 +489,49 @@ static void testBeaconVelocity() {
 // The vmesh.sh scenario in one process: A and D are partitioned, B carries A's
 // SOS and DM across. The carrier's one beacon exchange at its destination is
 // lost; it must recover in well under a beacon period (DESIGN §6.2).
+// A node with no position (no GPS, nothing set) must still be heard: before,
+// it never beaconed, so a neighbor with a position never learned it and held
+// every message for it (bench, 2026-11-14: a Heltec V3 with no position).
+static void testBeaconWithoutPosition() {
+  std::printf("beacon: a node with no position is still a neighbor\n");
+  Medium m;
+  auto& a = m.add(0xA0000011, 0);
+  auto& b = m.add(0xB0000012, 1.0);
+  b.router->setPosition(Position{}, m.now);   // B knows nowhere
+  m.run(5000);
+  CHECK(a.router->neighborCount(m.now) == 1);   // A heard B's position-less beacon
+  CHECK(b.router->neighborCount(m.now) == 1);
+  bool sawBareBeacon = false;
+  for (auto& f : m.frames) {
+    Packet p;
+    if (decode(f.data(), f.size(), p) && p.type == PType::Beacon && p.src == b.router->id())
+      sawBareBeacon = sawBareBeacon || !p.hasFwdPos;
+  }
+  CHECK(sawBareBeacon);
+  uint32_t ab = a.router->send(b.router->id(), {'h', 'i'}, m.now);
+  CHECK(ab != 0);
+  uint32_t ba = b.router->send(a.router->id(), {'y', 'o'}, m.now);
+  CHECK(ba != 0);
+  m.run(20000);
+  CHECK(b.app.got.size() == 1);
+  CHECK(a.app.got.size() == 1);
+  CHECK(std::find(a.app.delivered.begin(), a.app.delivered.end(), ab) != a.app.delivered.end());
+  CHECK(std::find(b.app.delivered.begin(), b.app.delivered.end(), ba) != b.app.delivered.end());
+
+  // B gets a fix: its next beacon carries it, without waiting for beaconMaxMs.
+  size_t before = m.frames.size();
+  m.run(70000);
+  m.move(b, 1.0);
+  m.run(35000);
+  bool sawPos = false;
+  for (size_t i = before; i < m.frames.size(); ++i) {
+    Packet p;
+    if (decode(m.frames[i].data(), m.frames[i].size(), p) && p.type == PType::Beacon && p.src == b.router->id())
+      sawPos = sawPos || p.hasFwdPos;
+  }
+  CHECK(sawPos);
+}
+
 static void testBeaconRecoveryAfterMove() {
   std::printf("beacon recovery: lost exchange after a move\n");
   Medium m;
@@ -2348,6 +2391,7 @@ int main() {
   testTraceRelayCap();
   testBeaconVelocity();
   testBeaconMac();
+  testBeaconWithoutPosition();
   testBeaconRecoveryAfterMove();
   testBeaconRecoveryBounds();
   testBeaconRecoveryIdent();
