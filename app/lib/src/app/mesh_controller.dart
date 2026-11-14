@@ -165,7 +165,7 @@ final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 /// How a link ping went: both directions, measured on the radios.
 class LinkPingOutcome {
   /// Creates an outcome.
-  const LinkPingOutcome({required this.node, required this.answered, this.forwardDbm, this.reverseDbm});
+  const LinkPingOutcome({required this.node, required this.answered, this.forwardDbm, this.reverseDbm, this.elapsed});
 
   /// The node pinged.
   final int node;
@@ -178,6 +178,10 @@ class LinkPingOutcome {
 
   /// How strongly our radio heard its reply, dBm.
   final int? reverseDbm;
+
+  /// Time from sending the request to the answer, measured on the phone (so it
+  /// includes the phone's link to its node). Null when unanswered.
+  final Duration? elapsed;
 }
 
 /// The mesh state and the actions on it.
@@ -731,6 +735,7 @@ class MeshController extends Notifier<MeshState> {
     if (session == null || !nodeCanLinkPing) throw StateError('This node cannot ping from the app.');
     final done = Completer<LinkPingOutcome>();
     _pingWaits[node] = done;
+    final clock = Stopwatch()..start();
     try {
       await session.request(pb.ToRadio(linkPing: pb.LinkPing(nodeId: node)));
     } on Object {
@@ -738,12 +743,20 @@ class MeshController extends Notifier<MeshState> {
       rethrow;
     }
     // the node gives up after 10 s and says so; this only covers a lost link
-    return done.future.timeout(
+    final o = await done.future.timeout(
       const Duration(seconds: 15),
       onTimeout: () {
         _pingWaits.remove(node);
         return LinkPingOutcome(node: node, answered: false);
       },
+    );
+    if (!o.answered) return o;
+    return LinkPingOutcome(
+      node: o.node,
+      answered: true,
+      forwardDbm: o.forwardDbm,
+      reverseDbm: o.reverseDbm,
+      elapsed: clock.elapsed,
     );
   }
 

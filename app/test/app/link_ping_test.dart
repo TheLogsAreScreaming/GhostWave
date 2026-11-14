@@ -73,6 +73,7 @@ void main() {
     await settle();
     final o = await c.read(meshProvider.notifier).linkPing(ridge);
     expect([o.answered, o.forwardDbm, o.reverseDbm], [true, -97, -112]);
+    expect(o.elapsed, isNotNull, reason: 'timed on the phone, for the result card');
     expect(linkPingLines(o, 'Ridge'), [
       'Ridge heard you at -97 dBm, good.',
       'Your radio heard Ridge at -112 dBm, fair.',
@@ -84,7 +85,7 @@ void main() {
     c.read(nodeLinkProvider).connect(pingNode(answer: false));
     await settle();
     final o = await c.read(meshProvider.notifier).linkPing(ridge);
-    expect([o.answered, o.forwardDbm, o.reverseDbm], [false, null, null]);
+    expect([o.answered, o.forwardDbm, o.reverseDbm, o.elapsed], [false, null, null, null]);
     expect(linkPingLines(o, 'Ridge').first, 'No answer from Ridge within 10 seconds.');
     expect(linkPingLines(o, 'Ridge').join(), isNot(contains('dBm')));
   });
