@@ -27,4 +27,7 @@ constexpr bool kVextOn = true;
 #define GW_TFT_POWER_ON LOW
 #define GW_TFT_W 240
 #define GW_TFT_H 135
+#define GW_BUTTON_PIN 42   // P1.10 user button, active LOW
+#define GW_LED_PIN 35      // P1.03 green, lit LOW
+#define GW_LED_ON LOW
 #define GW_NRF52 1

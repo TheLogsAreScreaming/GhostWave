@@ -295,6 +295,8 @@ char g_passkey[7] = "";
 volatile bool g_passkeyOn = false;   // written last, so draw() never sees half a passkey
 volatile bool g_passkeyNew = false;
 volatile bool g_wakeRequest = false;
+volatile bool g_nextRequest = false;   // the button: next page (or just wake a dark screen)
+uint8_t g_page = 0;
 uint32_t g_passkeyUntil = 0;
 
 bool g_lastBle = false, g_lastTx = false, g_lastSos = false, g_haveLast = false;
@@ -361,9 +363,11 @@ void clearPasskey() {
 
 void wake() { g_wakeRequest = true; }
 
+void nextPage() { g_nextRequest = true; }
+
 bool due(uint32_t now) {
   if (!g_ok) return false;
-  return g_passkeyNew || g_msgNew || g_wakeRequest || static_cast<int32_t>(now - g_nextDraw) >= 0;
+  return g_passkeyNew || g_msgNew || g_wakeRequest || g_nextRequest || static_cast<int32_t>(now - g_nextDraw) >= 0;
 }
 
 void draw(uint32_t now, const Status& s) {
@@ -375,6 +379,10 @@ void draw(uint32_t now, const Status& s) {
   if (passkeyFresh && g_passkeyOn) g_passkeyUntil = now + kPasskeyMs;
   if (g_passkeyOn && static_cast<int32_t>(now - g_passkeyUntil) >= 0) g_passkeyOn = false;
 
+  // A press on a lit screen turns the page; on a dark one it only wakes it.
+  const bool advance = g_nextRequest && g_policy.level(now) != ScreenPolicy::Level::Off;
+  if (g_nextRequest) g_wakeRequest = true;
+  g_nextRequest = false;
   if (g_wakeRequest || passkeyFresh || g_passkeyOn || sos || s.rangeShow) g_policy.wake(now);
   const bool stateChanged =
       g_haveLast && (s.bleConnected != g_lastBle || s.txOn != g_lastTx || sos != g_lastSos);
@@ -440,7 +448,9 @@ void draw(uint32_t now, const Status& s) {
     v.screen = Screen::Range;
   } else {
     v.pages = g_msg[0] ? 4 : 3;
+    if (advance) g_policy.show(static_cast<uint8_t>((g_page + 1) % v.pages), now);
     v.page = g_policy.page(now, v.pages);
+    g_page = v.page;
     v.screen = v.page == kNodePage       ? Screen::Node
                : v.page == kNeighborPage ? Screen::Neighbors
                : v.page == kMessagePage  ? Screen::Message

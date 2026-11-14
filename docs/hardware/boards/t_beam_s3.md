@@ -6,6 +6,6 @@ Build env: `t_beam_s3` (`cd firmware/mcu && pio run -e t_beam_s3`). Pins come fr
 
 Flash with `pio run -t upload`. The phone app connects over Bluetooth (pairing key `654321`), as on the nRF boards. Built, not yet tried on this board.
 
-Fit the antenna first, then type `tx on`: a fresh board only receives until you do. GPS, buttons and other extras are not used yet.
+Fit the antenna first, then type `tx on`: a fresh board only receives until you do. The middle button: press it to turn the screen page, hold it 3 seconds to start an SOS, double-press to stop it. GPS is not used yet: it needs the power chip switched on for it.
 
 The GPS and power-chip battery reading are not used.

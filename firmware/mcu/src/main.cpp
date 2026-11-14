@@ -24,6 +24,7 @@
 #include "radio.h"
 #include "settings.h"
 #include "button_gesture.h"
+#include "board_io.h"
 #include "oled.h"
 #include "rangetest.h"
 #include "ui.h"
@@ -393,6 +394,9 @@ void printHelp() {
 #if GW_HAS_OLED
       "screen: display (wake it; it sleeps 10 minutes after the last event)\n"
 #endif
+#endif
+#if GW_HAS_BOARD_IO && GW_BUTTON_PIN >= 0
+      "button: press = next screen page, hold 3 s = SOS on, double press = SOS off\n"
 #endif
   );
 }
@@ -953,9 +957,27 @@ void gwSetup() {
   digitalWrite(kPinGpsPower, HIGH);
   Serial1.begin(kGpsBaud);               // variant pins: RX P0.14, TX P0.13
 #elif GW_HAS_GPS
-  pinMode(kPinGpsReset, OUTPUT);
-  digitalWrite(kPinGpsReset, HIGH);   // out of reset (GPS_RESET_MODE is LOW)
+#if GW_GPS_EN >= 0
+  pinMode(GW_GPS_EN, OUTPUT);
+  digitalWrite(GW_GPS_EN, GW_GPS_EN_ON);
+#endif
+#if GW_GPS_STANDBY >= 0
+  pinMode(GW_GPS_STANDBY, OUTPUT);
+  digitalWrite(GW_GPS_STANDBY, HIGH);   // kept awake
+#endif
+#if GW_GPS_RESET >= 0
+  pinMode(GW_GPS_RESET, OUTPUT);
+  digitalWrite(GW_GPS_RESET, HIGH);     // out of reset (reset is held LOW)
+#endif
+#if defined(ARDUINO_ARCH_ESP32)
   Serial1.begin(kGpsBaud, SERIAL_8N1, kPinGpsRx, kPinGpsTx);
+#else
+  Serial1.setPins(kPinGpsRx, kPinGpsTx);
+  Serial1.begin(kGpsBaud);
+#endif
+#endif
+#if GW_HAS_BOARD_IO
+  gw::mcu::boardio::begin();
 #endif
 
   g_tableBudget = worstCaseTableBytes(g_cfg);
@@ -1035,6 +1057,42 @@ void pollUi(uint64_t now) {
 }
 #endif
 
+#if GW_HAS_BOARD_IO
+// The board's own button: a press turns the screen page (or wakes it), held
+// ~3 s starts an SOS, a double press stops it. The LEDs blink while running,
+// show a connected phone and flash during an SOS (board_io.h).
+void pollBoardIo(uint64_t now) {
+  using Ev = gw::mcu::ButtonGesture::Event;
+  gw::Router& r = *g_router;
+#if GW_HAS_BLE
+  const bool phone = g_ble.connected();
+#else
+  const bool phone = false;
+#endif
+  const Ev ev = gw::mcu::boardio::poll(static_cast<uint32_t>(now), r.sosActive(), phone);
+  if (ev == Ev::Long) {
+    if (r.sosActive()) {
+      Serial.println("button: SOS already on (double press stops it)");
+    } else if (r.startSos("SOS (button)", ownBattery(), 0xFF, now)) {
+      Serial.println("button: SOS on, repeating until a double press or sosstop");
+    } else {
+      Serial.println("button: SOS rate limited, try again in a minute");
+    }
+  } else if (ev == Ev::Double) {
+    if (r.sosActive()) {
+      r.stopSos(nowMs());
+      Serial.println("button: SOS off");
+    }
+  } else if (ev == Ev::Single) {
+#if GW_HAS_OLED
+    gw::mcu::oled::nextPage();
+#else
+    printStats();
+#endif
+  }
+}
+#endif
+
 void gwLoop() {
   static uint64_t lastTick = 0;
   static uint8_t buf[256];
@@ -1070,6 +1128,9 @@ void gwLoop() {
 #endif
 #if GW_HAS_UI
   pollUi(now);
+#endif
+#if GW_HAS_BOARD_IO
+  pollBoardIo(now);
 #endif
 #if GW_HAS_OLED
   if (gw::mcu::oled::due(static_cast<uint32_t>(now))) {

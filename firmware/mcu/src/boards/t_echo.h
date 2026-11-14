@@ -10,7 +10,17 @@ constexpr float kTcxoVolts = 1.8f;  // DIO3
 constexpr int kPinVext = 12;   // board power switch, -1 = none
 constexpr bool kVextOn = true;
 #define GW_HAS_KCT8103L 0
-#define GW_HAS_GPS 0
+#define GW_HAS_GPS 1        // L76K on Serial1, powered with the board (kPinVext)
+constexpr int kPinGpsRx = 41;     // P1.09, CPU <- GPS
+constexpr int kPinGpsTx = 40;     // P1.08, CPU -> GPS
+constexpr uint32_t kGpsBaud = 9600;
+#define GW_GPS_STANDBY 34         // P1.02, HIGH = awake
+#define GW_GPS_RESET 37           // P1.05 (PIN_GPS_REINIT), LOW = reset
+#define GW_BUTTON_PIN 42          // P1.10, active LOW
+#define GW_LED_PIN 15             // P0.15 green, lit LOW
+#define GW_LED_ON LOW
+#define GW_LED2_PIN 14            // P0.14 blue, lit LOW
+#define GW_LED2_ON LOW
 #define GW_HAS_BLE 1
 // 1.54" e-ink, 200x200, SSD1681 (GDEH0154D67) on its own SPI bus (variant.h:
 // PIN_EINK_*; PIN_EINK_EN 43 is the front light). The panel runs off the board
