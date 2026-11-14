@@ -215,8 +215,8 @@ else:   # a slow step above used up the minute: the check would be meaningless
     say("skip  second SOS within a minute (over a minute since SosStart)")
 
 # -------------------------------------------- group channels (protocol 1.1) --
-check(ia.get("protocol_minor") == 10 and ia.get("max_channel_text_bytes") == 86,
-      "NodeInfo: protocol_minor 10, max_channel_text_bytes 86")
+check(ia.get("protocol_minor") == 12 and ia.get("max_channel_text_bytes") == 86,
+      "NodeInfo: protocol_minor 12, max_channel_text_bytes 86")
 PSK = bytes(range(1, 33))
 for cl, who in ((a, "A"), (b, "B")):
     must(cl.request("add_channel", name="e2e crew", psk=PSK)[0]["kind"] == "ok", "%s joins #e2e crew" % who)
@@ -314,11 +314,21 @@ q = g.Client(addr_auto, "auto pin", pin=auto)
 check(q.info["kind"] == "node_info", "...and accepted")
 q.close()
 
+# --------------------------------------------------- telemetry (1.12) --
+r = a.request("get_telemetry", node_id=ia["node_id"])
+check(r[0]["kind"] == "node_telemetry" and r[0]["uptime_s"] is not None and r[0]["battery_pct"] is None
+      and r[0]["battery_mv"] is None, "GetTelemetry (own): uptime, and no battery on a daemon")
+r = a.request("get_telemetry", node_id=0x0BADF00D)
+check(r[0].get("code_name") == "NOT_FOUND", "GetTelemetry for a node never heard -> NOT_FOUND")
+
 # ---------------------------------------------------- other live events --
 nb = [e for e in a.events + b.events if e["kind"] == "neighbor"]
 say("neighbor events seen: %d (beacons are minutes apart; not required)" % len(nb))
 for e in nb[:4]:
     say("  " + g.fmt(e))
+tl = [e for e in a.events + b.events if e["kind"] == "node_telemetry"]
+for e in tl[:4]:
+    check(e["uptime_s"] is not None and e["battery_pct"] is None, "neighbor telemetry: uptime only (%08x)" % e["node_id"])
 
 a.close()
 b.close()

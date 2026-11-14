@@ -274,6 +274,8 @@ struct TestApp : AppPort {
   void onLinkPing(uint32_t node, bool answered, int fwd, int rev) override { pings.push_back({node, answered, fwd, rev}); }
   std::vector<TraceResult> traces;
   void onTrace(const TraceResult& r) override { traces.push_back(r); }
+  std::vector<std::pair<uint32_t, Telemetry>> telemetry;
+  void onTelemetry(uint32_t id, const Telemetry& t) override { telemetry.push_back({id, t}); }
   int sig() const {
     int d = 0;
     return router && router->rxSignal(d) ? d : INT_MIN;
@@ -2115,6 +2117,121 @@ static void testSosLostRelayFlood() {
 }
 
 // Beacon MAC (DESIGN §9.1).
+// Telemetry trailer (DESIGN §4.4): carried, parsed, cleared, and invisible to
+// the gossip parser that firmware before it runs.
+static void testBeaconTelemetry() {
+  std::printf("beacon telemetry\n");
+  auto lastBeacon = [](const Medium& m, uint32_t id, Packet& out) {
+    bool found = false;
+    for (auto& f : m.frames) {
+      Packet p;
+      if (decode(f.data(), f.size(), p) && p.type == PType::Beacon && p.src == id) out = p, found = true;
+    }
+    return found;
+  };
+  // The gossip loop of firmware that predates the trailer (onBeacon, dev.11).
+  auto oldGossip = [](const std::vector<uint8_t>& body) {
+    std::vector<uint32_t> ids;
+    for (size_t off = 13; off + 11 <= body.size(); off += 11)
+      ids.push_back(body[off] | (body[off + 1] << 8) | (body[off + 2] << 16) | (uint32_t(body[off + 3]) << 24));
+    return ids;
+  };
+  {   // nothing set: no trailer, nothing reported
+    Medium m;
+    auto& a = m.add(0xA1, 0);
+    auto& b = m.add(0xB1, 1);
+    m.run(5000);
+    Packet p;
+    CHECK(lastBeacon(m, 0xA1, p) && !(p.payload[0] & 0x80) && (p.payload.size() - 13) % 11 == 0);
+    Telemetry t;
+    uint64_t at = 0;
+    CHECK(!b.router->neighborTelemetry(0xA1, t, at));
+    CHECK(b.app.telemetry.empty());
+    CHECK(!a.router->ownTelemetry(m.now, t));
+  }
+  {   // set: carried with gossip and a MAC, read back exactly, uptime advancing
+    uint8_t k[32];
+    fillKey(k, 31);
+    Medium m;
+    auto& a = m.add(0xA1, 0);
+    auto& b = m.add(0xB1, 1.5);
+    auto& c = m.add(0xC1, -1.5);   // A hears B and C; B and C are out of range of each other
+    m.rangeM = 2000;
+    for (auto* n : {&a, &b, &c}) n->router->setChannelKey(k);
+    Telemetry mine;
+    mine.batteryPct = 87;
+    mine.batteryMv = 3987;
+    mine.uptimeS = 1000;
+    a.router->setOwnTelemetry(mine, m.now);
+    m.run(5000);
+    Telemetry own;
+    CHECK(a.router->ownTelemetry(m.now, own) && own.batteryPct == 87 && own.uptimeS == 1005);
+    // A's beacons after it heard C carry C in gossip
+    m.run(16 * 60 * 1000, 50);
+    Packet p;
+    CHECK(lastBeacon(m, 0xA1, p));
+    CHECK((p.payload[0] & 0x80) && (p.payload[0] & 0x40));
+    size_t body = p.payload.size() - 4;   // MAC
+    CHECK((body - 13) % 11 == 7);
+    std::vector<uint8_t> bodyBytes(p.payload.begin(), p.payload.begin() + static_cast<std::ptrdiff_t>(body));
+    auto ids = oldGossip(bodyBytes);
+    CHECK(!ids.empty() && ids.size() == (body - 13) / 11);
+    for (uint32_t id : ids) CHECK(id == 0xA1 || id == 0xB1 || id == 0xC1);
+    Position cp;
+    CHECK(b.router->knownPosition(0xC1, cp));   // gossip still read past the trailer
+    Telemetry t;
+    uint64_t at = 0;
+    CHECK(b.router->neighborTelemetry(0xA1, t, at));
+    CHECK(t.batteryPct == 87 && t.batteryMv == 3987 && t.uptimeS >= 1005 && t.uptimeS <= 1000 + m.now / 1000);
+    CHECK(at <= m.now && m.now - at < 16 * 60 * 1000);
+    CHECK(!b.app.telemetry.empty() && b.app.telemetry.back().first == 0xA1 && b.app.telemetry.back().second == t);
+    CHECK(b.router->stats().beaconMacBad == 0);
+    // B and C sent none
+    CHECK(!a.router->neighborTelemetry(0xB1, t, at));
+
+    // turned off: the next beacon has no trailer and the old reading is dropped
+    a.router->clearOwnTelemetry();
+    m.run(16 * 60 * 1000, 50);
+    CHECK(!b.router->neighborTelemetry(0xA1, t, at));
+    CHECK(b.router->neighborCount(m.now) >= 1);
+  }
+  {   // unknown readings stay unknown; a longer (later) trailer reads its known part
+    Medium m;
+    auto& a = m.add(0xA1, 0);
+    auto& b = m.add(0xB1, 1);
+    a.router->setOwnTelemetry(Telemetry{}, m.now);
+    m.run(5000);
+    Telemetry t;
+    uint64_t at = 0;
+    CHECK(b.router->neighborTelemetry(0xA1, t, at));
+    CHECK(t.batteryPct == Telemetry::kNoBattery && t.batteryMv == 0 && t.uptimeS == Telemetry::kNoUptime);
+
+    Packet p;
+    CHECK(lastBeacon(m, 0xA1, p));
+    Packet q = p;
+    q.src = 0xA2;
+    q.msgId ^= 1;
+    q.payload.resize(13);   // no gossip
+    q.payload[0] |= 0x80;
+    const uint8_t tr[10] = {150, 0x34, 0x12, 0x10, 0x27, 0, 0, 9, 9, 9};   // 150 % is not a reading
+    q.payload.insert(q.payload.end(), tr, tr + sizeof tr);
+    uint8_t buf[256];
+    size_t n = encode(q, buf, sizeof buf);
+    CHECK(n > 0);
+    b.router->onReceive(buf, n, -90, m.now);
+    CHECK(b.router->neighborTelemetry(0xA2, t, at));
+    CHECK(t.batteryPct == Telemetry::kNoBattery && t.batteryMv == 0x1234 && t.uptimeS == 10000);
+    // flag set but too short to be a trailer: ignored, still a neighbor
+    Packet r = q;
+    r.src = 0xA3;
+    r.payload.resize(13 + 3);
+    n = encode(r, buf, sizeof buf);
+    b.router->onReceive(buf, n, -90, m.now);
+    CHECK(!b.router->neighborTelemetry(0xA3, t, at));
+    CHECK(b.router->neighborCount(m.now) == 3);
+  }
+}
+
 static void testBeaconMac() {
   std::printf("beacon MAC\n");
   uint8_t k1[32], k2[32];
@@ -2348,6 +2465,7 @@ int main() {
   testTraceRelayCap();
   testBeaconVelocity();
   testBeaconMac();
+  testBeaconTelemetry();
   testBeaconRecoveryAfterMove();
   testBeaconRecoveryBounds();
   testBeaconRecoveryIdent();

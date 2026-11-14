@@ -111,6 +111,7 @@ enum ToRadio_Request {
   setTx,
   linkPing,
   traceroute,
+  getTelemetry,
   notSet
 }
 
@@ -137,6 +138,7 @@ class ToRadio extends $pb.GeneratedMessage {
     SetTx? setTx,
     LinkPing? linkPing,
     Traceroute? traceroute,
+    GetTelemetry? getTelemetry,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -160,6 +162,7 @@ class ToRadio extends $pb.GeneratedMessage {
     if (setTx != null) result.setTx = setTx;
     if (linkPing != null) result.linkPing = linkPing;
     if (traceroute != null) result.traceroute = traceroute;
+    if (getTelemetry != null) result.getTelemetry = getTelemetry;
     return result;
   }
 
@@ -193,6 +196,7 @@ class ToRadio extends $pb.GeneratedMessage {
     27: ToRadio_Request.setTx,
     28: ToRadio_Request.linkPing,
     29: ToRadio_Request.traceroute,
+    35: ToRadio_Request.getTelemetry,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -220,7 +224,8 @@ class ToRadio extends $pb.GeneratedMessage {
       26,
       27,
       28,
-      29
+      29,
+      35
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
@@ -263,6 +268,8 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: LinkPing.$_createMessage)
     ..aOM<Traceroute>(29, _omitFieldNames ? '' : 'traceroute',
         subBuilder: Traceroute.$_createMessage)
+    ..aOM<GetTelemetry>(35, _omitFieldNames ? '' : 'getTelemetry',
+        subBuilder: GetTelemetry.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -305,6 +312,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
+  @$pb.TagNumber(35)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -326,6 +334,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
+  @$pb.TagNumber(35)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -562,6 +571,19 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearTraceroute() => $_clearField(29);
   @$pb.TagNumber(29)
   Traceroute ensureTraceroute() => $_ensure(20);
+
+  /// 30-34: protocol 1.11
+  /// protocol 1.12
+  @$pb.TagNumber(35)
+  GetTelemetry get getTelemetry => $_getN(21);
+  @$pb.TagNumber(35)
+  set getTelemetry(GetTelemetry value) => $_setField(35, value);
+  @$pb.TagNumber(35)
+  $core.bool hasGetTelemetry() => $_has(21);
+  @$pb.TagNumber(35)
+  void clearGetTelemetry() => $_clearField(35);
+  @$pb.TagNumber(35)
+  GetTelemetry ensureGetTelemetry() => $_ensure(21);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -1849,6 +1871,68 @@ class Traceroute extends $pb.GeneratedMessage {
   void clearMaxHops() => $_clearField(2);
 }
 
+/// 1.12: the latest telemetry a neighbor's beacon carried (battery, uptime).
+/// Replies NodeTelemetry. node_id = this node's own ID: its own readings.
+/// NOT_FOUND: no beacon with telemetry heard from it (older firmware, out of
+/// range, or it shares none); BAD_ARGUMENT: node_id 0 or broadcast.
+class GetTelemetry extends $pb.GeneratedMessage {
+  factory GetTelemetry({
+    $core.int? nodeId,
+  }) {
+    final result = GetTelemetry._();
+    if (nodeId != null) result.nodeId = nodeId;
+    return result;
+  }
+
+  GetTelemetry._();
+
+  factory GetTelemetry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetTelemetry()..mergeFromBuffer(data, registry);
+  factory GetTelemetry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetTelemetry()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetTelemetry',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: GetTelemetry.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetTelemetry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetTelemetry copyWith(void Function(GetTelemetry) updates) =>
+      super.copyWith((message) => updates(message as GetTelemetry))
+          as GetTelemetry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use GetTelemetry() / GetTelemetry.new instead')
+  static GetTelemetry create() => GetTelemetry._();
+  static $pb.GeneratedMessage $_createMessage() => GetTelemetry._();
+  @$core.override
+  GetTelemetry createEmptyInstance() => GetTelemetry._();
+  @$core.pragma('dart2js:noInline')
+  static GetTelemetry getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetTelemetry>(
+          GetTelemetry.$_createMessage);
+  static GetTelemetry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get nodeId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set nodeId($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNodeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNodeId() => $_clearField(1);
+}
+
 enum FromRadio_Event {
   nodeInfo,
   text,
@@ -1872,6 +1956,7 @@ enum FromRadio_Event {
   sosCancelled,
   linkPingResult,
   traceResult,
+  nodeTelemetry,
   notSet
 }
 
@@ -1901,6 +1986,7 @@ class FromRadio extends $pb.GeneratedMessage {
     SosCancelled? sosCancelled,
     LinkPingResult? linkPingResult,
     TraceResult? traceResult,
+    NodeTelemetry? nodeTelemetry,
   }) {
     final result = FromRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -1927,6 +2013,7 @@ class FromRadio extends $pb.GeneratedMessage {
     if (sosCancelled != null) result.sosCancelled = sosCancelled;
     if (linkPingResult != null) result.linkPingResult = linkPingResult;
     if (traceResult != null) result.traceResult = traceResult;
+    if (nodeTelemetry != null) result.nodeTelemetry = nodeTelemetry;
     return result;
   }
 
@@ -1962,6 +2049,7 @@ class FromRadio extends $pb.GeneratedMessage {
     29: FromRadio_Event.sosCancelled,
     30: FromRadio_Event.linkPingResult,
     31: FromRadio_Event.traceResult,
+    34: FromRadio_Event.nodeTelemetry,
     0: FromRadio_Event.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1991,7 +2079,8 @@ class FromRadio extends $pb.GeneratedMessage {
       28,
       29,
       30,
-      31
+      31,
+      34
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'replayed')
@@ -2038,6 +2127,8 @@ class FromRadio extends $pb.GeneratedMessage {
         subBuilder: LinkPingResult.$_createMessage)
     ..aOM<TraceResult>(31, _omitFieldNames ? '' : 'traceResult',
         subBuilder: TraceResult.$_createMessage)
+    ..aOM<NodeTelemetry>(34, _omitFieldNames ? '' : 'nodeTelemetry',
+        subBuilder: NodeTelemetry.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2082,6 +2173,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(29)
   @$pb.TagNumber(30)
   @$pb.TagNumber(31)
+  @$pb.TagNumber(34)
   FromRadio_Event whichEvent() => _FromRadio_EventByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -2105,6 +2197,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(29)
   @$pb.TagNumber(30)
   @$pb.TagNumber(31)
+  @$pb.TagNumber(34)
   void clearEvent() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -2371,6 +2464,19 @@ class FromRadio extends $pb.GeneratedMessage {
   void clearTraceResult() => $_clearField(31);
   @$pb.TagNumber(31)
   TraceResult ensureTraceResult() => $_ensure(23);
+
+  /// 32-33: protocol 1.11
+  /// protocol 1.12
+  @$pb.TagNumber(34)
+  NodeTelemetry get nodeTelemetry => $_getN(24);
+  @$pb.TagNumber(34)
+  set nodeTelemetry(NodeTelemetry value) => $_setField(34, value);
+  @$pb.TagNumber(34)
+  $core.bool hasNodeTelemetry() => $_has(24);
+  @$pb.TagNumber(34)
+  void clearNodeTelemetry() => $_clearField(34);
+  @$pb.TagNumber(34)
+  NodeTelemetry ensureNodeTelemetry() => $_ensure(24);
 }
 
 class NodeInfo extends $pb.GeneratedMessage {
@@ -3233,6 +3339,128 @@ class TraceResult extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(6)
   $pb.PbList<$core.int> get backRssiDbm => $_getList(5);
+}
+
+/// 1.12: a node's own readings, as its beacon carried them (DESIGN §4.4).
+/// Unsolicited (req_id 0) when a neighbor's beacon carries them, live only, never
+/// replayed; or the answer to GetTelemetry. A field is absent when that node
+/// cannot read it: never guessed.
+class NodeTelemetry extends $pb.GeneratedMessage {
+  factory NodeTelemetry({
+    $core.int? nodeId,
+    $core.int? batteryPct,
+    $core.int? batteryMv,
+    $core.int? uptimeS,
+    $core.int? ageS,
+    $core.int? rssiDbm,
+  }) {
+    final result = NodeTelemetry._();
+    if (nodeId != null) result.nodeId = nodeId;
+    if (batteryPct != null) result.batteryPct = batteryPct;
+    if (batteryMv != null) result.batteryMv = batteryMv;
+    if (uptimeS != null) result.uptimeS = uptimeS;
+    if (ageS != null) result.ageS = ageS;
+    if (rssiDbm != null) result.rssiDbm = rssiDbm;
+    return result;
+  }
+
+  NodeTelemetry._();
+
+  factory NodeTelemetry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      NodeTelemetry()..mergeFromBuffer(data, registry);
+  factory NodeTelemetry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      NodeTelemetry()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeTelemetry',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: NodeTelemetry.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
+    ..aI(2, _omitFieldNames ? '' : 'batteryPct', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'batteryMv', fieldType: $pb.PbFieldType.OU3)
+    ..aI(4, _omitFieldNames ? '' : 'uptimeS', fieldType: $pb.PbFieldType.OU3)
+    ..aI(5, _omitFieldNames ? '' : 'ageS', fieldType: $pb.PbFieldType.OU3)
+    ..aI(6, _omitFieldNames ? '' : 'rssiDbm', fieldType: $pb.PbFieldType.OS3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeTelemetry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeTelemetry copyWith(void Function(NodeTelemetry) updates) =>
+      super.copyWith((message) => updates(message as NodeTelemetry))
+          as NodeTelemetry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use NodeTelemetry() / NodeTelemetry.new instead')
+  static NodeTelemetry create() => NodeTelemetry._();
+  static $pb.GeneratedMessage $_createMessage() => NodeTelemetry._();
+  @$core.override
+  NodeTelemetry createEmptyInstance() => NodeTelemetry._();
+  @$core.pragma('dart2js:noInline')
+  static NodeTelemetry getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<NodeTelemetry>(
+          NodeTelemetry.$_createMessage);
+  static NodeTelemetry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get nodeId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set nodeId($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNodeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNodeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get batteryPct => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set batteryPct($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasBatteryPct() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearBatteryPct() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get batteryMv => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set batteryMv($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasBatteryMv() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearBatteryMv() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get uptimeS => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set uptimeS($core.int value) => $_setUnsignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasUptimeS() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearUptimeS() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get ageS => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set ageS($core.int value) => $_setUnsignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasAgeS() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAgeS() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get rssiDbm => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set rssiDbm($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasRssiDbm() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearRssiDbm() => $_clearField(6);
 }
 
 class SosAckReceived extends $pb.GeneratedMessage {

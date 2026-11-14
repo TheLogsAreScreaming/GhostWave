@@ -30,6 +30,11 @@ constexpr double kPi = 3.14159265358979323846;
 constexpr uint8_t kBeaconSos = 0x10;  // sender holds at least one SOS
 constexpr uint8_t kBeaconSeek = 0x20;  // sender heard nobody: please answer (DESIGN §6.2)
 constexpr uint8_t kBeaconMac = 0x40;   // body ends in a MAC under the channel key (DESIGN §9.1)
+// Body ends (before any MAC) in a telemetry trailer (DESIGN §4.4): battery %,
+// battery mV, uptime. Shorter than one gossip entry, so a node that predates it
+// skips it as a partial entry; its length is (body - 13) % 11.
+constexpr uint8_t kBeaconTelemetry = 0x80;
+constexpr size_t kTelemetrySize = 7;
 // Beacon recovery (DESIGN §6.2). Retries after a boot/move beacon nobody answered.
 constexpr uint64_t kSeekBaseMs = 20 * 1000;     // first retry; doubles each time
 constexpr uint8_t kSeekRetries = 3;             // per episode
@@ -51,7 +56,7 @@ constexpr uint8_t kSosRetryMax = 4;           // probes after an offer: 60, 120,
 constexpr size_t kSosProbeCapacity = 8;
 constexpr uint64_t kSosRelayGapMs = 15 * 60 * 1000;   // re-flood a superseding seq at most this often
 constexpr uint64_t kBeaconReplyMinMs = 10 * 1000;
-constexpr size_t kMaxBeaconBytes = 79;   // three gossip entries and a MAC (DESIGN §4.4)
+constexpr size_t kMaxBeaconBytes = 86;   // three gossip entries, telemetry and a MAC (DESIGN §4.4)
 constexpr uint8_t kSosDupCancel = 2;  // counter-based flood suppression
 constexpr uint64_t kSosEchoWaitMs = 15 * 1000;   // re-send our SOS if no relay is heard by then
 constexpr uint32_t kSosEchoJitterMs = 5 * 1000;
@@ -112,6 +117,26 @@ bool bloomUsable(const uint8_t* bloom) {
   for (int i = 0; i < 8; ++i)
     for (uint8_t b = bloom[i]; b; b &= b - 1) ++bits;
   return bits <= kBloomMaxBits;
+}
+
+void putTelemetry(std::vector<uint8_t>& v, const Telemetry& t) {
+  v.push_back(t.batteryPct);
+  v.push_back(static_cast<uint8_t>(t.batteryMv));
+  v.push_back(static_cast<uint8_t>(t.batteryMv >> 8));
+  put32(v, t.uptimeS);
+}
+
+// The telemetry trailer of a beacon body (MAC already stripped), if it has one.
+// A trailer longer than ours (a later version) is read up to what we know.
+bool getTelemetry(const std::vector<uint8_t>& body, Telemetry& t) {
+  if (body.size() < kBeaconFixed || !(body[0] & kBeaconTelemetry)) return false;
+  size_t len = (body.size() - kBeaconFixed) % kGossipSize;
+  if (len < kTelemetrySize) return false;
+  const uint8_t* q = body.data() + body.size() - len;
+  t.batteryPct = q[0] <= 100 ? q[0] : Telemetry::kNoBattery;
+  t.batteryMv = static_cast<uint16_t>(q[1] | (q[2] << 8));
+  t.uptimeS = get32(q + 3);
+  return true;
 }
 
 // seq numbers wrap: a is newer than b if it is ahead by less than half the space
@@ -291,6 +316,30 @@ bool Router::neighborVelocity(uint32_t id, Velocity& out) const {
   auto it = nb_.find(id);
   if (it == nb_.end()) return false;
   out = it->second.velocity;
+  return true;
+}
+
+void Router::setOwnTelemetry(const Telemetry& t, uint64_t now) {
+  ownTel_ = t;
+  ownTelAt_ = now;
+  ownTelSet_ = true;
+}
+
+bool Router::ownTelemetry(uint64_t now, Telemetry& out) const {
+  if (!ownTelSet_) return false;
+  out = ownTel_;
+  if (out.uptimeS != Telemetry::kNoUptime) {
+    uint64_t up = out.uptimeS + (now > ownTelAt_ ? (now - ownTelAt_) / 1000 : 0);
+    out.uptimeS = static_cast<uint32_t>(std::min<uint64_t>(up, Telemetry::kNoUptime - 1));
+  }
+  return true;
+}
+
+bool Router::neighborTelemetry(uint32_t id, Telemetry& out, uint64_t& heardMs) const {
+  auto it = nb_.find(id);
+  if (it == nb_.end() || !it->second.hasTel) return false;
+  out = it->second.tel;
+  heardMs = it->second.heardMs;
   return true;
 }
 
@@ -827,6 +876,13 @@ void Router::onBeacon(const Packet& p, uint64_t now) {
   nb_[p.src] = {p.fwdPos, now, answered, velocity};
   learn(p.src, p.fwdPos, now);
   app_.onNeighbor(p.src, p.fwdPos, isNew);
+  Telemetry tel;
+  if (getTelemetry(p.payload, tel)) {   // a beacon without it clears the old one
+    Neighbor& n = nb_[p.src];
+    n.hasTel = true;
+    n.tel = tel;
+    app_.onTelemetry(p.src, tel);
+  }
   wantIdent(p.src, now);
   if (p.payload.size() >= kBeaconFixed) {
     for (size_t off = kBeaconFixed; off + kGossipSize <= p.payload.size(); off += kGossipSize) {
@@ -1283,6 +1339,11 @@ void Router::sendBeacon(uint64_t now, uint16_t to, bool seek) {
     pl.insert(pl.end(), pp, pp + kPosSize);
     pl.push_back(ageEncode(static_cast<uint32_t>((now - fresh[j].second.obsMs) / 1000)));
     fresh.erase(fresh.begin() + j);
+  }
+  Telemetry tel;
+  if (ownTelemetry(now, tel)) {
+    pl[0] |= kBeaconTelemetry;
+    putTelemetry(pl, tel);
   }
   if (haveChanKey_) {
     pl[0] |= kBeaconMac;

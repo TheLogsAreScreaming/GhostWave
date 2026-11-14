@@ -214,6 +214,15 @@ const ToRadio$json = {
       '9': 0,
       '10': 'traceroute'
     },
+    {
+      '1': 'get_telemetry',
+      '3': 35,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.GetTelemetry',
+      '9': 0,
+      '10': 'getTelemetry'
+    },
   ],
   '8': [
     {'1': 'request'},
@@ -246,8 +255,9 @@ final $typed_data.Uint8List toRadioDescriptor = $convert.base64Decode(
     'NsaWVudC52MS5SZXF1ZXN0S2V5SABSCnJlcXVlc3RLZXkSMwoGc2V0X3R4GBsgASgLMhouZ2hv'
     'c3R3YXZlLmNsaWVudC52MS5TZXRUeEgAUgVzZXRUeBI8CglsaW5rX3BpbmcYHCABKAsyHS5naG'
     '9zdHdhdmUuY2xpZW50LnYxLkxpbmtQaW5nSABSCGxpbmtQaW5nEkEKCnRyYWNlcm91dGUYHSAB'
-    'KAsyHy5naG9zdHdhdmUuY2xpZW50LnYxLlRyYWNlcm91dGVIAFIKdHJhY2Vyb3V0ZUIJCgdyZX'
-    'F1ZXN0');
+    'KAsyHy5naG9zdHdhdmUuY2xpZW50LnYxLlRyYWNlcm91dGVIAFIKdHJhY2Vyb3V0ZRJICg1nZX'
+    'RfdGVsZW1ldHJ5GCMgASgLMiEuZ2hvc3R3YXZlLmNsaWVudC52MS5HZXRUZWxlbWV0cnlIAFIM'
+    'Z2V0VGVsZW1ldHJ5QgkKB3JlcXVlc3Q=');
 
 @$core.Deprecated('Use helloDescriptor instead')
 const Hello$json = {
@@ -534,6 +544,18 @@ final $typed_data.Uint8List tracerouteDescriptor = $convert.base64Decode(
     'CgpUcmFjZXJvdXRlEhcKB25vZGVfaWQYASABKAdSBm5vZGVJZBIZCghtYXhfaG9wcxgCIAEoDV'
     'IHbWF4SG9wcw==');
 
+@$core.Deprecated('Use getTelemetryDescriptor instead')
+const GetTelemetry$json = {
+  '1': 'GetTelemetry',
+  '2': [
+    {'1': 'node_id', '3': 1, '4': 1, '5': 7, '10': 'nodeId'},
+  ],
+};
+
+/// Descriptor for `GetTelemetry`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getTelemetryDescriptor = $convert
+    .base64Decode('CgxHZXRUZWxlbWV0cnkSFwoHbm9kZV9pZBgBIAEoB1IGbm9kZUlk');
+
 @$core.Deprecated('Use fromRadioDescriptor instead')
 const FromRadio$json = {
   '1': 'FromRadio',
@@ -738,6 +760,15 @@ const FromRadio$json = {
       '9': 0,
       '10': 'traceResult'
     },
+    {
+      '1': 'node_telemetry',
+      '3': 34,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.NodeTelemetry',
+      '9': 0,
+      '10': 'nodeTelemetry'
+    },
   ],
   '8': [
     {'1': 'event'},
@@ -772,7 +803,9 @@ final $typed_data.Uint8List fromRadioDescriptor = $convert.base64Decode(
     'F2ZS5jbGllbnQudjEuU29zQ2FuY2VsbGVkSABSDHNvc0NhbmNlbGxlZBJPChBsaW5rX3Bpbmdf'
     'cmVzdWx0GB4gASgLMiMuZ2hvc3R3YXZlLmNsaWVudC52MS5MaW5rUGluZ1Jlc3VsdEgAUg5saW'
     '5rUGluZ1Jlc3VsdBJFCgx0cmFjZV9yZXN1bHQYHyABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYx'
-    'LlRyYWNlUmVzdWx0SABSC3RyYWNlUmVzdWx0QgcKBWV2ZW50');
+    'LlRyYWNlUmVzdWx0SABSC3RyYWNlUmVzdWx0EksKDm5vZGVfdGVsZW1ldHJ5GCIgASgLMiIuZ2'
+    'hvc3R3YXZlLmNsaWVudC52MS5Ob2RlVGVsZW1ldHJ5SABSDW5vZGVUZWxlbWV0cnlCBwoFZXZl'
+    'bnQ=');
 
 @$core.Deprecated('Use nodeInfoDescriptor instead')
 const NodeInfo$json = {
@@ -1006,6 +1039,65 @@ final $typed_data.Uint8List traceResultDescriptor = $convert.base64Decode(
     'hSCGFuc3dlcmVkEiMKDWZvcndhcmRfbm9kZXMYAyADKAdSDGZvcndhcmROb2RlcxIoChBmb3J3'
     'YXJkX3Jzc2lfZGJtGAQgAygRUg5mb3J3YXJkUnNzaURibRIdCgpiYWNrX25vZGVzGAUgAygHUg'
     'liYWNrTm9kZXMSIgoNYmFja19yc3NpX2RibRgGIAMoEVILYmFja1Jzc2lEYm0=');
+
+@$core.Deprecated('Use nodeTelemetryDescriptor instead')
+const NodeTelemetry$json = {
+  '1': 'NodeTelemetry',
+  '2': [
+    {'1': 'node_id', '3': 1, '4': 1, '5': 7, '10': 'nodeId'},
+    {
+      '1': 'battery_pct',
+      '3': 2,
+      '4': 1,
+      '5': 13,
+      '9': 0,
+      '10': 'batteryPct',
+      '17': true
+    },
+    {
+      '1': 'battery_mv',
+      '3': 3,
+      '4': 1,
+      '5': 13,
+      '9': 1,
+      '10': 'batteryMv',
+      '17': true
+    },
+    {
+      '1': 'uptime_s',
+      '3': 4,
+      '4': 1,
+      '5': 13,
+      '9': 2,
+      '10': 'uptimeS',
+      '17': true
+    },
+    {'1': 'age_s', '3': 5, '4': 1, '5': 13, '10': 'ageS'},
+    {
+      '1': 'rssi_dbm',
+      '3': 6,
+      '4': 1,
+      '5': 17,
+      '9': 3,
+      '10': 'rssiDbm',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_battery_pct'},
+    {'1': '_battery_mv'},
+    {'1': '_uptime_s'},
+    {'1': '_rssi_dbm'},
+  ],
+};
+
+/// Descriptor for `NodeTelemetry`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeTelemetryDescriptor = $convert.base64Decode(
+    'Cg1Ob2RlVGVsZW1ldHJ5EhcKB25vZGVfaWQYASABKAdSBm5vZGVJZBIkCgtiYXR0ZXJ5X3BjdB'
+    'gCIAEoDUgAUgpiYXR0ZXJ5UGN0iAEBEiIKCmJhdHRlcnlfbXYYAyABKA1IAVIJYmF0dGVyeU12'
+    'iAEBEh4KCHVwdGltZV9zGAQgASgNSAJSB3VwdGltZVOIAQESEwoFYWdlX3MYBSABKA1SBGFnZV'
+    'MSHgoIcnNzaV9kYm0YBiABKBFIA1IHcnNzaURibYgBAUIOCgxfYmF0dGVyeV9wY3RCDQoLX2Jh'
+    'dHRlcnlfbXZCCwoJX3VwdGltZV9zQgsKCV9yc3NpX2RibQ==');
 
 @$core.Deprecated('Use sosAckReceivedDescriptor instead')
 const SosAckReceived$json = {

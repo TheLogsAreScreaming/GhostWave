@@ -146,12 +146,14 @@ gw::client::Handler* g_link = nullptr;   // the app link, once BLE is up
 
 // Our battery for SOS bodies: percent, or 0xFF where the board cannot read it.
 #if GW_HAS_VBAT_ADC
+uint32_t g_vbatMv = 0;   // the last reading behind readVbatPct, 0 = none
 uint8_t readVbatPct() {
   analogReference(AR_INTERNAL_3_0);
   analogReadResolution(12);
   uint32_t sum = 0;
   for (int i = 0; i < 8; ++i) sum += analogRead(kPinVbat);
   uint32_t mv = static_cast<uint32_t>((sum / 8) * 3000.0f / 4096.0f * kVbatScale);
+  g_vbatMv = mv < 2500 ? 0 : mv;
   return mv < 2500 ? 0xFF : gw::mcu::batteryPercent(mv);   // no cell connected: unknown
 }
 #endif
@@ -170,6 +172,18 @@ uint8_t ownBattery() {
   return pct;
 #else
   return 0xFF;
+#endif
+}
+
+// The cell voltage behind ownBattery(), in mV; 0 where the board cannot read it.
+uint16_t ownBatteryMv() {
+  if (ownBattery() == 0xFF) return 0;   // also refreshes the ADC reading
+#if GW_HAS_UI
+  return static_cast<uint16_t>(std::min<uint32_t>(gw::mcu::ui::batteryMv(), 0xFFFF));
+#elif GW_HAS_VBAT_ADC
+  return static_cast<uint16_t>(std::min<uint32_t>(g_vbatMv, 0xFFFF));
+#else
+  return 0;
 #endif
 }
 
@@ -225,6 +239,7 @@ class SerialApp : public gw::AppPort {
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) override {
     GW_LINK(onNeighbor(id, pos, isNew));
   }
+  void onTelemetry(uint32_t id, const gw::Telemetry& t) override { GW_LINK(onTelemetry(id, t)); }
   void onSos(const gw::SosInfo& s) override {
     Serial.printf("SOS from %08x seq %u", s.src, s.seq);
     if (s.pos.valid) Serial.printf(" at %.6f %.6f", s.pos.lat, s.pos.lon);
@@ -1118,6 +1133,18 @@ void gwLoop() {
   pollGps(now);
 #endif
   pollSerial();
+  {
+    // Our battery and uptime ride in our beacons (DESIGN §4.4).
+    static uint64_t nextTel = 0;
+    if (now >= nextTel) {
+      nextTel = now + 30000;
+      gw::Telemetry t;
+      t.batteryPct = ownBattery();
+      t.batteryMv = ownBatteryMv();
+      t.uptimeS = static_cast<uint32_t>(now / 1000);
+      g_router->setOwnTelemetry(t, now);
+    }
+  }
   {
     // An SOS can start from the console, the button or the app.
     static bool overriding = false;
