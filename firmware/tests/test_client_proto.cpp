@@ -34,7 +34,7 @@ static bool sameTo(const ToRadio& a, const ToRadio& b) {
          a.clientMsgId == b.clientMsgId && a.nodeId == b.nodeId && a.ed25519Pub == b.ed25519Pub &&
          a.x25519Pub == b.x25519Pub && a.name == b.name && a.pos == b.pos &&
          a.batteryPct == b.batteryPct && a.accuracyM == b.accuracyM && a.channel == b.channel && a.psk == b.psk &&
-         a.clientShare == b.clientShare && a.pinProof == b.pinProof && a.on == b.on;
+         a.clientShare == b.clientShare && a.pinProof == b.pinProof && a.on == b.on && a.settings == b.settings;
 }
 
 static bool sameFrom(const FromRadio& a, const FromRadio& b) {
@@ -49,7 +49,8 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.protocolMinor == b.protocolMinor && a.maxChannelTextBytes == b.maxChannelTextBytes &&
          a.channel == b.channel && a.psk == b.psk && a.nonce == b.nonce && a.rssiDbm == b.rssiDbm &&
          a.answered == b.answered && a.reverseDbm == b.reverseDbm && a.fwdNodes == b.fwdNodes &&
-         a.fwdRssi == b.fwdRssi && a.backNodes == b.backNodes && a.backRssi == b.backRssi;
+         a.fwdRssi == b.fwdRssi && a.backNodes == b.backNodes && a.backRssi == b.backRssi &&
+         a.settings == b.settings;
 }
 
 static std::vector<ToRadio> sampleTo() {
@@ -107,6 +108,17 @@ static std::vector<ToRadio> sampleTo() {
   m = {}, m.reqId = 25, m.kind = ToKind::Traceroute, m.nodeId = 0x9F219DBB, m.maxHops = 6;   // 1.10
   v.push_back(m);
   m = {}, m.reqId = 26, m.kind = ToKind::Traceroute, m.nodeId = 7;   // default hops
+  v.push_back(m);
+  m = {}, m.reqId = 27, m.kind = ToKind::GetSettings;   // 1.11
+  v.push_back(m);
+  m = {}, m.reqId = 28, m.kind = ToKind::SetSettings;   // nothing present: an empty, valid request
+  v.push_back(m);
+  m = {}, m.reqId = 29, m.kind = ToKind::SetSettings;
+  m.settings.hasName = true;   // empty name present = clear it
+  m.settings.outputDbm.set(-9), m.settings.freqKhz.set(914875), m.settings.leds.set(false);
+  m.settings.buttonSos.set(false), m.settings.screenOffS.set(0), m.settings.channelKeyOn.set(false);
+  m.settings.hasBlePin = true, m.settings.blePin = "123456", m.settings.channelKey = key(4);
+  m.settings.hasRegion = true, m.settings.region = "eu868", m.settings.requireEncryption.set(true);
   v.push_back(m);
   m = {}, m.reqId = 19, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientName = "app", m.clientShare = Bytes(16, 7),
   m.pinProof = key(2);   // 1.2
@@ -173,6 +185,14 @@ static std::vector<FromRadio> sampleFrom() {
   m.backNodes = {0xB6888904, 1}, m.backRssi = {-64, -1};
   v.push_back(m);
   m = {}, m.kind = FromKind::TraceResult, m.nodeId = 3;   // unanswered: empty
+  v.push_back(m);
+  m = {}, m.reqId = 30, m.kind = FromKind::Settings;   // 1.11
+  m.settings.hasName = true, m.settings.name = B("ridge"), m.settings.hasRegion = true, m.settings.region = "us915";
+  m.settings.freqKhz.set(914875), m.settings.outputDbm.set(0), m.settings.channelKeyOn.set(false);
+  m.settings.responder.set(true), m.settings.screenOffS.set(600), m.settings.leds.set(true);
+  m.settings.minFreqKhz.set(902000), m.settings.maxFreqKhz.set(928000);
+  m.settings.minOutputDbm.set(-9), m.settings.maxOutputDbm.set(30);
+  m.settings.hasScreen = true, m.settings.hasLeds = true, m.settings.hasButton = true, m.settings.restartNeeded = true;
   v.push_back(m);
   m = {}, m.kind = FromKind::ChannelMessage, m.channel = "camp", m.src = 1, m.msgId = 2, m.text = B("x");
   m.rssiDbm.set(-1);

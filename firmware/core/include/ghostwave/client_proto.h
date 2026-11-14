@@ -29,7 +29,8 @@ constexpr uint8_t kProtocolVersion = 1;
 // 5: SosCancelled.
 // 6: NO_KEY: a DM is never sent unencrypted.
 // 10: Traceroute / TraceResult (multi-hop).
-constexpr uint32_t kProtocolMinor = 10;
+// 11: GetSettings / SetSettings / Settings (radio and device settings).
+constexpr uint32_t kProtocolMinor = 11;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -91,6 +92,37 @@ struct OptI32 {
 
 using Bytes = std::vector<uint8_t>;
 
+// Optional bool (proto3 `optional bool`): false and absent differ.
+struct OptBool {
+  bool has = false;
+  bool v = false;
+  void set(bool x) { has = true, v = x; }
+  bool operator==(const OptBool& o) const { return has == o.has && (!has || v == o.v); }
+};
+
+// Settings (1.11): a request changes only the fields present; an event holds
+// every value and limit the node supports (proto/ghostwave.proto).
+struct SettingsMsg {
+  bool hasName = false;
+  Bytes name;                  // empty with hasName = clear the name
+  bool hasRegion = false;
+  std::string region;          // "us915" / "eu868"
+  OptU32 freqKhz;
+  OptI32 outputDbm;
+  Bytes channelKey;            // request only: 32 bytes
+  OptBool channelKeyOn;        // event: a key is set; request: false = remove it
+  OptBool requireEncryption, responder;
+  bool hasBlePin = false;
+  std::string blePin;
+  OptU32 screenOffS;           // 0 = never
+  OptBool leds, buttonSos;
+  OptU32 minFreqKhz, maxFreqKhz;   // report-only from here
+  OptI32 minOutputDbm, maxOutputDbm;
+  bool hasScreen = false, hasLeds = false, hasButton = false, buttonSosAllowed = false;
+  bool restartNeeded = false;
+  bool operator==(const SettingsMsg& o) const;
+};
+
 // ------------------------------------------------------------- app -> node --
 
 enum class ToKind : uint8_t {
@@ -115,6 +147,8 @@ enum class ToKind : uint8_t {
   SetTx = 27,             // 1.8
   LinkPing = 28,          // 1.9
   Traceroute = 29,        // 1.10
+  GetSettings = 30,       // 1.11
+  SetSettings = 31,       // 1.11
 };
 
 struct ToRadio {
@@ -144,6 +178,8 @@ struct ToRadio {
   // RemoveChannel: channel.  SetName: name.
   std::string channel;
   Bytes psk;
+  // SetSettings
+  SettingsMsg settings;
 };
 
 // ------------------------------------------------------------- node -> app --
@@ -172,6 +208,7 @@ enum class FromKind : uint8_t {
   SosCancelled = 29,   // 1.5
   LinkPingResult = 30,   // 1.9
   TraceResult = 31,      // 1.10
+  Settings = 32,         // 1.11
 };
 
 struct StatusInfo {
@@ -236,6 +273,8 @@ struct FromRadio {
   // Text / Delivered / Neighbor / ChannelMessage: signal of the frame that
   // carried it, as this node heard it (the last hop). 1.7; absent on older nodes.
   OptI32 rssiDbm;
+  // Settings (1.11)
+  SettingsMsg settings;
   // Error
   ErrorCode error = ErrorCode::None;
   std::string detail;

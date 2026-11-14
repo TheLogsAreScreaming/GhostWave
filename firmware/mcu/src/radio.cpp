@@ -119,6 +119,25 @@ int16_t McuRadio::begin(const Phy& phy, float freqMHz, int outputDbm, uint16_t d
   return st;
 }
 
+int McuRadio::minOutputDbm() {
+#if GW_HAS_KCT8103L || GW_HAS_PA_CURVE
+  return kMinDriveDbm + kPaGainDb[0];
+#else
+  return kMinDriveDbm;
+#endif
+}
+
+int McuRadio::maxOutputDbm() {
+#if GW_HAS_KCT8103L || GW_HAS_PA_CURVE
+  int best = kMinDriveDbm + kPaGainDb[0];
+  for (int d = 0; d < static_cast<int>(sizeof kPaGainDb); ++d)
+    if (d + kPaGainDb[d] <= kMaxOutputDbm && d + kPaGainDb[d] > best) best = d + kPaGainDb[d];
+  return best;
+#else
+  return kMaxDriveDbm < kMaxOutputDbm ? kMaxDriveDbm : kMaxOutputDbm;
+#endif
+}
+
 int McuRadio::setOutputDbm(int dbm) {
   outputDbm_ = dbm > kMaxOutputDbm ? kMaxOutputDbm : dbm;
   driveDbm_ = driveFor(outputDbm_);

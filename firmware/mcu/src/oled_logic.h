@@ -20,6 +20,12 @@ class ScreenPolicy {
   // How long each page stays up (kPageMs unless a board changes it).
   void setPagePeriod(uint32_t ms) { pageMs_ = ms ? ms : kPageMs; }
 
+  // How long after the last event the screen goes off (the app's screen
+  // timeout, 1.11); 0 = never off, it only dims. It dims after a minute, or
+  // halfway through a shorter timeout.
+  void setOffAfter(uint32_t ms) { offMs_ = ms; }
+  uint32_t offAfter() const { return offMs_; }
+
   void wake(uint32_t nowMs) {
     lastWake_ = nowMs;
     awake_ = true;
@@ -35,8 +41,9 @@ class ScreenPolicy {
   Level level(uint32_t nowMs) const {
     if (!awake_) return Level::Off;
     uint32_t idle = nowMs - lastWake_;
-    if (idle >= kOffMs) return Level::Off;
-    return idle >= kDimMs ? Level::Dim : Level::Bright;
+    if (offMs_ && idle >= offMs_) return Level::Off;
+    const uint32_t dim = offMs_ && offMs_ < 2 * kDimMs ? offMs_ / 2 : kDimMs;
+    return idle >= dim ? Level::Dim : Level::Bright;
   }
 
   // The page to draw now, advancing every page period through `pages` pages.
@@ -54,6 +61,7 @@ class ScreenPolicy {
   bool awake_ = false;
   uint32_t lastWake_ = 0, pageSince_ = 0;
   uint32_t pageMs_ = kPageMs;
+  uint32_t offMs_ = kOffMs;
   uint8_t page_ = 0;
 };
 

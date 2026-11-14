@@ -330,6 +330,7 @@ bool saveBle(const Settings& s) { return saveAll(s); }
 
 namespace {
 constexpr const char* kBlePinPath = "/gw/blepin";
+constexpr const char* kDevicePath = "/gw/device";   // version 1: screen-off s (u32 LE), flags
 }
 
 bool blePinValid(const char* pin) {
@@ -358,6 +359,34 @@ bool saveBlePin(const char* pin) {
   return ok;
 }
 bool saveName(const Settings& s) { return saveAll(s); }
+
+void loadDevice(DeviceSettings& d) {
+  d = DeviceSettings{};
+  Adafruit_LittleFS_Namespace::File f(InternalFS);
+  if (!f.open(kDevicePath, Adafruit_LittleFS_Namespace::FILE_O_READ)) return;
+  uint8_t b[6] = {0};
+  if (f.read(b, sizeof b) == static_cast<int>(sizeof b) && b[0] == 1) {
+    d.screenOffS = uint32_t(b[1]) | uint32_t(b[2]) << 8 | uint32_t(b[3]) << 16 | uint32_t(b[4]) << 24;
+    d.leds = b[5] & 1;
+    d.buttonSos = b[5] & 2;
+  }
+  f.close();
+}
+
+bool saveDevice(const DeviceSettings& d) {
+  const uint8_t b[6] = {1,
+                        static_cast<uint8_t>(d.screenOffS),
+                        static_cast<uint8_t>(d.screenOffS >> 8),
+                        static_cast<uint8_t>(d.screenOffS >> 16),
+                        static_cast<uint8_t>(d.screenOffS >> 24),
+                        static_cast<uint8_t>((d.leds ? 1 : 0) | (d.buttonSos ? 2 : 0))};
+  InternalFS.remove(kDevicePath);
+  Adafruit_LittleFS_Namespace::File f(InternalFS);
+  if (!f.open(kDevicePath, Adafruit_LittleFS_Namespace::FILE_O_WRITE)) return false;
+  const bool ok = f.write(b, sizeof b) == sizeof b;
+  f.close();
+  return ok;
+}
 
 bool loadIdentitySeed(Key32& out) {
   out = g_secret;

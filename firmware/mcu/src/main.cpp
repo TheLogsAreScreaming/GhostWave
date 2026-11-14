@@ -8,6 +8,7 @@
 #include <Arduino.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -262,6 +263,9 @@ class SerialApp : public gw::AppPort {
 };
 
 gw::mcu::Settings g_set;
+gw::mcu::DeviceSettings g_dev;   // screen timeout, LEDs, button SOS (app settings, 1.11)
+bool g_restartNeeded = false;    // saved settings that apply after a restart
+bool g_displayOk = false;
 gw::mcu::McuRadio g_radio;
 SerialApp g_app;
 gw::Config g_cfg;
@@ -427,6 +431,161 @@ Rename renameNode(const std::string& name) {
   Serial.printf("renamed to \"%s\"\n", name.c_str());
   return Rename::Ok;
 }
+
+#if GW_HAS_BLE
+// --------------------------------------------- settings from the app (1.11) --
+
+constexpr bool kHasLeds = GW_HAS_BOARD_IO && GW_LED_PIN >= 0;
+constexpr bool kHasButton = GW_HAS_UI || (GW_HAS_BOARD_IO && GW_BUTTON_PIN >= 0);
+constexpr bool kButtonSosAllowed = GW_HAS_UI || (kHasButton && GW_BUTTON_SOS);
+
+void fillSettings(gw::client::SettingsMsg& s) {
+  if (g_signing) {
+    s.hasName = true;
+    s.name.assign(g_set.name.begin(), g_set.name.end());
+  }
+  const gw::mcu::RegionInfo& reg = gw::mcu::regionInfo(g_set.region);
+  s.hasRegion = true;
+  s.region = reg.name;
+  s.freqKhz.set(static_cast<uint32_t>(std::lround(g_set.freqMHz * 1000.0)));
+  s.minFreqKhz.set(static_cast<uint32_t>(std::lround(reg.minMHz * 1000.0)));
+  s.maxFreqKhz.set(static_cast<uint32_t>(std::lround(reg.maxMHz * 1000.0)));
+  s.outputDbm.set(g_radio.outputDbm());
+  s.minOutputDbm.set(gw::mcu::McuRadio::minOutputDbm());
+  s.maxOutputDbm.set(gw::mcu::McuRadio::maxOutputDbm());
+  s.channelKeyOn.set(g_set.havePsk);
+  s.requireEncryption.set(g_set.requireEnc);
+  s.responder.set(g_set.responder);
+  char pin[7];
+  gw::mcu::loadBlePin(pin);
+  s.hasBlePin = true;
+  s.blePin = pin;
+  s.hasScreen = GW_HAS_OLED && g_displayOk;
+  if (s.hasScreen) s.screenOffS.set(g_dev.screenOffS);
+  s.hasLeds = kHasLeds;
+  if (kHasLeds) s.leds.set(g_dev.leds);
+  s.hasButton = kHasButton;
+  s.buttonSosAllowed = kButtonSosAllowed;
+  if (kHasButton) s.buttonSos.set(kButtonSosAllowed && g_dev.buttonSos);
+  s.restartNeeded = g_restartNeeded;
+}
+
+gw::client::ErrorCode applySettings(const gw::client::SettingsMsg& s, std::string& err) {
+  using E = gw::client::ErrorCode;
+  // Check everything first: a request changes all its fields or none.
+  gw::mcu::Region region = g_set.region;
+  if (s.hasRegion && !gw::mcu::regionFromName(s.region.c_str(), region)) {
+    err = "region: us915 or eu868";
+    return E::BadArgument;
+  }
+  const gw::mcu::RegionInfo& reg = gw::mcu::regionInfo(region);
+  float freq = g_set.freqMHz;
+  if (s.freqKhz.has) {
+    freq = static_cast<float>(s.freqKhz.v / 1000.0);
+    if (freq < reg.minMHz || freq > reg.maxMHz) {
+      char b[96];
+      std::snprintf(b, sizeof b, "freq_khz: %.0f..%.0f in %s", reg.minMHz * 1000.0, reg.maxMHz * 1000.0, reg.name);
+      err = b;
+      return E::BadArgument;
+    }
+  } else if (s.hasRegion && (freq < reg.minMHz || freq > reg.maxMHz)) {
+    freq = reg.defaultMHz;
+  }
+  if (s.outputDbm.has && (s.outputDbm.v < gw::mcu::McuRadio::minOutputDbm() ||
+                          s.outputDbm.v > gw::mcu::McuRadio::maxOutputDbm())) {
+    err = "output_dbm: " + std::to_string(gw::mcu::McuRadio::minOutputDbm()) + ".." +
+          std::to_string(gw::mcu::McuRadio::maxOutputDbm()) + " on this board";
+    return E::BadArgument;
+  }
+  if (!s.channelKey.empty() && s.channelKey.size() != 32) {
+    err = "channel_key: 32 bytes";
+    return E::BadArgument;
+  }
+  if (!s.channelKey.empty() && s.channelKeyOn.has && !s.channelKeyOn.v) {
+    err = "channel_key: set and removed at once";
+    return E::BadArgument;
+  }
+  if (s.hasBlePin && !gw::mcu::blePinValid(s.blePin.c_str())) {
+    err = "ble_pin: exactly 6 digits";
+    return E::BadArgument;
+  }
+  const std::string name(s.name.begin(), s.name.end());
+  if (s.hasName && !g_signing) {
+    err = "name: this node has an older X25519 identity, so no IDENT and no name";
+    return E::NoIdentity;
+  }
+  if (s.hasName && !gw::mcu::validNodeName(name)) {
+    err = "name: at most " + std::to_string(gw::kIdentNameMax) + " bytes, no control characters";
+    return E::BadArgument;
+  }
+  if (s.screenOffS.has && s.screenOffS.v != 0 && (s.screenOffS.v < 10 || s.screenOffS.v > 86400)) {
+    err = "screen_off_s: 0 (never) or 10..86400";
+    return E::BadArgument;
+  }
+  if (s.buttonSos.has && s.buttonSos.v && !kButtonSosAllowed) {
+    err = "button_sos: this board's button can be held down by a serial cable, so it never starts an SOS";
+    return E::BadArgument;
+  }
+
+  bool saved = true;
+  if (s.hasName && name != g_set.name && renameNode(name) != Rename::Ok) {
+    err = "name: could not re-sign the identity";
+    return E::SendFailed;
+  }
+  if (s.hasRegion || s.freqKhz.has) {
+    if (region != g_set.region || freq != g_set.freqMHz) g_restartNeeded = true;
+    g_set.region = region;
+    g_set.freqMHz = freq;
+  }
+  if (s.outputDbm.has) g_set.outputDbm = static_cast<int8_t>(g_radio.setOutputDbm(s.outputDbm.v));
+  if (s.hasRegion || s.freqKhz.has || s.outputDbm.has) saved &= gw::mcu::saveRadio(g_set);
+  if (!s.channelKey.empty()) {
+    std::copy(s.channelKey.begin(), s.channelKey.end(), g_set.psk.begin());
+    g_set.havePsk = true;
+    g_router->setChannelKey(g_set.psk.data());
+    saved &= gw::mcu::savePsk(g_set);
+  } else if (s.channelKeyOn.has && !s.channelKeyOn.v && g_set.havePsk) {
+    g_set.havePsk = false;
+    gw::wipe(g_set.psk.data(), g_set.psk.size());
+    g_restartNeeded = true;
+    saved &= gw::mcu::savePsk(g_set);
+  }
+  if ((s.requireEncryption.has && s.requireEncryption.v != g_set.requireEnc) ||
+      (s.responder.has && s.responder.v != g_set.responder)) {
+    if (s.requireEncryption.has) g_set.requireEnc = s.requireEncryption.v;
+    if (s.responder.has) g_set.responder = s.responder.v;
+    g_restartNeeded = true;
+    saved &= gw::mcu::saveFlags(g_set);
+  }
+  if (s.hasBlePin) {
+    char now[7];
+    gw::mcu::loadBlePin(now);
+    if (s.blePin != now) {
+      saved &= gw::mcu::saveBlePin(s.blePin.c_str());
+      g_restartNeeded = true;
+    }
+  }
+  if (s.screenOffS.has || s.leds.has || s.buttonSos.has) {
+    if (s.screenOffS.has) g_dev.screenOffS = s.screenOffS.v;
+    if (s.leds.has) g_dev.leds = s.leds.v;
+    if (s.buttonSos.has) g_dev.buttonSos = s.buttonSos.v;
+#if GW_HAS_OLED
+    if (s.screenOffS.has) gw::mcu::oled::setOffAfterS(g_dev.screenOffS);
+#endif
+#if GW_HAS_BOARD_IO
+    gw::mcu::boardio::setLeds(g_dev.leds);
+#endif
+    saved &= gw::mcu::saveDevice(g_dev);
+  }
+  Serial.printf("settings changed from the app%s%s\n", saved ? "" : " (some not saved: storage failed)",
+                g_restartNeeded ? "; some apply after a reboot" : "");
+  if (!saved) {
+    err = "changed, but not all could be saved: they last until reboot";
+    return E::SendFailed;
+  }
+  return E::None;
+}
+#endif
 
 void handleCommand(std::string line) {
   gw::Router& r = *g_router;
@@ -852,6 +1011,8 @@ void startBle() {
     err = "could not re-sign the identity";
     return gw::client::ErrorCode::SendFailed;
   };
+  hooks.getSettings = fillSettings;
+  hooks.setSettings = applySettings;
   // 32 held events, not ghostwaved's 64: each can hold a 128-byte text in RAM.
   g_handler.reset(new gw::client::Handler(*g_router, self, g_pos, hooks, g_bootMs, g_ble, 32));
   g_ble.attach(g_handler.get());
@@ -896,6 +1057,7 @@ void gwSetup() {
 
   // Keys first (secureRandom borrows the ADC, before anything else uses it).
   bool nvsOk = gw::mcu::loadSettings(g_set);
+  gw::mcu::loadDevice(g_dev);
   if (!nvsOk) {
     Serial.println("settings storage unavailable: settings and keys will not persist");
     g_set.txOn = false;   // nothing says this board was ever enabled
@@ -934,7 +1096,9 @@ void gwSetup() {
   if (g_set.freqMHz < region.minMHz || g_set.freqMHz > region.maxMHz) g_set.freqMHz = region.defaultMHz;
   g_radio.setTxGate(txOpen);
 #if GW_HAS_OLED
-  Serial.println(gw::mcu::oled::begin(GW_FW_VERSION) ? "display: found" : "display: none found");
+  g_displayOk = gw::mcu::oled::begin(GW_FW_VERSION);
+  Serial.println(g_displayOk ? "display: found" : "display: none found");
+  gw::mcu::oled::setOffAfterS(g_dev.screenOffS);
 #endif
   int16_t st = g_radio.begin(g_cfg.phy, g_set.freqMHz, g_set.outputDbm, region.dutyPermille);
   g_radioOk = st == 0;
@@ -980,6 +1144,7 @@ void gwSetup() {
 #endif
 #if GW_HAS_BOARD_IO
   gw::mcu::boardio::begin();
+  gw::mcu::boardio::setLeds(g_dev.leds);
 #endif
 
   g_tableBudget = worstCaseTableBytes(g_cfg);
@@ -1017,7 +1182,7 @@ void pollUi(uint64_t now) {
   static uint64_t sosStoppedAt = 0;
   gw::Router& r = *g_router;
   Ev ev = gw::mcu::ui::poll(static_cast<uint32_t>(now), r.sosActive());
-  if (ev == Ev::Long) {
+  if (ev == Ev::Long && g_dev.buttonSos) {
     if (r.sosActive()) {
       Serial.println("button: SOS already on (double press stops it)");
       GW_SOUND(SosOn);
@@ -1072,7 +1237,7 @@ void pollBoardIo(uint64_t now) {
   const bool phone = false;
 #endif
   const Ev ev = gw::mcu::boardio::poll(static_cast<uint32_t>(now), r.sosActive(), phone);
-  if (ev == Ev::Long && GW_BUTTON_SOS) {
+  if (ev == Ev::Long && GW_BUTTON_SOS && g_dev.buttonSos) {
     if (r.sosActive()) {
       Serial.println("button: SOS already on (double press stops it)");
     } else if (r.startSos("SOS (button)", ownBattery(), 0xFF, now)) {
@@ -1080,7 +1245,7 @@ void pollBoardIo(uint64_t now) {
     } else {
       Serial.println("button: SOS rate limited, try again in a minute");
     }
-  } else if (ev == Ev::Double && GW_BUTTON_SOS) {
+  } else if (ev == Ev::Double && GW_BUTTON_SOS && g_dev.buttonSos) {
     if (r.sosActive()) {
       r.stopSos(nowMs());
       Serial.println("button: SOS off");
