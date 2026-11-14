@@ -7,6 +7,7 @@ import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../data/mesh_store.dart';
+import '../data/message_refs.dart';
 import '../data/models.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import '../link/contact_card.dart';
@@ -463,7 +464,7 @@ class _ContactTile extends ConsumerWidget {
           children: [
             if (last != null)
               Text(
-                '${last.outgoing ? 'You: ' : ''}${last.text}',
+                '${last.outgoing ? 'You: ' : ''}${friendlyText(last.text)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.mistWhite) : null,

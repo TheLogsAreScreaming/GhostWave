@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
+import '../data/message_refs.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
@@ -15,6 +16,7 @@ import 'connection_strip.dart';
 import 'format.dart';
 import 'message_bubble.dart';
 import 'theme.dart';
+import 'thread_view.dart';
 import 'widgets.dart';
 
 /// Channel text limit if the node has not said (`NodeInfo.max_channel_text_bytes`).
@@ -77,7 +79,9 @@ class ChannelsList extends ConsumerWidget {
                   ),
                   title: Text('#$name'),
                   subtitle: Text(
-                    m == null ? 'No messages yet' : '${m.outgoing ? 'You' : mesh.nameOf(m.src)}: ${m.text}',
+                    m == null
+                        ? 'No messages yet'
+                        : '${m.outgoing ? 'You' : mesh.nameOf(m.src)}: ${friendlyText(m.text)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.mistWhite) : null,
@@ -235,8 +239,10 @@ class ChannelChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChannelChatScreen> createState() => _ChannelChatScreenState();
 }
 
-class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
+class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> with ThreadJumper {
   final TextEditingController _text = TextEditingController();
+  final FocusNode _composer = FocusNode();
+  ReplyDraft? _replyTo;
 
   @override
   void initState() {
@@ -249,6 +255,7 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
 
   @override
   void dispose() {
+    _composer.dispose();
     _text.dispose();
     super.dispose();
   }
@@ -258,11 +265,32 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
     return m == 0 ? kDefaultMaxChannelTextBytes : m;
   }
 
+  /// What goes on the air for the typed text: itself, or a reply to [_replyTo].
+  String _composed(String t) => _replyTo == null || t.isEmpty ? t : encodeReply(_replyTo!.ref, t);
+
   Future<void> _send() async {
     final t = _text.text.trim();
-    if (t.isEmpty || utf8Length(t) > _max) return;
+    final max = _max;
+    final reply = _replyTo;
+    if (t.isEmpty || utf8Length(_composed(t)) > max) return;
     _text.clear();
-    await ref.read(meshProvider.notifier).sendChannelText(widget.channel, t);
+    setState(() => _replyTo = null);
+    final ctl = ref.read(meshProvider.notifier);
+    if (reply == null) {
+      await ctl.sendChannelText(widget.channel, t);
+    } else {
+      await ctl.sendChannelReply(widget.channel, reply.ref, t, max);
+    }
+  }
+
+  void _startReply(ReplyDraft d) {
+    setState(() => _replyTo = d);
+    _composer.requestFocus();
+  }
+
+  Future<void> _showOriginal(int row) async {
+    final found = await jumpTo(row);
+    if (!found && mounted) showSnack(context, 'The original is not in this view');
   }
 
   Future<void> _menu(String choice) async {
@@ -319,9 +347,24 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
     final online = ref.watch(sessionProvider) != null;
     final msgs = mesh.channelMessages[widget.channel] ?? const <ChannelMessage>[];
     final joined = mesh.channels.containsKey(widget.channel);
-    final bytes = utf8Length(_text.text.trim());
+    final bytes = utf8Length(_composed(_text.text.trim()));
     final max = _max;
     final over = bytes > max;
+    final own = mesh.nodeId ?? 0;
+    final view = ThreadView(
+      [
+        for (final m in msgs)
+          RefEntry(
+            sender: m.outgoing ? own : m.src,
+            msgId: m.msgId,
+            text: m.text,
+            countable: !(m.outgoing && m.state == MsgState.failed),
+          ),
+      ],
+      [for (final m in msgs) m.outgoing ? 'You' : mesh.nameOf(m.src)],
+      own,
+    );
+    final rows = view.visible;
     final scheme = Theme.of(context).colorScheme;
     final ctl = ref.read(meshProvider.notifier);
 
@@ -353,17 +396,33 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
               ),
             ),
           Expanded(
-            child: msgs.isEmpty
+            child: rows.isEmpty
                 ? const Center(child: Text('No messages yet.'))
                 : ListView.builder(
+                    controller: jumpScroll,
                     reverse: true,
                     padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md),
-                    itemCount: msgs.length,
+                    itemCount: rows.length,
                     itemBuilder: (context, i) {
-                      final m = msgs[msgs.length - 1 - i];
+                      final row = rows[rows.length - 1 - i];
+                      final m = msgs[row];
+                      final ref = view.refOf(row);
                       return MessageBubble(
+                        key: keyFor(row),
+                        highlighted: flashed == row,
+                        quote: view.quoteOf(row, (j) => unawaited(_showOriginal(j))),
+                        reactions: view.reactionsOf(row),
+                        myReaction: view.myReactionTo(row),
+                        onReply: ref == null || !joined
+                            ? null
+                            : () => _startReply(
+                                ReplyDraft(ref: ref, sender: view.names[row], snippet: snippet(view.textOf(row))),
+                              ),
+                        onReact: ref == null || !joined
+                            ? null
+                            : (e) => unawaited(ctl.reactInChannel(widget.channel, ref, e)),
                         outgoing: m.outgoing,
-                        text: m.text,
+                        text: view.textOf(row),
                         at: m.at,
                         state: m.state,
                         sender: m.outgoing ? null : mesh.nameOf(m.src),
@@ -377,6 +436,7 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
                     },
                   ),
           ),
+          if (_replyTo case final r?) ReplyBar(draft: r, onCancel: () => setState(() => _replyTo = null)),
           SafeArea(
             top: false,
             child: Padding(
@@ -387,13 +447,18 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: _text,
+                      focusNode: _composer,
                       enabled: joined,
                       minLines: 1,
                       maxLines: 4,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => unawaited(_send()),
                       decoration: InputDecoration(
-                        hintText: joined ? 'Message #${widget.channel}' : 'Not joined',
+                        hintText: !joined
+                            ? 'Not joined'
+                            : _replyTo == null
+                            ? 'Message #${widget.channel}'
+                            : 'Reply',
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GwRadius.lg),
                           borderSide: const BorderSide(color: GwColors.outlineVariant),
