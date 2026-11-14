@@ -205,6 +205,15 @@ const ToRadio$json = {
       '9': 0,
       '10': 'linkPing'
     },
+    {
+      '1': 'traceroute',
+      '3': 29,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.Traceroute',
+      '9': 0,
+      '10': 'traceroute'
+    },
   ],
   '8': [
     {'1': 'request'},
@@ -236,7 +245,9 @@ final $typed_data.Uint8List toRadioDescriptor = $convert.base64Decode(
     'djEuU2V0TmFtZUgAUgdzZXROYW1lEkIKC3JlcXVlc3Rfa2V5GBogASgLMh8uZ2hvc3R3YXZlLm'
     'NsaWVudC52MS5SZXF1ZXN0S2V5SABSCnJlcXVlc3RLZXkSMwoGc2V0X3R4GBsgASgLMhouZ2hv'
     'c3R3YXZlLmNsaWVudC52MS5TZXRUeEgAUgVzZXRUeBI8CglsaW5rX3BpbmcYHCABKAsyHS5naG'
-    '9zdHdhdmUuY2xpZW50LnYxLkxpbmtQaW5nSABSCGxpbmtQaW5nQgkKB3JlcXVlc3Q=');
+    '9zdHdhdmUuY2xpZW50LnYxLkxpbmtQaW5nSABSCGxpbmtQaW5nEkEKCnRyYWNlcm91dGUYHSAB'
+    'KAsyHy5naG9zdHdhdmUuY2xpZW50LnYxLlRyYWNlcm91dGVIAFIKdHJhY2Vyb3V0ZUIJCgdyZX'
+    'F1ZXN0');
 
 @$core.Deprecated('Use helloDescriptor instead')
 const Hello$json = {
@@ -509,6 +520,20 @@ const LinkPing$json = {
 final $typed_data.Uint8List linkPingDescriptor =
     $convert.base64Decode('CghMaW5rUGluZxIXCgdub2RlX2lkGAEgASgHUgZub2RlSWQ=');
 
+@$core.Deprecated('Use tracerouteDescriptor instead')
+const Traceroute$json = {
+  '1': 'Traceroute',
+  '2': [
+    {'1': 'node_id', '3': 1, '4': 1, '5': 7, '10': 'nodeId'},
+    {'1': 'max_hops', '3': 2, '4': 1, '5': 13, '10': 'maxHops'},
+  ],
+};
+
+/// Descriptor for `Traceroute`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List tracerouteDescriptor = $convert.base64Decode(
+    'CgpUcmFjZXJvdXRlEhcKB25vZGVfaWQYASABKAdSBm5vZGVJZBIZCghtYXhfaG9wcxgCIAEoDV'
+    'IHbWF4SG9wcw==');
+
 @$core.Deprecated('Use fromRadioDescriptor instead')
 const FromRadio$json = {
   '1': 'FromRadio',
@@ -704,6 +729,15 @@ const FromRadio$json = {
       '9': 0,
       '10': 'linkPingResult'
     },
+    {
+      '1': 'trace_result',
+      '3': 31,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.TraceResult',
+      '9': 0,
+      '10': 'traceResult'
+    },
   ],
   '8': [
     {'1': 'event'},
@@ -737,7 +771,8 @@ final $typed_data.Uint8List fromRadioDescriptor = $convert.base64Decode(
     'YWxsZW5nZUgAUgxwaW5DaGFsbGVuZ2USSAoNc29zX2NhbmNlbGxlZBgdIAEoCzIhLmdob3N0d2'
     'F2ZS5jbGllbnQudjEuU29zQ2FuY2VsbGVkSABSDHNvc0NhbmNlbGxlZBJPChBsaW5rX3Bpbmdf'
     'cmVzdWx0GB4gASgLMiMuZ2hvc3R3YXZlLmNsaWVudC52MS5MaW5rUGluZ1Jlc3VsdEgAUg5saW'
-    '5rUGluZ1Jlc3VsdEIHCgVldmVudA==');
+    '5rUGluZ1Jlc3VsdBJFCgx0cmFjZV9yZXN1bHQYHyABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYx'
+    'LlRyYWNlUmVzdWx0SABSC3RyYWNlUmVzdWx0QgcKBWV2ZW50');
 
 @$core.Deprecated('Use nodeInfoDescriptor instead')
 const NodeInfo$json = {
@@ -951,6 +986,26 @@ final $typed_data.Uint8List linkPingResultDescriptor = $convert.base64Decode(
     'ABKAhSCGFuc3dlcmVkEi0KEGZvcndhcmRfcnNzaV9kYm0YAyABKBFIAFIOZm9yd2FyZFJzc2lE'
     'Ym2IAQESLQoQcmV2ZXJzZV9yc3NpX2RibRgEIAEoEUgBUg5yZXZlcnNlUnNzaURibYgBAUITCh'
     'FfZm9yd2FyZF9yc3NpX2RibUITChFfcmV2ZXJzZV9yc3NpX2RibQ==');
+
+@$core.Deprecated('Use traceResultDescriptor instead')
+const TraceResult$json = {
+  '1': 'TraceResult',
+  '2': [
+    {'1': 'node_id', '3': 1, '4': 1, '5': 7, '10': 'nodeId'},
+    {'1': 'answered', '3': 2, '4': 1, '5': 8, '10': 'answered'},
+    {'1': 'forward_nodes', '3': 3, '4': 3, '5': 7, '10': 'forwardNodes'},
+    {'1': 'forward_rssi_dbm', '3': 4, '4': 3, '5': 17, '10': 'forwardRssiDbm'},
+    {'1': 'back_nodes', '3': 5, '4': 3, '5': 7, '10': 'backNodes'},
+    {'1': 'back_rssi_dbm', '3': 6, '4': 3, '5': 17, '10': 'backRssiDbm'},
+  ],
+};
+
+/// Descriptor for `TraceResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List traceResultDescriptor = $convert.base64Decode(
+    'CgtUcmFjZVJlc3VsdBIXCgdub2RlX2lkGAEgASgHUgZub2RlSWQSGgoIYW5zd2VyZWQYAiABKA'
+    'hSCGFuc3dlcmVkEiMKDWZvcndhcmRfbm9kZXMYAyADKAdSDGZvcndhcmROb2RlcxIoChBmb3J3'
+    'YXJkX3Jzc2lfZGJtGAQgAygRUg5mb3J3YXJkUnNzaURibRIdCgpiYWNrX25vZGVzGAUgAygHUg'
+    'liYWNrTm9kZXMSIgoNYmFja19yc3NpX2RibRgGIAMoEVILYmFja1Jzc2lEYm0=');
 
 @$core.Deprecated('Use sosAckReceivedDescriptor instead')
 const SosAckReceived$json = {

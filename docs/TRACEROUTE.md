@@ -1,7 +1,9 @@
-# Traceroute / repeater ping — implementation work in progress
+# Traceroute and link ping
 
-**Built: one-hop link ping** (both directions), end to end, from the codec
-below. **Not built: multi-hop traceroute** (see the end).
+**Built:** the one-hop link ping (both directions) and the multi-hop
+traceroute (probe collects, both ways), end to end. Neither has been run on
+real radios yet; both are host-tested in the router simulation, the codecs,
+the client handler and the app.
 
 Link ping: the app (or the `ping <hex-id>` console command) asks a node heard
 directly. Its radio answers with the signal it heard the ping at, and ours
@@ -14,10 +16,10 @@ most once a second. Client protocol 1.9: `LinkPing` (28) and
 is heard directly) and on a heard node's sheet. Host-tested in the router
 simulation, the codec, the handler and the app; not yet run on two radios.
 
-## Proposed behavior
+## Rules both follow
 
 * Use an opt-in, low-priority probe with random correlation token, origin,
-  destination and bounded hop limit (1–15).
+  destination and bounded hop limit (1–8 for a trace).
 * Each participating receiver reports the RSSI and SNR of the **packet it
   received**. Never infer the other end's signal from a local reading.
 * Send separate return-path probes and label reverse observations explicitly;
@@ -30,34 +32,67 @@ simulation, the codec, the handler and the app; not yet run on two radios.
 
 ## Codec
 
-`firmware/core/include/ghostwave/diagnostics.h` defines fixed-width
-little-endian 14-byte probe and 20-byte hop report payloads. The hop limit
+`firmware/core/include/ghostwave/diagnostics.h` defines the link ping's
+fixed-width little-endian 14-byte probe and 20-byte hop report payloads, and
+the traceroute's variable-length trace payload (below). The hop limit
 belongs in the existing packet header; a decoder does not recover it from
 the probe payload. RSSI uses signed dBm; SNR uses signed quarter-dB.
-
-## Remaining integration
-
-1. Reserve wire packet types and update packet validation/dispatch.
-2. Add probe origin, forwarding, destination reply and per-hop reporting.
-3. Add anti-amplification, deduplication, expiry and airtime limits.
-4. Expose requests/events in protobuf and hand-written node codec.
-5. Add Flutter UI, path visualization and history.
-6. Add simulated multi-node tests and physical-radio verification.
 
 ## Local codec test
 
 `c++ -std=c++17 -Ifirmware/core/include firmware/core/tests/diagnostics_test.cpp -o /tmp/gw-diagnostics-test && /tmp/gw-diagnostics-test`
 
-## Multi-hop traceroute: a design decision first
+## Multi-hop traceroute (protocol 1.10)
 
 GhostWave forwards by contention (geographic and flood modes), not fixed
-routes, so "the path" can differ packet to packet. Two ways to trace one:
+routes, so "the path" can differ packet to packet. Of the two designs (each
+relay reports back, or the probe collects as it goes) the probe-collects
+design is built: one answer per trace, no amplification, and it fits a frame.
 
-1. **Each relay reports back** (a Hop report per forwarder). Simple per node,
-   but one probe makes many reports: needs strict rate limits to avoid flooding.
-2. **The probe collects as it goes** (each forwarder appends id + RSSI, 5 bytes
-   per hop). One reply, no amplification, but limited by the 128-byte frame
-   (about 15 hops) and it shows only the path that one probe happened to take.
+**How it works.**
 
-Option 2 fits the frame budget and the no-amplification rule better. It is
-not built until that choice is made.
+1. The app (or `trace <hex-id> [hops]` on a board's console) asks the node to
+   trace any node ID, 1–8 hops each way (default 5).
+2. The node sends a `Diag` frame of kind `Trace` (4) as a hop-limited scoped
+   flood (`hopsLeft` = hops − 1), addressed to the target.
+3. Each relay that hears it for the first time appends its node ID and the
+   RSSI it heard the frame at (5 bytes) and passes it on once, after a short
+   random delay. If it hears two other relays pass it on first, it cancels
+   its own copy (the same suppression channel messages use).
+4. The target adds its own record and answers the first copy it hears with a
+   `TraceBack` (5) frame carrying the way out. The answer floods back the same
+   way, collecting the way back (up to the way out + 2 relays, at most 7).
+5. The origin adds its own reading of the answer and reports both lists.
+
+Every reading is taken by the radio that received the frame. The way back is
+listed on its own, never assumed to mirror the way out. If no answer comes
+within 45 s the result is *no answer* with no hops: a lost probe or answer says
+nothing about where it was lost.
+
+**Limits.** One trace out at a time per node, 30 s apart. A relay passes on at
+most 6 trace frames a minute, and never one already carrying its ID. A target
+answers at most once every 2 s. Records: up to 8 on the way out (7 relays +
+the target) and 7 relays on the way back, so the largest answer is
+14 + 2 + 5 × 15 = 91 bytes, inside the 105-byte payload of an unencrypted frame.
+
+**Wire format** (`diagnostics.h`, little-endian):
+`version 1 | kind | token 4 | origin 4 | target 4 | out count | out records… | (TraceBack only) back count | back records…`,
+each record `node ID 4 | RSSI int8 dBm`.
+
+**Older nodes.** A trace frame is addressed to the target, so an older relay
+drops it (not addressed to it) and an older target cannot decode it. A path
+through older firmware goes unanswered.
+
+**Cost.** The probe is a flood within the hop limit: a busy mesh hears up to
+one relay of it per node in range. Keep the hop count low when the target is
+close.
+
+**Client protocol 1.10.** `Traceroute` (29: `node_id`, `max_hops`) and
+`TraceResult` (31: `node_id`, `answered`, `forward_nodes`/`forward_rssi_dbm`,
+`back_nodes`/`back_rssi_dbm`, packed). The app opens *Trace route* from a
+chat's menu or a heard node's sheet and lists each hop both ways in words.
+The result type `PathTrace` (`app/lib/src/data/path_trace.dart`) is plain data
+with JSON, for other screens to reuse.
+
+**Not built:** SNR per hop (no SNR in the router's receive path yet), saved
+trace history, and a check on two or more real radios.

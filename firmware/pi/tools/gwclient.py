@@ -42,6 +42,7 @@ MAX_SECURE_BODY = MAX_BODY + 16
 
 # ----------------------------------------------------------------- schema --
 # field number -> (name, type). Types: u32 u64 bool sint fx32 bytes str
+# (and, in events only, pfx32 / psint: packed repeated fixed32 / sint32 -> list)
 # opt (proto3 optional uint32, None = absent), pos (Position sub-message,
 # None = absent), and enum names map to u32.
 
@@ -72,6 +73,8 @@ TO_REQUESTS = {
     27: ("set_tx", {1: ("on", "bool")}),
     # protocol 1.9
     28: ("link_ping", {1: ("node_id", "fx32")}),
+    # protocol 1.10
+    29: ("traceroute", {1: ("node_id", "fx32"), 2: ("max_hops", "u32")}),
 }
 
 FROM_EVENTS = {
@@ -113,6 +116,10 @@ FROM_EVENTS = {
     # protocol 1.9
     30: ("link_ping_result", {1: ("node_id", "fx32"), 2: ("answered", "bool"),
                               3: ("forward_rssi_dbm", "osint"), 4: ("reverse_rssi_dbm", "osint")}),
+    # protocol 1.10
+    31: ("trace_result", {1: ("node_id", "fx32"), 2: ("answered", "bool"),
+                          3: ("forward_nodes", "pfx32"), 4: ("forward_rssi_dbm", "psint"),
+                          5: ("back_nodes", "pfx32"), 6: ("back_rssi_dbm", "psint")}),
 }
 
 ERRORS = ["NONE", "BAD_FRAME", "BAD_VERSION", "UNKNOWN_REQUEST", "NEED_HELLO", "BAD_ARGUMENT",
@@ -206,15 +213,45 @@ def _fields(buf):
             raise ValueError("wire type %d" % wt)
 
 
+def _repeated(typ, wt, v):
+    """Elements of a repeated fixed32 / sint32 field: packed (wire type 2) or one."""
+    if typ == "pfx32":
+        if wt == 5:
+            return [v]
+        if wt != 2 or len(v) % 4:
+            raise ValueError("packed fixed32: wire type %d" % wt)
+        return [int.from_bytes(bytes(v[i:i + 4]), "little") for i in range(0, len(v), 4)]
+    if wt == 0:
+        vals = [v]
+    elif wt == 2:
+        vals, i, buf = [], 0, bytes(v)
+        while i < len(buf):
+            x, shift = 0, 0
+            while True:
+                c = buf[i]
+                i += 1
+                x |= (c & 0x7F) << shift
+                shift += 7
+                if not c & 0x80:
+                    break
+            vals.append(x)
+    else:
+        raise ValueError("packed sint32: wire type %d" % wt)
+    return [((x & 0xFFFFFFFF) >> 1) ^ -(x & 1) for x in vals]
+
+
 def _decode(fields, buf):
     out = {}
     for name, typ in fields.values():  # defaults
-        out[name] = None if typ in ("opt", "pos", "osint") else (b"" if typ == "bytes" else
+        out[name] = [] if typ in ("pfx32", "psint") else None if typ in ("opt", "pos", "osint") else (b"" if typ == "bytes" else
                                                        "" if typ == "str" else False if typ == "bool" else 0)
     for f, wt, v in _fields(buf):
         if f not in fields:
             continue
         name, typ = fields[f]
+        if typ in ("pfx32", "psint"):
+            out[name].extend(_repeated(typ, wt, v))
+            continue
         want = {"fx32": 5, "bytes": 2, "str": 2, "pos": 2}.get(typ, 0)
         if wt != want:
             raise ValueError("field %s: wire type %d" % (name, wt))

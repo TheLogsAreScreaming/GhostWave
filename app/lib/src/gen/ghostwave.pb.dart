@@ -110,6 +110,7 @@ enum ToRadio_Request {
   requestKey,
   setTx,
   linkPing,
+  traceroute,
   notSet
 }
 
@@ -135,6 +136,7 @@ class ToRadio extends $pb.GeneratedMessage {
     RequestKey? requestKey,
     SetTx? setTx,
     LinkPing? linkPing,
+    Traceroute? traceroute,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -157,6 +159,7 @@ class ToRadio extends $pb.GeneratedMessage {
     if (requestKey != null) result.requestKey = requestKey;
     if (setTx != null) result.setTx = setTx;
     if (linkPing != null) result.linkPing = linkPing;
+    if (traceroute != null) result.traceroute = traceroute;
     return result;
   }
 
@@ -189,6 +192,7 @@ class ToRadio extends $pb.GeneratedMessage {
     26: ToRadio_Request.requestKey,
     27: ToRadio_Request.setTx,
     28: ToRadio_Request.linkPing,
+    29: ToRadio_Request.traceroute,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -215,7 +219,8 @@ class ToRadio extends $pb.GeneratedMessage {
       25,
       26,
       27,
-      28
+      28,
+      29
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
@@ -256,6 +261,8 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: SetTx.$_createMessage)
     ..aOM<LinkPing>(28, _omitFieldNames ? '' : 'linkPing',
         subBuilder: LinkPing.$_createMessage)
+    ..aOM<Traceroute>(29, _omitFieldNames ? '' : 'traceroute',
+        subBuilder: Traceroute.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -297,6 +304,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
+  @$pb.TagNumber(29)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -317,6 +325,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
+  @$pb.TagNumber(29)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -541,6 +550,18 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearLinkPing() => $_clearField(28);
   @$pb.TagNumber(28)
   LinkPing ensureLinkPing() => $_ensure(19);
+
+  /// protocol 1.10
+  @$pb.TagNumber(29)
+  Traceroute get traceroute => $_getN(20);
+  @$pb.TagNumber(29)
+  set traceroute(Traceroute value) => $_setField(29, value);
+  @$pb.TagNumber(29)
+  $core.bool hasTraceroute() => $_has(20);
+  @$pb.TagNumber(29)
+  void clearTraceroute() => $_clearField(29);
+  @$pb.TagNumber(29)
+  Traceroute ensureTraceroute() => $_ensure(20);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -1756,6 +1777,78 @@ class LinkPing extends $pb.GeneratedMessage {
   void clearNodeId() => $_clearField(1);
 }
 
+/// 1.10: trace the path to any node, through relays, and back
+/// (docs/TRACEROUTE.md). Replies Ok when sent; the answer comes as TraceResult
+/// within 45 s. RATE_LIMITED: a trace is out, or the last was under 30 s ago.
+/// BAD_ARGUMENT: max_hops over 8.
+class Traceroute extends $pb.GeneratedMessage {
+  factory Traceroute({
+    $core.int? nodeId,
+    $core.int? maxHops,
+  }) {
+    final result = Traceroute._();
+    if (nodeId != null) result.nodeId = nodeId;
+    if (maxHops != null) result.maxHops = maxHops;
+    return result;
+  }
+
+  Traceroute._();
+
+  factory Traceroute.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Traceroute()..mergeFromBuffer(data, registry);
+  factory Traceroute.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Traceroute()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Traceroute',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: Traceroute.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
+    ..aI(2, _omitFieldNames ? '' : 'maxHops', fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Traceroute clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Traceroute copyWith(void Function(Traceroute) updates) =>
+      super.copyWith((message) => updates(message as Traceroute)) as Traceroute;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Traceroute() / Traceroute.new instead')
+  static Traceroute create() => Traceroute._();
+  static $pb.GeneratedMessage $_createMessage() => Traceroute._();
+  @$core.override
+  Traceroute createEmptyInstance() => Traceroute._();
+  @$core.pragma('dart2js:noInline')
+  static Traceroute getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Traceroute>(Traceroute.$_createMessage);
+  static Traceroute? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get nodeId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set nodeId($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNodeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNodeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get maxHops => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set maxHops($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMaxHops() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMaxHops() => $_clearField(2);
+}
+
 enum FromRadio_Event {
   nodeInfo,
   text,
@@ -1778,6 +1871,7 @@ enum FromRadio_Event {
   pinChallenge,
   sosCancelled,
   linkPingResult,
+  traceResult,
   notSet
 }
 
@@ -1806,6 +1900,7 @@ class FromRadio extends $pb.GeneratedMessage {
     PinChallenge? pinChallenge,
     SosCancelled? sosCancelled,
     LinkPingResult? linkPingResult,
+    TraceResult? traceResult,
   }) {
     final result = FromRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -1831,6 +1926,7 @@ class FromRadio extends $pb.GeneratedMessage {
     if (pinChallenge != null) result.pinChallenge = pinChallenge;
     if (sosCancelled != null) result.sosCancelled = sosCancelled;
     if (linkPingResult != null) result.linkPingResult = linkPingResult;
+    if (traceResult != null) result.traceResult = traceResult;
     return result;
   }
 
@@ -1865,6 +1961,7 @@ class FromRadio extends $pb.GeneratedMessage {
     28: FromRadio_Event.pinChallenge,
     29: FromRadio_Event.sosCancelled,
     30: FromRadio_Event.linkPingResult,
+    31: FromRadio_Event.traceResult,
     0: FromRadio_Event.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1893,7 +1990,8 @@ class FromRadio extends $pb.GeneratedMessage {
       27,
       28,
       29,
-      30
+      30,
+      31
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'replayed')
@@ -1938,6 +2036,8 @@ class FromRadio extends $pb.GeneratedMessage {
         subBuilder: SosCancelled.$_createMessage)
     ..aOM<LinkPingResult>(30, _omitFieldNames ? '' : 'linkPingResult',
         subBuilder: LinkPingResult.$_createMessage)
+    ..aOM<TraceResult>(31, _omitFieldNames ? '' : 'traceResult',
+        subBuilder: TraceResult.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1981,6 +2081,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
   @$pb.TagNumber(30)
+  @$pb.TagNumber(31)
   FromRadio_Event whichEvent() => _FromRadio_EventByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -2003,6 +2104,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
   @$pb.TagNumber(30)
+  @$pb.TagNumber(31)
   void clearEvent() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -2257,6 +2359,18 @@ class FromRadio extends $pb.GeneratedMessage {
   void clearLinkPingResult() => $_clearField(30);
   @$pb.TagNumber(30)
   LinkPingResult ensureLinkPingResult() => $_ensure(22);
+
+  /// protocol 1.10
+  @$pb.TagNumber(31)
+  TraceResult get traceResult => $_getN(23);
+  @$pb.TagNumber(31)
+  set traceResult(TraceResult value) => $_setField(31, value);
+  @$pb.TagNumber(31)
+  $core.bool hasTraceResult() => $_has(23);
+  @$pb.TagNumber(31)
+  void clearTraceResult() => $_clearField(31);
+  @$pb.TagNumber(31)
+  TraceResult ensureTraceResult() => $_ensure(23);
 }
 
 class NodeInfo extends $pb.GeneratedMessage {
@@ -3017,6 +3131,108 @@ class LinkPingResult extends $pb.GeneratedMessage {
   $core.bool hasReverseRssiDbm() => $_has(3);
   @$pb.TagNumber(4)
   void clearReverseRssiDbm() => $_clearField(4);
+}
+
+/// A Traceroute ended. answered false: no answer within 45 s (out of reach,
+/// too few hops, a relay on older firmware); then the path is unknown and the
+/// lists are empty. forward: the relays in order, then the target. back: the
+/// relays from the target in order, then this node. Each *_rssi_dbm entry is
+/// how strongly that node heard the frame it received, measured on its radio.
+/// The two ways can differ, and so can two traces.
+class TraceResult extends $pb.GeneratedMessage {
+  factory TraceResult({
+    $core.int? nodeId,
+    $core.bool? answered,
+    $core.Iterable<$core.int>? forwardNodes,
+    $core.Iterable<$core.int>? forwardRssiDbm,
+    $core.Iterable<$core.int>? backNodes,
+    $core.Iterable<$core.int>? backRssiDbm,
+  }) {
+    final result = TraceResult._();
+    if (nodeId != null) result.nodeId = nodeId;
+    if (answered != null) result.answered = answered;
+    if (forwardNodes != null) result.forwardNodes.addAll(forwardNodes);
+    if (forwardRssiDbm != null) result.forwardRssiDbm.addAll(forwardRssiDbm);
+    if (backNodes != null) result.backNodes.addAll(backNodes);
+    if (backRssiDbm != null) result.backRssiDbm.addAll(backRssiDbm);
+    return result;
+  }
+
+  TraceResult._();
+
+  factory TraceResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      TraceResult()..mergeFromBuffer(data, registry);
+  factory TraceResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      TraceResult()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TraceResult',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: TraceResult.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'nodeId', fieldType: $pb.PbFieldType.OF3)
+    ..aOB(2, _omitFieldNames ? '' : 'answered')
+    ..p<$core.int>(
+        3, _omitFieldNames ? '' : 'forwardNodes', $pb.PbFieldType.KF3)
+    ..p<$core.int>(
+        4, _omitFieldNames ? '' : 'forwardRssiDbm', $pb.PbFieldType.KS3)
+    ..p<$core.int>(5, _omitFieldNames ? '' : 'backNodes', $pb.PbFieldType.KF3)
+    ..p<$core.int>(6, _omitFieldNames ? '' : 'backRssiDbm', $pb.PbFieldType.KS3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TraceResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TraceResult copyWith(void Function(TraceResult) updates) =>
+      super.copyWith((message) => updates(message as TraceResult))
+          as TraceResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use TraceResult() / TraceResult.new instead')
+  static TraceResult create() => TraceResult._();
+  static $pb.GeneratedMessage $_createMessage() => TraceResult._();
+  @$core.override
+  TraceResult createEmptyInstance() => TraceResult._();
+  @$core.pragma('dart2js:noInline')
+  static TraceResult getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TraceResult>(
+          TraceResult.$_createMessage);
+  static TraceResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get nodeId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set nodeId($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNodeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNodeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get answered => $_getBF(1);
+  @$pb.TagNumber(2)
+  set answered($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAnswered() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAnswered() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<$core.int> get forwardNodes => $_getList(2);
+
+  @$pb.TagNumber(4)
+  $pb.PbList<$core.int> get forwardRssiDbm => $_getList(3);
+
+  @$pb.TagNumber(5)
+  $pb.PbList<$core.int> get backNodes => $_getList(4);
+
+  @$pb.TagNumber(6)
+  $pb.PbList<$core.int> get backRssiDbm => $_getList(5);
 }
 
 class SosAckReceived extends $pb.GeneratedMessage {

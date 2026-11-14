@@ -626,7 +626,7 @@ static void testSetTx() {
   ToRadio m;
   m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
   auto v = send(m);
-  CHECK(v.size() == 1 && v[0].protocolMinor == 9);
+  CHECK(v.size() == 1 && v[0].protocolMinor == 10);
   m = {}, m.reqId = 2, m.kind = ToKind::SetTx, m.on = true;
   v = send(m);
   CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 2 && tx && calls == 1);
@@ -653,6 +653,34 @@ static void testSetTx() {
   h.onLinkPing(0x77777777, false, 0, 0);
   v = FakeTransport::drain(c);
   CHECK(v.size() == 1 && !v[0].answered && !v[0].rssiDbm.has && !v[0].reverseDbm.has);
+
+  // Traceroute (1.10): any node, 1-8 hops; the result lists both ways.
+  m = {}, m.reqId = 7, m.kind = ToKind::Traceroute, m.nodeId = 0x77777777, m.maxHops = 9;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument);
+  m.maxHops = 300;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument);
+  m.maxHops = 0, m.nodeId = 0;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::BadArgument);
+  m.nodeId = 0x77777777;   // not heard at all: still allowed, the flood may find it
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 7);
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::RateLimited);   // one out at a time
+  gw::TraceResult tr;
+  tr.target = 0x77777777, tr.answered = true;
+  tr.forward = {{0x11, -101}, {0x77777777, -95}};
+  tr.back = {{0x11, -99}, {0x22, -103}};
+  h.onTrace(tr);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::TraceResult && v[0].answered && v[0].nodeId == 0x77777777 &&
+        v[0].fwdNodes == std::vector<uint32_t>({0x11, 0x77777777}) && v[0].fwdRssi == std::vector<int32_t>({-101, -95}) &&
+        v[0].backNodes == std::vector<uint32_t>({0x11, 0x22}) && v[0].backRssi == std::vector<int32_t>({-99, -103}));
+  h.onTrace(gw::TraceResult{0x77777777, false, {}, {}});
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && !v[0].answered && v[0].fwdNodes.empty() && v[0].backNodes.empty());
 
   Rig plain;   // ghostwaved and other nodes with no gate
   auto& pc = plain.t.add("tcp");

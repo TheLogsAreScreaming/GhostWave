@@ -54,6 +54,7 @@ class ClientLink : private gw::client::Transport {
   }
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) { h_.onNeighbor(id, pos, isNew); }
   void onLinkPing(uint32_t node, bool answered, int fwd, int rev) { h_.onLinkPing(node, answered, fwd, rev); }
+  void onTrace(const gw::TraceResult& r) { h_.onTrace(r); }
   void onChannelMessage(uint32_t chanId, uint32_t src, uint32_t msgId, const std::vector<uint8_t>& payload) {
     h_.onChannelMessage(chanId, src, msgId, payload);
   }

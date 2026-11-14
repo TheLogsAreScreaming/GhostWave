@@ -46,6 +46,23 @@ struct SosInfo {
 };
 constexpr size_t kSosTextMax = 60;
 
+// One node on a traced path and how strongly it heard the frame it received:
+// on the way out, the probe from the hop before it; on the way back, the reply.
+struct TraceHop {
+  uint32_t node = 0;
+  int rssiDbm = 0;
+};
+
+// The result of a multi-hop traceroute (docs/TRACEROUTE.md). answered false:
+// no reply in time, and then nothing is known about the path (no guesses).
+// forward: relays in order, then the target. back: relays from the target in
+// order, then us. Routes can differ each way and from one trace to the next.
+struct TraceResult {
+  uint32_t target = 0;
+  bool answered = false;
+  std::vector<TraceHop> forward, back;
+};
+
 class AppPort {
  public:
   virtual ~AppPort() = default;
@@ -86,7 +103,10 @@ class AppPort {
   virtual void onLinkPing(uint32_t node, bool answered, int forwardDbm, int reverseDbm) {
     (void)node, (void)answered, (void)forwardDbm, (void)reverseDbm;
   }
+  // A traceroute we started (Router::traceroute) ended (TraceResult below).
+  virtual void onTrace(const TraceResult& r) { (void)r; }
 };
+
 
 // Group channels a node can join at once (DESIGN §9.3).
 constexpr size_t kMaxGroupChannels = 8;
@@ -251,6 +271,21 @@ class Router {
   static constexpr uint64_t kLinkPingTimeoutMs = 10000;
   static constexpr uint64_t kLinkPingReplyGapMs = 1000;   // we answer at most this often
 
+  // Multi-hop traceroute: the probe floods out at most `maxHops` hops (1-8;
+  // 0 = kTraceDefaultHops) and collects each relay's ID and signal; the target
+  // answers once and the answer collects the way back. One at a time, at most
+  // one every kTraceGapMs; the result comes as AppPort::onTrace, or as
+  // unanswered after kTraceTimeoutMs. Relays pass on at most kTraceRelayMax
+  // trace frames per kTraceRelayWindowMs, so traces cannot crowd the channel.
+  enum class TraceStart { Sent, Busy, TooSoon, BadNode, BadHops };
+  TraceStart traceroute(uint32_t node, uint8_t maxHops, uint64_t nowMs);
+  static constexpr uint8_t kTraceDefaultHops = 5;
+  static constexpr uint64_t kTraceGapMs = 30000;
+  static constexpr uint64_t kTraceTimeoutMs = 45000;
+  static constexpr uint64_t kTraceRelayWindowMs = 60000;
+  static constexpr uint8_t kTraceRelayMax = 6;
+  static constexpr uint64_t kTraceAnswerGapMs = 2000;   // a target answers at most this often
+
   // Signal of the frame being handled right now, in whole dBm. True only while
   // onReceive is running, so AppPort callbacks it triggers can report how the
   // frame that caused them was heard (the last hop, not the whole path).
@@ -401,6 +436,18 @@ class Router {
   uint64_t lastPingMs_ = 0, lastPingReplyMs_ = 0;
   bool pingEver_ = false, pingReplyEver_ = false;
   void onDiag(const Packet& p, uint64_t now);
+  struct TraceWait {
+    uint32_t target, token;
+    uint64_t deadline;
+  };
+  bool traceOn_ = false, traceEver_ = false, traceAnswered_ = false;
+  TraceWait trace_{};
+  uint64_t lastTraceMs_ = 0, lastTraceAnswerMs_ = 0, traceWindowMs_ = 0;
+  uint8_t traceRelays_ = 0;
+  struct TraceFlood { TxPtr item; uint8_t dups; uint64_t t; };
+  std::map<Key, TraceFlood> traceFlood_;   // pending trace relays, for duplicate suppression
+  void onTraceFrame(const Packet& p, uint64_t now);
+  bool traceRelayAllowed(uint64_t now);
   void sendDiag(uint32_t to, const uint8_t* payload, size_t n, uint64_t now);
   bool inRx_ = false, heardAny_ = false;
   int rxDbm_ = 0, lastDbm_ = 0;

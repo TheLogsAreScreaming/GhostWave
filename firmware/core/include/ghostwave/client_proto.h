@@ -28,7 +28,8 @@ constexpr uint8_t kProtocolVersion = 1;
 // 3: that handshake also agrees keys, and the link is encrypted after it.
 // 5: SosCancelled.
 // 6: NO_KEY: a DM is never sent unencrypted.
-constexpr uint32_t kProtocolMinor = 9;
+// 10: Traceroute / TraceResult (multi-hop).
+constexpr uint32_t kProtocolMinor = 10;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -113,6 +114,7 @@ enum class ToKind : uint8_t {
   RequestKey = 26,        // 1.4
   SetTx = 27,             // 1.8
   LinkPing = 28,          // 1.9
+  Traceroute = 29,        // 1.10
 };
 
 struct ToRadio {
@@ -136,6 +138,8 @@ struct ToRadio {
   OptU32 batteryPct, accuracyM;
   // SetTx: on
   bool on = false;
+  // Traceroute: nodeId, maxHops (0 = the node's default)
+  uint32_t maxHops = 0;
   // SendChannelText: channel, text, clientMsgId.  AddChannel: channel, psk.
   // RemoveChannel: channel.  SetName: name.
   std::string channel;
@@ -167,6 +171,7 @@ enum class FromKind : uint8_t {
   PinChallenge = 28,   // 1.2
   SosCancelled = 29,   // 1.5
   LinkPingResult = 30,   // 1.9
+  TraceResult = 31,      // 1.10
 };
 
 struct StatusInfo {
@@ -221,6 +226,11 @@ struct FromRadio {
   // LinkPingResult: nodeId, answered, rssiDbm (forward), reverseDbm
   bool answered = false;
   OptI32 reverseDbm;
+  // TraceResult: nodeId (the target), answered, the way out (relays, then the
+  // target) and the way back (relays, then this node), each with the signal
+  // that node heard the frame at. Empty when unanswered.
+  std::vector<uint32_t> fwdNodes, backNodes;
+  std::vector<int32_t> fwdRssi, backRssi;
   uint32_t count = 0;
   StatusInfo status;
   // Text / Delivered / Neighbor / ChannelMessage: signal of the frame that

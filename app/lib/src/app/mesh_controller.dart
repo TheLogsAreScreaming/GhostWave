@@ -13,6 +13,7 @@ import '../data/mesh_store.dart';
 import '../data/message_split.dart';
 import '../data/models.dart';
 import '../data/node_journal.dart';
+import '../data/path_trace.dart';
 import '../data/team_trails.dart';
 import '../data/timeline.dart';
 import '../data/trip.dart';
@@ -356,6 +357,8 @@ class MeshController extends Notifier<MeshState> {
             ),
           );
         }
+      case pb.FromRadio_Event.traceResult:
+        _onTraceResult(e.traceResult);
       case pb.FromRadio_Event.peerIdent:
         _onPeerIdent(e.peerIdent);
       case pb.FromRadio_Event.keyChange:
@@ -744,6 +747,64 @@ class MeshController extends Notifier<MeshState> {
         _pingWaits.remove(node);
         return LinkPingOutcome(node: node, answered: false);
       },
+    );
+  }
+
+  final Map<int, Completer<PathTrace>> _traceWaits = {};
+
+  /// Whether the connected node can trace a path through relays (protocol 1.10).
+  bool get nodeCanTrace {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 10;
+  }
+
+  /// Traces the path to [node] and back, through up to [maxHops] relays each
+  /// way (1-8; 0 = the node's default, 5). Throws [NodeError] (RATE_LIMITED:
+  /// one trace at a time, 30 s apart; BAD_ARGUMENT) or [StateError].
+  Future<PathTrace> traceroute(int node, {int maxHops = 0}) async {
+    final session = _link.session;
+    if (session == null || !nodeCanTrace) throw StateError('This node cannot trace a route from the app.');
+    final done = Completer<PathTrace>();
+    _traceWaits[node] = done;
+    try {
+      await session.request(
+        pb.ToRadio(
+          traceroute: pb.Traceroute(nodeId: node, maxHops: maxHops),
+        ),
+      );
+    } on Object {
+      _traceWaits.remove(node);
+      rethrow;
+    }
+    // the node gives up after 45 s and says so; this only covers a lost link
+    return done.future.timeout(
+      const Duration(seconds: 55),
+      onTimeout: () {
+        _traceWaits.remove(node);
+        return PathTrace.unanswered(target: node, at: _now());
+      },
+    );
+  }
+
+  void _onTraceResult(pb.TraceResult r) {
+    final waiting = _traceWaits.remove(r.nodeId);
+    if (waiting == null || waiting.isCompleted) return;
+    final at = _now();
+    if (!r.answered) {
+      waiting.complete(PathTrace.unanswered(target: r.nodeId, at: at));
+      return;
+    }
+    List<TraceStep> steps(List<int> nodes, List<int> rssi) => [
+      for (var i = 0; i < nodes.length && i < rssi.length; i++) TraceStep(node: nodes[i], rssiDbm: rssi[i]),
+    ];
+    waiting.complete(
+      PathTrace(
+        target: r.nodeId,
+        answered: true,
+        at: at,
+        out: steps(r.forwardNodes, r.forwardRssiDbm),
+        back: steps(r.backNodes, r.backRssiDbm),
+      ),
     );
   }
 

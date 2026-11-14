@@ -56,6 +56,21 @@ struct Writer {
     b.insert(b.end(), p, p + n);
   }
   void bytes(uint32_t f, const Bytes& v) { bytes(f, v.data(), v.size()); }
+  // Repeated scalars, packed (proto3's default encoding).
+  void packedFx32(uint32_t f, const std::vector<uint32_t>& v) {
+    if (v.empty()) return;
+    tag(f, kLen);
+    varint(4 * v.size());
+    for (uint32_t x : v)
+      for (int i = 0; i < 4; ++i) b.push_back(static_cast<uint8_t>(x >> (8 * i)));
+  }
+  void packedSint(uint32_t f, const std::vector<int32_t>& v) {
+    if (v.empty()) return;
+    Bytes sub;
+    Writer w{sub};
+    for (int32_t x : v) w.varint((static_cast<uint32_t>(x) << 1) ^ static_cast<uint32_t>(x >> 31));
+    bytes(f, sub);
+  }
   void str(uint32_t f, const std::string& s) { bytes(f, reinterpret_cast<const uint8_t*>(s.data()), s.size()); }
   // Sub-messages are always sent, even empty: presence is meaningful (oneof,
   // Position = fix).
@@ -149,6 +164,37 @@ struct Field {
   bool fx32(uint32_t& out) const {
     if (wt != kFixed32) return false;
     out = static_cast<uint32_t>(v);
+    return true;
+  }
+  // A repeated fixed32: packed, or one element per field.
+  bool repFx32(std::vector<uint32_t>& out) const {
+    if (wt == kFixed32) {
+      out.push_back(static_cast<uint32_t>(v));
+      return true;
+    }
+    if (wt != kLen || len % 4) return false;
+    for (size_t i = 0; i < len; i += 4)
+      out.push_back(uint32_t(data[i]) | (uint32_t(data[i + 1]) << 8) | (uint32_t(data[i + 2]) << 16) |
+                    (uint32_t(data[i + 3]) << 24));
+    return true;
+  }
+  // A repeated sint32: packed, or one element per field.
+  bool repSint(std::vector<int32_t>& out) const {
+    auto unzig = [](uint64_t z64) {
+      const auto z = static_cast<uint32_t>(z64);
+      return static_cast<int32_t>((z >> 1) ^ (~(z & 1) + 1));
+    };
+    if (wt == kVarint) {
+      out.push_back(unzig(v));
+      return true;
+    }
+    if (wt != kLen) return false;
+    Reader r{data, data + len};
+    while (r.p != r.e) {
+      uint64_t z;
+      if (!r.varint(z)) return false;
+      out.push_back(unzig(z));
+    }
     return true;
   }
   bool bytes(Bytes& out) const {
@@ -284,6 +330,10 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
     case ToKind::RequestKey: s.fx32(1, m.nodeId); break;
     case ToKind::SetTx: s.boolean(1, m.on); break;
     case ToKind::LinkPing: s.fx32(1, m.nodeId); break;
+    case ToKind::Traceroute:
+      s.fx32(1, m.nodeId);
+      s.u32(2, m.maxHops);
+      break;
     case ToKind::ListChannels:
     case ToKind::ListContacts:
     case ToKind::SosStop:
@@ -299,7 +349,7 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
   m = ToRadio{};
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
-    if (f < 10 || f > static_cast<uint32_t>(ToKind::LinkPing)) return 0;   // newer requests: ignored
+    if (f < 10 || f > static_cast<uint32_t>(ToKind::Traceroute)) return 0;   // newer requests: ignored
     if (v.wt != kLen) return -1;
     ToKind k = static_cast<ToKind>(f);
     m.kind = k;
@@ -360,6 +410,10 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
           return 0;
         case ToKind::LinkPing:
           if (g == 1) return ok(x.fx32(m.nodeId));
+          return 0;
+        case ToKind::Traceroute:
+          if (g == 1) return ok(x.fx32(m.nodeId));
+          if (g == 2) return ok(x.u32(m.maxHops));
           return 0;
         default: return 0;
       }
@@ -426,6 +480,14 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.boolean(2, m.answered);
       s.optSint(3, m.rssiDbm);
       s.optSint(4, m.reverseDbm);
+      break;
+    case FromKind::TraceResult:
+      s.fx32(1, m.nodeId);
+      s.boolean(2, m.answered);
+      s.packedFx32(3, m.fwdNodes);
+      s.packedSint(4, m.fwdRssi);
+      s.packedFx32(5, m.backNodes);
+      s.packedSint(6, m.backRssi);
       break;
     case FromKind::Neighbor:
       s.fx32(1, m.nodeId);
@@ -506,7 +568,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
   return parse(p, n, [&](uint32_t f, const Field& v) -> int {
     if (f == 1) return ok(v.u32(m.reqId));
     if (f == 2) return ok(v.boolean(m.replayed));
-    if (f < 10 || f > static_cast<uint32_t>(FromKind::LinkPingResult)) return 0;   // newer events: ignored
+    if (f < 10 || f > static_cast<uint32_t>(FromKind::TraceResult)) return 0;   // newer events: ignored
     if (v.wt != kLen) return -1;
     FromKind k = static_cast<FromKind>(f);
     m.kind = k;
@@ -569,6 +631,16 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
           if (g == 2) return ok(x.boolean(m.answered));
           if (g == 3) return ok(x.optSint(m.rssiDbm));
           if (g == 4) return ok(x.optSint(m.reverseDbm));
+          return 0;
+        case FromKind::TraceResult:
+          switch (g) {
+            case 1: return ok(x.fx32(m.nodeId));
+            case 2: return ok(x.boolean(m.answered));
+            case 3: return ok(x.repFx32(m.fwdNodes));
+            case 4: return ok(x.repSint(m.fwdRssi));
+            case 5: return ok(x.repFx32(m.backNodes));
+            case 6: return ok(x.repSint(m.backRssi));
+          }
           return 0;
         case FromKind::Neighbor:
           if (g == 1) return ok(x.fx32(m.nodeId));
