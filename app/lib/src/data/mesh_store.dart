@@ -13,6 +13,7 @@ import 'models.dart';
 import 'node_journal.dart';
 import 'timeline.dart';
 import 'team_trails.dart';
+import 'waypoints.dart';
 
 /// Trails from [toJson]'s `trails`; anything malformed is dropped.
 Map<int, List<TrailFix>> _trailsFromJson(Object? j) {
@@ -58,6 +59,7 @@ class StoredMesh {
     this.trails = const {},
     this.journal = const NodeJournal(),
     this.signalLog = const [],
+    this.waypoints = const WaypointBook(),
     this.problem = HistoryProblem.none,
   });
 
@@ -94,6 +96,7 @@ class StoredMesh {
       trails: _trailsFromJson(j['trails']),
       journal: NodeJournal.fromJson(j['journal']),
       signalLog: signalLogFromJson(j['signal']),
+      waypoints: WaypointBook.fromJson(j['waypoints']),
     );
   }
 
@@ -127,6 +130,9 @@ class StoredMesh {
   /// Signal changes of heard nodes, oldest first (for the timeline).
   final List<SignalShift> signalLog;
 
+  /// Waypoints, ours and others'.
+  final WaypointBook waypoints;
+
   /// Why this snapshot is empty, if the saved one could not be read. Not saved.
   final HistoryProblem problem;
 
@@ -152,6 +158,7 @@ class StoredMesh {
     ],
     if (!journal.isEmpty) 'journal': journal.toJson(),
     if (signalLog.isNotEmpty) 'signal': [for (final x in signalLog) x.toJson()],
+    if (!waypoints.isEmpty) 'waypoints': waypoints.toJson(),
   };
 }
 
