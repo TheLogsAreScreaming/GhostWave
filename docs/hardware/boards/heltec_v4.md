@@ -13,3 +13,5 @@ This board has an amplifier after the radio chip. `power` sets the level at the 
 ## After an interrupted upload
 
 Reconnect this board over USB, select its serial port again, then rerun the same `heltec_v4` upload command. If the port does not appear, use the manufacturer's download-mode procedure for the exact PCB revision. After upload, open `pio device monitor --port PORT --baud 115200` and run `status` to check the running firmware before a radio test.
+
+The battery level shows on the screen and in the app (read through the board's voltage divider; percentages are approximate).
