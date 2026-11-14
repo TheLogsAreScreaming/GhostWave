@@ -23,6 +23,8 @@ constexpr bool kVextOn = false;
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0
 #define GW_HAS_BOARD_POWER 1
+#define GW_HAS_PMU_BATTERY 1   // the power chip measures the cell
+inline XPowersLibInterface* gwPmu = nullptr;
 inline void gwBoardPower() {
   // AXP2101 on I2C1: ALDO3 powers the radio.
   Wire1.begin(42, 41);
@@ -31,6 +33,8 @@ inline void gwBoardPower() {
   if (pmu.init()) {
     pmu.setPowerChannelVoltage(XPOWERS_ALDO3, 3300);
     pmu.enablePowerOutput(XPOWERS_ALDO3);
+    gwPmu = &pmu;
+    pmu.enableBattVoltageMeasure();
   } else {
     Serial.println("power chip not found: the radio may be off");
   }

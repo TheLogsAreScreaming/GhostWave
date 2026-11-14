@@ -9,3 +9,5 @@ Flash with `pio run -t upload`. The phone app connects over Bluetooth (pairing k
 Fit the antenna first, then type `tx on`: a fresh board only receives until you do. The middle button: press it to turn the screen page, hold it 3 seconds to start an SOS, double-press to stop it. On T-Beam 1.1 the extra LED blinks every 5 seconds. GPS is not used yet: it needs the power chip switched on for it.
 
 For T-Beams with an AXP192 or AXP2101 power chip. GPS is not used.
+
+The battery level shows on the screen and in the app, read by the power chip.
