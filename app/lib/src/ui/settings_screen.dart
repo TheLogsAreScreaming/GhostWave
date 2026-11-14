@@ -15,10 +15,12 @@ import '../app/backup.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
+import '../app/radios.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'background_setup_screen.dart';
 import 'backup_screen.dart';
+import 'my_radios_screen.dart';
 import 'offline_maps_screen.dart';
 import 'privacy_screen.dart';
 import 'transmit.dart';
@@ -141,6 +143,12 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
             const _Header('This phone'),
+            ListTile(
+              leading: const Icon(Icons.settings_input_antenna),
+              title: const Text('My radios'),
+              subtitle: Text(_radiosSummary(ref.watch(radiosProvider).length, ref.watch(activeRadioProvider))),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const MyRadiosScreen())),
+            ),
             ListTile(
               leading: const Icon(Icons.straighten),
               title: const Text('Distance units'),
@@ -303,6 +311,7 @@ Future<void> confirmAndResetAppData(BuildContext context, WidgetRef ref) async {
       ..invalidate(fieldReportsProvider)
       ..invalidate(nodeAddressProvider)
       ..invalidate(recentNodesProvider)
+      ..invalidate(radiosProvider)
       ..invalidate(unitsProvider)
       ..invalidate(backgroundEnabledProvider)
       ..invalidate(locationShareProvider)
@@ -361,4 +370,14 @@ class _Header extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: GwSpace.md),
     child: SectionLabel(text),
   );
+}
+
+/// "2 radios · using Trail base", for the My radios entry.
+String _radiosSummary(int count, SavedRadio? active) {
+  final saved = switch (count) {
+    0 => 'No radios saved yet',
+    1 => '1 radio',
+    _ => '$count radios',
+  };
+  return active == null ? saved : '$saved · using ${active.displayName}';
 }

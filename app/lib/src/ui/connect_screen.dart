@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/providers.dart';
+import '../app/radios.dart';
 import '../link/ble.dart';
 import '../link/contact_card.dart';
 import '../link/node_link.dart';
@@ -12,6 +13,7 @@ import '../link/transport.dart';
 import 'ble_scan_screen.dart';
 import 'connection_health.dart';
 import 'format.dart';
+import 'my_radios_screen.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -75,6 +77,10 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     }
     setState(() => _error = null);
     FocusScope.of(context).unfocus();
+    if (a.toString() != ref.read(nodeAddressProvider)) {
+      await ref.read(radiosProvider.notifier).switchTo(a.toString()); // another radio: let go of this one first
+      return;
+    }
     await ref.read(nodeAddressProvider.notifier).connectTo(a);
   }
 
@@ -153,6 +159,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                   state: state,
                   bluetooth: BleNodeRef.tryParse(ref.watch(nodeAddressProvider) ?? '') != null,
                 ),
+              const MyRadiosSection(),
               _RecentNodes(
                 current: ref.watch(nodeAddressProvider),
                 onConnect: (address) {
@@ -160,7 +167,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                     _address.text = address;
                   }
                   setState(() => _error = null);
-                  unawaited(ref.read(nodeAddressProvider.notifier).connectAddress(address));
+                  unawaited(ref.read(radiosProvider.notifier).switchTo(address));
                 },
               ),
               const SizedBox(height: 24),
@@ -189,6 +196,7 @@ class LinkStateCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final saved = ref.watch(nodeAddressProvider);
     final bluetooth = saved != null && BleNodeRef.tryParse(saved) != null;
+    final radio = ref.watch(activeRadioProvider)?.displayName;
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, Color color, String title, String detail) = switch (state) {
       LinkIdle() => (Icons.link_off, scheme.outline, 'Not connected', 'Enter the node address above.'),
@@ -196,12 +204,12 @@ class LinkStateCard extends ConsumerWidget {
         Icons.sync,
         scheme.tertiary,
         'Connecting…',
-        attempt > 1 ? '$target (attempt $attempt)' : target,
+        attempt > 1 ? '${radio ?? target} (attempt $attempt)' : radio ?? target,
       ),
       LinkUp(:final target, :final info) => (
         Icons.check_circle,
         GwColors.success,
-        'Connected to ${decodeLenient(info.name)}',
+        'Connected to ${radio ?? decodeLenient(info.name)}',
         '$target · node ${nodeIdHex(info.nodeId)} · ${info.firmware}',
       ),
       LinkWaiting(:final target, :final reason, :final retryIn) => (
@@ -261,7 +269,12 @@ class _RecentNodes extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recent = ref.watch(recentNodesProvider);
+    // radios that answered are under My radios; these are addresses that never did
+    final radios = {for (final r in ref.watch(radiosProvider)) r.address};
+    final recent = [
+      for (final r in ref.watch(recentNodesProvider))
+        if (!radios.contains(r.address)) r,
+    ];
     if (recent.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: EdgeInsets.zero,

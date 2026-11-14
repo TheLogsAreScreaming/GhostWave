@@ -227,27 +227,59 @@ class MeshController extends Notifier<MeshState> {
   Future<void> _onState(LinkState s) async {
     if (s is! LinkUp) return;
     final id = s.info.nodeId;
-    if (state.nodeId != id) {
-      _flushSave();
-      final store = _store;
-      final saved = store == null ? const StoredMesh() : await store.load(id);
-      if (!ref.mounted) return;
-      state = MeshState(
-        nodeId: id,
-        contacts: saved.contacts,
-        messages: saved.messages,
-        alerts: saved.alerts,
-        ownSos: saved.ownSos,
-        channels: saved.channels,
-        channelMessages: saved.channelMessages,
-        drafts: saved.drafts,
-        trails: pruneTrails(saved.trails, _now()),
-        journal: saved.journal.markListening(_now()),
-        signalLog: saved.signalLog,
-        historyProblem: saved.problem,
-      );
-    }
+    if (state.nodeId != id && !await _loadRadio(id)) return;
     await _sync(s.session);
+  }
+
+  // ---------------------------------------------------------- active radio --
+  // Each radio's history is its own file; these swap which one is shown.
+
+  int _loadGen = 0;
+
+  /// Saves the shown history and loads [id]'s (empty for null). False if a
+  /// newer load replaced this one, or the controller is gone.
+  Future<bool> _loadRadio(int? id) async {
+    final gen = ++_loadGen;
+    _flushSave();
+    final store = _store;
+    final saved = store == null || id == null ? const StoredMesh() : await store.load(id);
+    if (!ref.mounted || gen != _loadGen) return false;
+    state = id == null
+        ? const MeshState()
+        : MeshState(
+            nodeId: id,
+            contacts: saved.contacts,
+            messages: saved.messages,
+            alerts: saved.alerts,
+            ownSos: saved.ownSos,
+            channels: saved.channels,
+            channelMessages: saved.channelMessages,
+            drafts: saved.drafts,
+            trails: pruneTrails(saved.trails, _now()),
+            journal: saved.journal.markListening(_now()),
+            signalLog: saved.signalLog,
+            historyProblem: saved.problem,
+          );
+    return true;
+  }
+
+  /// Shows the saved chats, contacts and channels of the radio [nodeId] (null:
+  /// a radio that has not answered yet, so nothing) while the app switches to
+  /// it, so nothing typed meanwhile lands in the previous radio's history.
+  Future<void> showRadio(int? nodeId) async {
+    if (nodeId != null && nodeId == state.nodeId) return;
+    await _loadRadio(nodeId);
+  }
+
+  /// Deletes the radio [nodeId]'s history on this phone (the user forgot it).
+  Future<void> deleteRadioHistory(int nodeId) async {
+    if (state.nodeId == nodeId) {
+      _saveTimer?.cancel();
+      _saveTimer = null;
+      _loadGen++;
+      state = const MeshState();
+    }
+    await _store?.delete(nodeId);
   }
 
   /// After every (re)connect: contacts, own position, SOS state, outbox.
