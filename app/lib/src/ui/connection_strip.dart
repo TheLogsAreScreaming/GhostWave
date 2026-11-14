@@ -8,20 +8,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/providers.dart';
+import '../app/radios.dart';
 import '../link/node_link.dart';
 import 'connect_screen.dart' show LinkStateCard;
+import 'my_radios_screen.dart';
 import 'theme.dart';
 
 /// The strip's words for [state], or null when there is nothing to say.
-(IconData, String)? connectionSummary(LinkState? state) => switch (state) {
-  null || LinkUp() => null,
+/// [radio] names the active radio once the phone has more than one.
+(IconData, String)? connectionSummary(LinkState? state, {String? radio}) => switch (state) {
+  null => null,
+  LinkUp() => radio == null ? null : (Icons.settings_input_antenna, 'Using $radio. Tap to switch radios.'),
   LinkIdle() => (Icons.link_off, 'Not connected. Messages wait on this phone.'),
-  LinkConnecting() => (Icons.sync, 'Connecting to your radio… Messages wait on this phone.'),
+  LinkConnecting() => (Icons.sync, 'Connecting to ${radio ?? 'your radio'}… Messages wait on this phone.'),
   LinkWaiting(:final retryIn) => (
     Icons.schedule,
-    'Radio link dropped. Retrying in ${retryIn.inSeconds} s; messages wait on this phone.',
+    '${radio ?? 'Radio'} link dropped. Retrying in ${retryIn.inSeconds} s; messages wait on this phone.',
   ),
-  LinkNeedsPin() => (Icons.lock_outline, 'Your radio needs its PIN. Messages wait on this phone.'),
+  LinkNeedsPin() => (Icons.lock_outline, '${radio ?? 'Your radio'} needs its PIN. Messages wait on this phone.'),
   LinkFailed() => (Icons.error_outline, 'Not connected: the link stopped. Tap for what to do.'),
 };
 
@@ -33,7 +37,10 @@ class ConnectionStrip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(linkStateProvider).value;
-    final summary = connectionSummary(state);
+    // name the radio only when there is more than one to mix up
+    final several = ref.watch(radiosProvider.select((l) => l.length > 1));
+    final radio = several ? ref.watch(activeRadioProvider)?.displayName : null;
+    final summary = connectionSummary(state, radio: radio);
     if (summary == null || state == null) return const SizedBox.shrink();
     final (icon, text) = summary;
     final scheme = Theme.of(context).colorScheme;
@@ -41,29 +48,31 @@ class ConnectionStrip extends ConsumerWidget {
     return Material(
       color: failed ? GwColors.alertContainer : scheme.surfaceContainerHighest,
       child: InkWell(
-        onTap: () => unawaited(
-          showModalBottomSheet<void>(
-            context: context,
-            showDragHandle: true,
-            builder: (sheet) => SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(GwSpace.md, 0, GwSpace.md, GwSpace.md),
-                child: Consumer(
-                  builder: (context, ref, _) {
-                    final live = ref.watch(linkStateProvider).value ?? state;
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [LinkStateCard(state: live)],
-                    );
-                  },
+        onTap: () => state is LinkUp
+            ? unawaited(Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const MyRadiosScreen())))
+            : unawaited(
+                showModalBottomSheet<void>(
+                  context: context,
+                  showDragHandle: true,
+                  builder: (sheet) => SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(GwSpace.md, 0, GwSpace.md, GwSpace.md),
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final live = ref.watch(linkStateProvider).value ?? state;
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [LinkStateCard(state: live)],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ),
         child: Semantics(
           button: true,
-          hint: 'Shows connection details',
+          hint: state is LinkUp ? 'Shows your radios' : 'Shows connection details',
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: GwSpace.md, vertical: GwSpace.sm),
             child: Row(

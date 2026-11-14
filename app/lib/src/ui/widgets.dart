@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/preferences.dart';
 import '../app/providers.dart';
+import '../app/radios.dart';
 import '../link/contact_card.dart';
 import '../link/node_link.dart';
 import 'connect_screen.dart';
@@ -22,6 +23,8 @@ class ConnectionBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(linkStateProvider).value ?? const LinkIdle();
     final address = ref.watch(nodeAddressProvider);
+    final radio = ref.watch(activeRadioProvider);
+    final nick = radio == null || radio.nickname.isEmpty ? null : radio.nickname;
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     // word: the state at a glance; detail: which node, or what to do
@@ -30,14 +33,14 @@ class ConnectionBar extends ConsumerWidget {
         Icons.circle,
         GwColors.success,
         'Online',
-        _nodeLabel(decodeLenient(info.name), info.nodeId),
+        _nodeLabel(nick ?? decodeLenient(info.name), info.nodeId),
       ),
-      LinkConnecting(:final target) => (Icons.sync, scheme.tertiary, 'Connecting', target),
+      LinkConnecting(:final target) => (Icons.sync, scheme.tertiary, 'Connecting', radio?.displayName ?? target),
       LinkWaiting(:final target, :final retryIn) => (
         Icons.schedule,
         scheme.tertiary,
         'Retrying',
-        '$target in ${retryIn.inSeconds} s',
+        '${radio?.displayName ?? target} in ${retryIn.inSeconds} s',
       ),
       LinkFailed(:final reason) => (Icons.error_outline, scheme.error, 'Stopped', reason),
       LinkNeedsPin(:final wrong) => (

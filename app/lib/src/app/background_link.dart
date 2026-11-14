@@ -15,6 +15,7 @@ import '../link/contact_card.dart';
 import '../link/node_link.dart';
 import 'mesh_alerts.dart';
 import 'providers.dart';
+import 'radios.dart';
 
 /// What the persistent notification says.
 class BackgroundNotice {
@@ -35,16 +36,19 @@ class BackgroundNotice {
 }
 
 /// The service's notification for link state [s]; null when it should not run.
+/// [radio] is the active radio's name on this phone, when it has one.
 ///
 /// [LinkFailed] and [LinkNeedsPin] are null too: they wait for the user, so
 /// holding the phone awake for them would only waste battery.
-BackgroundNotice? backgroundNoticeFor(LinkState s) => switch (s) {
+BackgroundNotice? backgroundNoticeFor(LinkState s, {String? radio}) => switch (s) {
   LinkUp(:final info) => BackgroundNotice(
     'GhostWave connected',
-    decodeLenient(info.name).isEmpty ? nodeIdHex(info.nodeId) : decodeLenient(info.name),
+    radio ?? (decodeLenient(info.name).isEmpty ? nodeIdHex(info.nodeId) : decodeLenient(info.name)),
   ),
-  LinkConnecting(:final target) ||
-  LinkWaiting(:final target) => BackgroundNotice('GhostWave reconnecting', BleNodeRef.tryParse(target)?.name ?? target),
+  LinkConnecting(:final target) || LinkWaiting(:final target) => BackgroundNotice(
+    'GhostWave reconnecting',
+    radio ?? BleNodeRef.tryParse(target)?.name ?? target,
+  ),
   LinkIdle() || LinkFailed() || LinkNeedsPin() => null,
 };
 
@@ -190,7 +194,7 @@ final batteryExemptProvider = FutureProvider<bool>((ref) => ref.watch(background
 /// Riverpod delays provider rebuilds to the next frame.
 class BackgroundLinkManager {
   /// Creates the manager for [link].
-  BackgroundLinkManager({required this.link, required this.platform, required this.alerts}) {
+  BackgroundLinkManager({required this.link, required this.platform, required this.alerts, this.radioName}) {
     _subs
       ..add(link.states.listen((_) => _apply()))
       ..add(platform.disconnectRequests.listen((_) => link.disconnect()))
@@ -205,6 +209,9 @@ class BackgroundLinkManager {
 
   /// Tells the user when the connection ended without them.
   final MeshAlerts alerts;
+
+  /// The active radio's name on this phone (its nickname), if any.
+  final String? Function()? radioName;
 
   final List<StreamSubscription<void>> _subs = [];
   Future<void> _queue = Future<void>.value();
@@ -262,7 +269,7 @@ class BackgroundLinkManager {
   }
 
   Future<void> _step(LinkState state) async {
-    final base = _enabled ? backgroundNoticeFor(state) : null;
+    final base = _enabled ? backgroundNoticeFor(state, radio: radioName?.call()) : null;
     final notice = base == null || !_locationGranted
         ? base
         : BackgroundNotice(base.title, '${base.text} · sharing your location');
@@ -296,6 +303,9 @@ class BackgroundLinkManager {
     _ => Future<void>.value(),
   };
 
+  /// Shows the notification again (the active radio was renamed).
+  void refresh() => _apply();
+
   /// Waits for pending service calls (tests).
   Future<void> get idle => _queue;
 
@@ -314,10 +324,15 @@ final backgroundLinkProvider = Provider<BackgroundLinkManager>((ref) {
     link: ref.watch(nodeLinkProvider),
     platform: ref.watch(backgroundPlatformProvider),
     alerts: ref.watch(meshAlertsProvider),
+    radioName: () {
+      final r = ref.read(activeRadioProvider);
+      return r == null || r.nickname.isEmpty ? null : r.nickname;
+    },
   );
   ref
     ..listen(backgroundEnabledProvider, (_, on) => manager.enabled = on ?? false, fireImmediately: true)
     ..listen(appForegroundProvider, (_, fg) => manager.foreground = fg, fireImmediately: true)
+    ..listen(activeRadioProvider.select((r) => r?.nickname), (_, _) => manager.refresh())
     ..onDispose(manager.dispose);
   return manager;
 });

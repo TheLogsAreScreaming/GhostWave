@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/providers.dart';
+import '../app/radios.dart';
 import '../link/ble.dart';
 import 'theme.dart';
 
@@ -110,7 +111,8 @@ class _BleScanScreenState extends ConsumerState<BleScanScreen> {
     try {
       await _end();
       if (!mounted) return;
-      await ref.read(nodeAddressProvider.notifier).connectAddress(BleNodeRef(a.id, a.name).encode());
+      // through the radio list, so the previous radio is let go cleanly
+      await ref.read(radiosProvider.notifier).switchTo(BleNodeRef(a.id, a.name).encode());
       if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
     } finally {
       _connecting = false;

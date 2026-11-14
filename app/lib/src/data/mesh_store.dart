@@ -291,6 +291,17 @@ class MeshStore {
     }
   }
 
+  /// Deletes [nodeId]'s saved history (the user forgot that radio). Other
+  /// radios' histories and the key stay.
+  Future<void> delete(int nodeId) async {
+    await idle;
+    _blocked.remove(nodeId);
+    final f = _file(nodeId);
+    for (final g in [f, File('${f.path}.tmp'), File('${f.path}.bad')]) {
+      if (g.existsSync()) await g.delete();
+    }
+  }
+
   Future<void> _deleteFiles() async {
     await _queue.catchError((Object _) {});
     if (!dir.existsSync()) return;
@@ -303,6 +314,8 @@ class MeshStore {
   /// Loads [nodeId]'s history; empty if none or unreadable, with the reason in
   /// [StoredMesh.problem].
   Future<StoredMesh> load(int nodeId) async {
+    // a save still being written (switching radios away and back) must land first
+    await idle;
     final SecretKey key;
     try {
       key = await _ready();
