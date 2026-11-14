@@ -300,6 +300,14 @@ class NodeAddressNotifier extends Notifier<String?> {
 
   /// Disconnects and stops reconnecting. The address stays saved.
   void disconnect() => ref.read(nodeLinkProvider).disconnect();
+
+  /// Disconnects and forgets the saved address (the radio was forgotten), so
+  /// the app does not reconnect to it at the next start.
+  void forgetSaved() {
+    ref.read(nodeLinkProvider).disconnect();
+    state = null;
+    unawaited(ref.read(sharedPrefsProvider).remove(_key));
+  }
 }
 
 /// The saved node address.

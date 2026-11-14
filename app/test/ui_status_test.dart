@@ -6,6 +6,7 @@ import 'package:ghostwave_app/src/app/providers.dart';
 import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
 import 'package:ghostwave_app/src/ui/status_screen.dart';
 import 'package:ghostwave_app/src/ui/theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> _pump(WidgetTester tester, pb.Status s, {Size size = const Size(412, 892), double text = 1}) async {
   tester.view.physicalSize = size;
@@ -13,9 +14,11 @@ Future<void> _pump(WidgetTester tester, pb.Status s, {Size size = const Size(412
   tester.platformDispatcher.textScaleFactorTestValue = text;
   addTearDown(tester.view.reset);
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [nodeStatusProvider.overrideWith((ref) async => s)],
+      overrides: [nodeStatusProvider.overrideWith((ref) async => s), sharedPrefsProvider.overrideWithValue(prefs)],
       child: MaterialApp(theme: buildGhostWaveTheme(), home: const StatusScreen()),
     ),
   );

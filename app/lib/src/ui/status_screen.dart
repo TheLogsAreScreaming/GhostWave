@@ -10,6 +10,7 @@ import '../gen/ghostwave.pb.dart' as pb;
 import 'transmit.dart';
 import 'theme.dart';
 import 'field_tools_screen.dart';
+import 'my_radios_screen.dart';
 import 'widgets.dart';
 
 /// The node's `Status` counters, refreshed every 10 s while visible.
@@ -167,6 +168,8 @@ class _StatusList extends ConsumerWidget {
                 title: 'Radio overview',
                 detail: 'Live activity and delivery counters from your connected node.',
               ),
+              const SizedBox(height: GwSpace.sm),
+              const ActiveRadioCard(),
               const SizedBox(height: GwSpace.lg),
               LayoutBuilder(
                 builder: (context, box) {
