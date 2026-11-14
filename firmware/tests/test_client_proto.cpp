@@ -372,13 +372,13 @@ static void testUnknownAndMalformed() {
   // a request from a newer protocol: field 99, length-delimited -> no request
   const uint8_t future[] = {0x08, 0x05, 0x9A, 0x06, 0x02, 0x08, 0x01};
   CHECK(decodeTo(future, sizeof future, t) && t.kind == ToKind::None && t.reqId == 5);
-  // 1.11's oneof numbers (30-34 / 32-33) are not this version's: skipped too
-  for (uint8_t f : {30, 31, 32, 33, 34, 36, 37}) {
+  // unused oneof numbers (between and after this version's) are skipped too
+  for (uint8_t f : {32, 33, 34, 36, 37}) {
     const uint8_t other[] = {0x08, 0x05, static_cast<uint8_t>(((f << 3) | 2) | 0x80),
                              static_cast<uint8_t>(((f << 3) | 2) >> 7), 0x02, 0x08, 0x01};   // tag is a 2-byte varint
     CHECK(decodeTo(other, sizeof other, t) && t.kind == ToKind::None && t.reqId == 5);
   }
-  for (uint8_t f : {32, 33, 35, 36}) {
+  for (uint8_t f : {33, 35, 36}) {
     FromRadio fr;
     const uint8_t other[] = {0x08, 0x05, static_cast<uint8_t>(((f << 3) | 2) | 0x80),
                              static_cast<uint8_t>(((f << 3) | 2) >> 7), 0x02, 0x08, 0x01};   // tag is a 2-byte varint
