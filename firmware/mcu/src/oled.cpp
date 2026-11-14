@@ -365,6 +365,11 @@ void wake() { g_wakeRequest = true; }
 
 void nextPage() { g_nextRequest = true; }
 
+void setOffAfterS(uint32_t s) {
+  g_policy.setOffAfter(s * 1000u);
+  g_wakeRequest = true;   // show the change: the screen lights now and counts from here
+}
+
 bool due(uint32_t now) {
   if (!g_ok) return false;
   return g_passkeyNew || g_msgNew || g_wakeRequest || g_nextRequest || static_cast<int32_t>(now - g_nextDraw) >= 0;

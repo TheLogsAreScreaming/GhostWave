@@ -19,6 +19,7 @@ import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'background_setup_screen.dart';
 import 'backup_screen.dart';
+import 'node_settings_screen.dart';
 import 'offline_maps_screen.dart';
 import 'privacy_screen.dart';
 import 'transmit.dart';
@@ -98,6 +99,22 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   value: !ref.watch(meshProvider.select((m) => m.txOff)),
                   onChanged: (on) => unawaited(confirmSetTransmit(context, ref, on: on)),
+                ),
+              if (ref.read(meshProvider.notifier).nodeCanSettings)
+                ListTile(
+                  leading: const Icon(Icons.tune),
+                  title: const Text('Radio and device settings'),
+                  subtitle: const Text('Region, frequency, power, channel key, screen, lights, button'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => unawaited(
+                    Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const NodeSettingsScreen())),
+                  ),
+                )
+              else
+                const ListTile(
+                  dense: true,
+                  leading: Icon(Icons.system_update_alt),
+                  title: Text('Update the node\'s firmware to change its radio and device settings from here.'),
                 ),
               ListTile(
                 leading: const Icon(Icons.memory),

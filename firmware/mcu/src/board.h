@@ -144,6 +144,11 @@ constexpr int kPin3v3SEnable = 34;
 // variants/nrf52840/rak3401_1watt/variant.h and RAK's RAK13302 datasheet.
 // The radio is on the WisBlock slot bus (SPI1), not the RAK4631's internal bus.
 #define GW_BOARD_NAME "rak3401_1w"
+// Owner's decision (2026-11-14): this 1 W board may go above the general
+// 22 dBm cap. With Meshtastic's RAK13302 gain table the most it reaches is
+// drive 20-21 + 8-9 dB = 29 dBm (about 0.8 W). The user is responsible for
+// using a legal setting where they are (DESIGN §12).
+#define GW_MAX_OUTPUT_DBM 29
 constexpr int kPinLoraCs = 26;      // P0.26
 constexpr int kPinLoraDio1 = 10;    // P0.10, an NFC pin: needs CONFIG_NFCT_PINS_AS_GPIOS
 constexpr int kPinLoraBusy = 9;     // P0.09, an NFC pin

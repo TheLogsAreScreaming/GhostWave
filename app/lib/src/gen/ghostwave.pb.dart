@@ -111,6 +111,8 @@ enum ToRadio_Request {
   setTx,
   linkPing,
   traceroute,
+  getSettings,
+  setSettings,
   notSet
 }
 
@@ -137,6 +139,8 @@ class ToRadio extends $pb.GeneratedMessage {
     SetTx? setTx,
     LinkPing? linkPing,
     Traceroute? traceroute,
+    GetSettings? getSettings,
+    Settings? setSettings,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -160,6 +164,8 @@ class ToRadio extends $pb.GeneratedMessage {
     if (setTx != null) result.setTx = setTx;
     if (linkPing != null) result.linkPing = linkPing;
     if (traceroute != null) result.traceroute = traceroute;
+    if (getSettings != null) result.getSettings = getSettings;
+    if (setSettings != null) result.setSettings = setSettings;
     return result;
   }
 
@@ -193,6 +199,8 @@ class ToRadio extends $pb.GeneratedMessage {
     27: ToRadio_Request.setTx,
     28: ToRadio_Request.linkPing,
     29: ToRadio_Request.traceroute,
+    30: ToRadio_Request.getSettings,
+    31: ToRadio_Request.setSettings,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -220,7 +228,9 @@ class ToRadio extends $pb.GeneratedMessage {
       26,
       27,
       28,
-      29
+      29,
+      30,
+      31
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
@@ -263,6 +273,10 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: LinkPing.$_createMessage)
     ..aOM<Traceroute>(29, _omitFieldNames ? '' : 'traceroute',
         subBuilder: Traceroute.$_createMessage)
+    ..aOM<GetSettings>(30, _omitFieldNames ? '' : 'getSettings',
+        subBuilder: GetSettings.$_createMessage)
+    ..aOM<Settings>(31, _omitFieldNames ? '' : 'setSettings',
+        subBuilder: Settings.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -305,6 +319,8 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
+  @$pb.TagNumber(30)
+  @$pb.TagNumber(31)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -326,6 +342,8 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
+  @$pb.TagNumber(30)
+  @$pb.TagNumber(31)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -562,6 +580,29 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearTraceroute() => $_clearField(29);
   @$pb.TagNumber(29)
   Traceroute ensureTraceroute() => $_ensure(20);
+
+  /// protocol 1.11
+  @$pb.TagNumber(30)
+  GetSettings get getSettings => $_getN(21);
+  @$pb.TagNumber(30)
+  set getSettings(GetSettings value) => $_setField(30, value);
+  @$pb.TagNumber(30)
+  $core.bool hasGetSettings() => $_has(21);
+  @$pb.TagNumber(30)
+  void clearGetSettings() => $_clearField(30);
+  @$pb.TagNumber(30)
+  GetSettings ensureGetSettings() => $_ensure(21);
+
+  @$pb.TagNumber(31)
+  Settings get setSettings => $_getN(22);
+  @$pb.TagNumber(31)
+  set setSettings(Settings value) => $_setField(31, value);
+  @$pb.TagNumber(31)
+  $core.bool hasSetSettings() => $_has(22);
+  @$pb.TagNumber(31)
+  void clearSetSettings() => $_clearField(31);
+  @$pb.TagNumber(31)
+  Settings ensureSetSettings() => $_ensure(22);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -1849,6 +1890,360 @@ class Traceroute extends $pb.GeneratedMessage {
   void clearMaxHops() => $_clearField(2);
 }
 
+/// 1.11: read the node's settings. Replies with a Settings event holding
+/// every value this node supports and its limits.
+class GetSettings extends $pb.GeneratedMessage {
+  factory GetSettings() => GetSettings._();
+
+  GetSettings._();
+
+  factory GetSettings.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetSettings()..mergeFromBuffer(data, registry);
+  factory GetSettings.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetSettings()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSettings',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: GetSettings.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSettings clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSettings copyWith(void Function(GetSettings) updates) =>
+      super.copyWith((message) => updates(message as GetSettings))
+          as GetSettings;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use GetSettings() / GetSettings.new instead')
+  static GetSettings create() => GetSettings._();
+  static $pb.GeneratedMessage $_createMessage() => GetSettings._();
+  @$core.override
+  GetSettings createEmptyInstance() => GetSettings._();
+  @$core.pragma('dart2js:noInline')
+  static GetSettings getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetSettings>(
+          GetSettings.$_createMessage);
+  static GetSettings? _defaultInstance;
+}
+
+/// 1.11: the node's radio and device settings. As a request (set_settings),
+/// only the fields present change, each exactly like its console command, and
+/// all are saved; the reply is Ok, or Error BAD_ARGUMENT (detail says which
+/// field) with nothing changed. As an event (settings), the current values;
+/// the limit and capability fields are report-only. (The capability
+/// fields are named *_fitted, not has_*: has_ clashes with protobuf presence.)
+class Settings extends $pb.GeneratedMessage {
+  factory Settings({
+    $core.List<$core.int>? name,
+    $core.String? region,
+    $core.int? freqKhz,
+    $core.int? outputDbm,
+    $core.List<$core.int>? channelKey,
+    $core.bool? channelKeyOn,
+    $core.bool? requireEncryption,
+    $core.bool? responder,
+    $core.String? blePin,
+    $core.int? screenOffS,
+    $core.bool? leds,
+    $core.bool? buttonSos,
+    $core.int? minFreqKhz,
+    $core.int? maxFreqKhz,
+    $core.int? minOutputDbm,
+    $core.int? maxOutputDbm,
+    $core.bool? screenFitted,
+    $core.bool? ledsFitted,
+    $core.bool? buttonFitted,
+    $core.bool? buttonSosAllowed,
+    $core.bool? restartNeeded,
+  }) {
+    final result = Settings._();
+    if (name != null) result.name = name;
+    if (region != null) result.region = region;
+    if (freqKhz != null) result.freqKhz = freqKhz;
+    if (outputDbm != null) result.outputDbm = outputDbm;
+    if (channelKey != null) result.channelKey = channelKey;
+    if (channelKeyOn != null) result.channelKeyOn = channelKeyOn;
+    if (requireEncryption != null) result.requireEncryption = requireEncryption;
+    if (responder != null) result.responder = responder;
+    if (blePin != null) result.blePin = blePin;
+    if (screenOffS != null) result.screenOffS = screenOffS;
+    if (leds != null) result.leds = leds;
+    if (buttonSos != null) result.buttonSos = buttonSos;
+    if (minFreqKhz != null) result.minFreqKhz = minFreqKhz;
+    if (maxFreqKhz != null) result.maxFreqKhz = maxFreqKhz;
+    if (minOutputDbm != null) result.minOutputDbm = minOutputDbm;
+    if (maxOutputDbm != null) result.maxOutputDbm = maxOutputDbm;
+    if (screenFitted != null) result.screenFitted = screenFitted;
+    if (ledsFitted != null) result.ledsFitted = ledsFitted;
+    if (buttonFitted != null) result.buttonFitted = buttonFitted;
+    if (buttonSosAllowed != null) result.buttonSosAllowed = buttonSosAllowed;
+    if (restartNeeded != null) result.restartNeeded = restartNeeded;
+    return result;
+  }
+
+  Settings._();
+
+  factory Settings.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Settings()..mergeFromBuffer(data, registry);
+  factory Settings.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Settings()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Settings',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: Settings.$_createMessage)
+    ..a<$core.List<$core.int>>(
+        1, _omitFieldNames ? '' : 'name', $pb.PbFieldType.OY)
+    ..aOS(2, _omitFieldNames ? '' : 'region')
+    ..aI(3, _omitFieldNames ? '' : 'freqKhz', fieldType: $pb.PbFieldType.OU3)
+    ..aI(4, _omitFieldNames ? '' : 'outputDbm', fieldType: $pb.PbFieldType.OS3)
+    ..a<$core.List<$core.int>>(
+        5, _omitFieldNames ? '' : 'channelKey', $pb.PbFieldType.OY)
+    ..aOB(6, _omitFieldNames ? '' : 'channelKeyOn')
+    ..aOB(7, _omitFieldNames ? '' : 'requireEncryption')
+    ..aOB(8, _omitFieldNames ? '' : 'responder')
+    ..aOS(9, _omitFieldNames ? '' : 'blePin')
+    ..aI(10, _omitFieldNames ? '' : 'screenOffS',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aOB(11, _omitFieldNames ? '' : 'leds')
+    ..aOB(12, _omitFieldNames ? '' : 'buttonSos')
+    ..aI(20, _omitFieldNames ? '' : 'minFreqKhz',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aI(21, _omitFieldNames ? '' : 'maxFreqKhz',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aI(22, _omitFieldNames ? '' : 'minOutputDbm',
+        fieldType: $pb.PbFieldType.OS3)
+    ..aI(23, _omitFieldNames ? '' : 'maxOutputDbm',
+        fieldType: $pb.PbFieldType.OS3)
+    ..aOB(24, _omitFieldNames ? '' : 'screenFitted')
+    ..aOB(25, _omitFieldNames ? '' : 'ledsFitted')
+    ..aOB(26, _omitFieldNames ? '' : 'buttonFitted')
+    ..aOB(27, _omitFieldNames ? '' : 'buttonSosAllowed')
+    ..aOB(28, _omitFieldNames ? '' : 'restartNeeded')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Settings clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Settings copyWith(void Function(Settings) updates) =>
+      super.copyWith((message) => updates(message as Settings)) as Settings;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Settings() / Settings.new instead')
+  static Settings create() => Settings._();
+  static $pb.GeneratedMessage $_createMessage() => Settings._();
+  @$core.override
+  Settings createEmptyInstance() => Settings._();
+  @$core.pragma('dart2js:noInline')
+  static Settings getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Settings>(Settings.$_createMessage);
+  static Settings? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.List<$core.int> get name => $_getN(0);
+  @$pb.TagNumber(1)
+  set name($core.List<$core.int> value) => $_setBytes(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get region => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set region($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRegion() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRegion() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get freqKhz => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set freqKhz($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasFreqKhz() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearFreqKhz() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get outputDbm => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set outputDbm($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasOutputDbm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearOutputDbm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.List<$core.int> get channelKey => $_getN(4);
+  @$pb.TagNumber(5)
+  set channelKey($core.List<$core.int> value) => $_setBytes(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasChannelKey() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearChannelKey() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get channelKeyOn => $_getBF(5);
+  @$pb.TagNumber(6)
+  set channelKeyOn($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasChannelKeyOn() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearChannelKeyOn() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get requireEncryption => $_getBF(6);
+  @$pb.TagNumber(7)
+  set requireEncryption($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasRequireEncryption() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearRequireEncryption() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get responder => $_getBF(7);
+  @$pb.TagNumber(8)
+  set responder($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasResponder() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearResponder() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get blePin => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set blePin($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasBlePin() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearBlePin() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.int get screenOffS => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set screenOffS($core.int value) => $_setUnsignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasScreenOffS() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearScreenOffS() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.bool get leds => $_getBF(10);
+  @$pb.TagNumber(11)
+  set leds($core.bool value) => $_setBool(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasLeds() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearLeds() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.bool get buttonSos => $_getBF(11);
+  @$pb.TagNumber(12)
+  set buttonSos($core.bool value) => $_setBool(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasButtonSos() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearButtonSos() => $_clearField(12);
+
+  /// report-only
+  @$pb.TagNumber(20)
+  $core.int get minFreqKhz => $_getIZ(12);
+  @$pb.TagNumber(20)
+  set minFreqKhz($core.int value) => $_setUnsignedInt32(12, value);
+  @$pb.TagNumber(20)
+  $core.bool hasMinFreqKhz() => $_has(12);
+  @$pb.TagNumber(20)
+  void clearMinFreqKhz() => $_clearField(20);
+
+  @$pb.TagNumber(21)
+  $core.int get maxFreqKhz => $_getIZ(13);
+  @$pb.TagNumber(21)
+  set maxFreqKhz($core.int value) => $_setUnsignedInt32(13, value);
+  @$pb.TagNumber(21)
+  $core.bool hasMaxFreqKhz() => $_has(13);
+  @$pb.TagNumber(21)
+  void clearMaxFreqKhz() => $_clearField(21);
+
+  @$pb.TagNumber(22)
+  $core.int get minOutputDbm => $_getIZ(14);
+  @$pb.TagNumber(22)
+  set minOutputDbm($core.int value) => $_setSignedInt32(14, value);
+  @$pb.TagNumber(22)
+  $core.bool hasMinOutputDbm() => $_has(14);
+  @$pb.TagNumber(22)
+  void clearMinOutputDbm() => $_clearField(22);
+
+  @$pb.TagNumber(23)
+  $core.int get maxOutputDbm => $_getIZ(15);
+  @$pb.TagNumber(23)
+  set maxOutputDbm($core.int value) => $_setSignedInt32(15, value);
+  @$pb.TagNumber(23)
+  $core.bool hasMaxOutputDbm() => $_has(15);
+  @$pb.TagNumber(23)
+  void clearMaxOutputDbm() => $_clearField(23);
+
+  @$pb.TagNumber(24)
+  $core.bool get screenFitted => $_getBF(16);
+  @$pb.TagNumber(24)
+  set screenFitted($core.bool value) => $_setBool(16, value);
+  @$pb.TagNumber(24)
+  $core.bool hasScreenFitted() => $_has(16);
+  @$pb.TagNumber(24)
+  void clearScreenFitted() => $_clearField(24);
+
+  @$pb.TagNumber(25)
+  $core.bool get ledsFitted => $_getBF(17);
+  @$pb.TagNumber(25)
+  set ledsFitted($core.bool value) => $_setBool(17, value);
+  @$pb.TagNumber(25)
+  $core.bool hasLedsFitted() => $_has(17);
+  @$pb.TagNumber(25)
+  void clearLedsFitted() => $_clearField(25);
+
+  @$pb.TagNumber(26)
+  $core.bool get buttonFitted => $_getBF(18);
+  @$pb.TagNumber(26)
+  set buttonFitted($core.bool value) => $_setBool(18, value);
+  @$pb.TagNumber(26)
+  $core.bool hasButtonFitted() => $_has(18);
+  @$pb.TagNumber(26)
+  void clearButtonFitted() => $_clearField(26);
+
+  @$pb.TagNumber(27)
+  $core.bool get buttonSosAllowed => $_getBF(19);
+  @$pb.TagNumber(27)
+  set buttonSosAllowed($core.bool value) => $_setBool(19, value);
+  @$pb.TagNumber(27)
+  $core.bool hasButtonSosAllowed() => $_has(19);
+  @$pb.TagNumber(27)
+  void clearButtonSosAllowed() => $_clearField(27);
+
+  @$pb.TagNumber(28)
+  $core.bool get restartNeeded => $_getBF(20);
+  @$pb.TagNumber(28)
+  set restartNeeded($core.bool value) => $_setBool(20, value);
+  @$pb.TagNumber(28)
+  $core.bool hasRestartNeeded() => $_has(20);
+  @$pb.TagNumber(28)
+  void clearRestartNeeded() => $_clearField(28);
+}
+
 enum FromRadio_Event {
   nodeInfo,
   text,
@@ -1872,6 +2267,7 @@ enum FromRadio_Event {
   sosCancelled,
   linkPingResult,
   traceResult,
+  settings,
   notSet
 }
 
@@ -1901,6 +2297,7 @@ class FromRadio extends $pb.GeneratedMessage {
     SosCancelled? sosCancelled,
     LinkPingResult? linkPingResult,
     TraceResult? traceResult,
+    Settings? settings,
   }) {
     final result = FromRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -1927,6 +2324,7 @@ class FromRadio extends $pb.GeneratedMessage {
     if (sosCancelled != null) result.sosCancelled = sosCancelled;
     if (linkPingResult != null) result.linkPingResult = linkPingResult;
     if (traceResult != null) result.traceResult = traceResult;
+    if (settings != null) result.settings = settings;
     return result;
   }
 
@@ -1962,6 +2360,7 @@ class FromRadio extends $pb.GeneratedMessage {
     29: FromRadio_Event.sosCancelled,
     30: FromRadio_Event.linkPingResult,
     31: FromRadio_Event.traceResult,
+    32: FromRadio_Event.settings,
     0: FromRadio_Event.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1991,7 +2390,8 @@ class FromRadio extends $pb.GeneratedMessage {
       28,
       29,
       30,
-      31
+      31,
+      32
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'replayed')
@@ -2038,6 +2438,8 @@ class FromRadio extends $pb.GeneratedMessage {
         subBuilder: LinkPingResult.$_createMessage)
     ..aOM<TraceResult>(31, _omitFieldNames ? '' : 'traceResult',
         subBuilder: TraceResult.$_createMessage)
+    ..aOM<Settings>(32, _omitFieldNames ? '' : 'settings',
+        subBuilder: Settings.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2082,6 +2484,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(29)
   @$pb.TagNumber(30)
   @$pb.TagNumber(31)
+  @$pb.TagNumber(32)
   FromRadio_Event whichEvent() => _FromRadio_EventByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -2105,6 +2508,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(29)
   @$pb.TagNumber(30)
   @$pb.TagNumber(31)
+  @$pb.TagNumber(32)
   void clearEvent() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -2371,6 +2775,18 @@ class FromRadio extends $pb.GeneratedMessage {
   void clearTraceResult() => $_clearField(31);
   @$pb.TagNumber(31)
   TraceResult ensureTraceResult() => $_ensure(23);
+
+  /// protocol 1.11
+  @$pb.TagNumber(32)
+  Settings get settings => $_getN(24);
+  @$pb.TagNumber(32)
+  set settings(Settings value) => $_setField(32, value);
+  @$pb.TagNumber(32)
+  $core.bool hasSettings() => $_has(24);
+  @$pb.TagNumber(32)
+  void clearSettings() => $_clearField(32);
+  @$pb.TagNumber(32)
+  Settings ensureSettings() => $_ensure(24);
 }
 
 class NodeInfo extends $pb.GeneratedMessage {

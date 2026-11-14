@@ -63,6 +63,15 @@ void loadBlePin(char out[7]);   // the saved key, or the default
 bool saveBlePin(const char* pin);
 bool blePinValid(const char* pin);
 bool saveName(const Settings& s);
+// Device settings from the app (protocol 1.11), stored apart from Settings so
+// the format boards already saved stays as it is.
+struct DeviceSettings {
+  uint32_t screenOffS = 600;   // screen goes off this long after the last event; 0 = never
+  bool leds = true;            // status LEDs
+  bool buttonSos = true;       // holding the button starts an SOS (where the board allows it)
+};
+void loadDevice(DeviceSettings& d);   // defaults when none saved
+bool saveDevice(const DeviceSettings& d);
 // Copies the stored identity secret: Settings::secret is wiped after boot.
 bool loadIdentitySeed(Key32& out);
 // Adds or replaces `id`'s key. False when kMaxStoredPeers are already held.

@@ -21,6 +21,9 @@ class McuRadio : public RadioPort {
   // Output at the antenna port, clamped to kMaxOutputDbm. Returns the value used.
   int setOutputDbm(int dbm);
   int outputDbm() const { return outputDbm_; }
+  // The output range this board can set at the antenna port (dBm).
+  static int minOutputDbm();
+  static int maxOutputDbm();
   int driveDbm() const { return driveDbm_; }
 
   // Called before every transmission; null means always allowed. While it
