@@ -8,6 +8,7 @@ import '../link/geo.dart';
 import 'models.dart';
 import 'node_journal.dart';
 import 'trip.dart';
+import 'waypoints.dart';
 
 /// What a timeline entry is about. Each kind is one filter.
 enum TimelineKind {
@@ -24,7 +25,10 @@ enum TimelineKind {
   alert('Alerts'),
 
   /// A position someone shared (check-ins with a position).
-  position('Positions');
+  position('Positions'),
+
+  /// A waypoint shared, changed or removed.
+  waypoint('Waypoints');
 
   const TimelineKind(this.label);
 
@@ -139,6 +143,40 @@ String _posText(LatLon p) => '${p.lat.toStringAsFixed(5)}, ${p.lon.toStringAsFix
 
 String _dbm(int? v) => v == null ? '' : ' · $v dBm';
 
+/// A timeline line for waypoint message [text], or null if it is not one.
+/// [who] names the sender ("You" for ours); [where] is " in #chan" or "".
+TimelineEvent? _waypointEvent(
+  String text, {
+  required String who,
+  required bool outgoing,
+  required DateTime at,
+  required String where,
+  int? nodeId,
+  String? channel,
+}) {
+  final wp = parseWaypoint(text);
+  if (wp == null) return null;
+  return switch (wp) {
+    WaypointPut(:final kind, :final name, :final pos, :final note) => TimelineEvent(
+      kind: TimelineKind.waypoint,
+      at: at,
+      title: outgoing ? 'You shared a waypoint$where' : '$who shared a waypoint$where',
+      detail: [kind.label, name, _posText(pos), if (note.isNotEmpty) _preview(note)].join(' · '),
+      nodeId: nodeId,
+      channel: channel,
+      pos: pos,
+    ),
+    WaypointRemoval(:final name) => TimelineEvent(
+      kind: TimelineKind.waypoint,
+      at: at,
+      title: outgoing ? 'You removed a waypoint$where' : '$who removed a waypoint$where',
+      detail: name,
+      nodeId: nodeId,
+      channel: channel,
+    ),
+  };
+}
+
 /// Builds the whole feed, newest first. [nameOf] names a node for display.
 List<TimelineEvent> buildTimeline({
   required String Function(int id) nameOf,
@@ -156,6 +194,18 @@ List<TimelineEvent> buildTimeline({
       // coverage-walk probes are quiet by design: keep them out of the feed
       if (m.text.startsWith('[Coverage] ')) continue;
       final who = nameOf(m.peer);
+      final wpEvent = _waypointEvent(
+        m.text,
+        who: who,
+        outgoing: m.outgoing,
+        at: m.at,
+        where: m.outgoing ? ' with $who' : '',
+        nodeId: m.peer,
+      );
+      if (wpEvent != null) {
+        out.add(wpEvent);
+        continue;
+      }
       final checkIn = parseCheckIn(m.text);
       if (checkIn?.pos case final p?) {
         out.add(
@@ -185,6 +235,19 @@ List<TimelineEvent> buildTimeline({
   for (final e in channelMessages.entries) {
     for (final m in e.value) {
       final who = m.outgoing ? 'You' : nameOf(m.src);
+      final wpEvent = _waypointEvent(
+        m.text,
+        who: who,
+        outgoing: m.outgoing,
+        at: m.at,
+        where: ' in #${e.key}',
+        nodeId: m.outgoing ? null : m.src,
+        channel: e.key,
+      );
+      if (wpEvent != null) {
+        out.add(wpEvent);
+        continue;
+      }
       final checkIn = parseCheckIn(m.text);
       if (checkIn?.pos case final p?) {
         out.add(
