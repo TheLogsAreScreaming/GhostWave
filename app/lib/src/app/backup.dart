@@ -15,12 +15,14 @@ import 'location_share.dart';
 import 'mesh_controller.dart';
 import 'preferences.dart';
 import 'providers.dart';
+import 'radios.dart';
 
 /// Preferences that travel with a backup. Per-phone choices that carry their
 /// own consent (background connection, location sharing) are asked afresh.
 const List<String> kBackupPrefKeys = [
   'node_address',
   'recent_nodes',
+  RadiosNotifier.key,
   'units',
   'walkthrough_done',
   'tile_url',
@@ -145,6 +147,7 @@ class BackupController {
     for (final address in {
       ?_ref.read(nodeAddressProvider),
       for (final r in _ref.read(recentNodesProvider)) r.address,
+      for (final r in _ref.read(radiosProvider)) r.address,
     }) {
       final pin = await pinStore.read(address);
       if (pin != null) pins[address] = pin;
@@ -184,6 +187,7 @@ class BackupController {
     _ref
       ..invalidate(nodeAddressProvider)
       ..invalidate(recentNodesProvider)
+      ..invalidate(radiosProvider)
       ..invalidate(unitsProvider)
       ..invalidate(locationShareProvider)
       ..invalidate(tileSourceProvider)
