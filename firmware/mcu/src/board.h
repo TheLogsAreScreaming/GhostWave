@@ -163,6 +163,12 @@ constexpr uint8_t kPaGainDb[22] = {7, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 
 #define GW_HAS_GPS 0
 #define GW_HAS_BLE 1
 #define GW_NRF52 1
+// Green (P1.03) and blue (P1.04) LEDs on the RAK3401, lit HIGH (Meshtastic
+// rak3401_1watt variant.h: PIN_LED1, LED_BLUE). No user button.
+#define GW_LED_PIN 35
+#define GW_LED_ON HIGH
+#define GW_LED2_PIN 36
+#define GW_LED2_ON HIGH
 #elif defined(GW_BOARD_T1000E)
 // Seeed SenseCAP T1000-E. Sources: Seeed's T1000-E SDK (smtc_hal_config.h),
 // Seeed's Arduino variant and meshtastic/firmware @ 11e3b28
