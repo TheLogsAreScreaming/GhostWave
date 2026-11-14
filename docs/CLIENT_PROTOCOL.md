@@ -22,6 +22,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | 0 | the original set |
 | 2 | the PIN handshake on `Hello` (`PinChallenge`, `Hello.pin_proof`, error `BAD_PIN`) (§7), replaced by 3 |
 | 3 | that handshake also agrees keys, and the link is encrypted after it (`PinChallenge.server_share`, `Hello.client_share`, sealed frames with version byte 2) (§7). Not compatible with minor 2: both ends must be updated. |
+| 10 | `Traceroute` (29) and `TraceResult` (31): trace the path to any node through relays, both ways, with each node's own signal reading (docs/TRACEROUTE.md). `max_hops` 1–8 (0 = 5). `RATE_LIMITED` while one is out or within 30 s; `BAD_ARGUMENT` for more than 8 hops. |
 | 9 | `LinkPing` (28) and `LinkPingResult` (30): ping a node heard directly and measure the link both ways (docs/TRACEROUTE.md). `NOT_FOUND` if not heard directly, `RATE_LIMITED` while one is out or within 5 s. |
 | 8 | `SetTx` (27): turn the node's transmitter on or off from the app, saved, as `tx on`/`tx off`. Nodes without a transmit switch (ghostwaved) answer `UNKNOWN_REQUEST`. |
 | 7 | signal strength: `rssi_dbm` on `TextMessage`, `Delivered`, `Neighbor` and `ChannelMessage`; `Status.last_rssi_dbm` and `last_heard_s` |

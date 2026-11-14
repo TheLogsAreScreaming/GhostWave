@@ -209,6 +209,18 @@ class SerialApp : public gw::AppPort {
     else Serial.printf("ping %08lx: no answer\n", static_cast<unsigned long>(node));
     GW_LINK(onLinkPing(node, answered, forwardDbm, reverseDbm));
   }
+  void onTrace(const gw::TraceResult& r) override {
+    if (!r.answered) {
+      Serial.printf("trace %08lx: no answer (path unknown)\n", static_cast<unsigned long>(r.target));
+    } else {
+      Serial.printf("trace %08lx: out", static_cast<unsigned long>(r.target));
+      for (const auto& h : r.forward) Serial.printf(" -> %08lx (%d dBm)", static_cast<unsigned long>(h.node), h.rssiDbm);
+      Serial.print("\n  back");
+      for (const auto& h : r.back) Serial.printf(" -> %08lx (%d dBm)", static_cast<unsigned long>(h.node), h.rssiDbm);
+      Serial.println();
+    }
+    GW_LINK(onTrace(r));
+  }
   void onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) override {
     GW_LINK(onNeighbor(id, pos, isNew));
   }
@@ -371,6 +383,7 @@ void printTxState() {
 void printHelp() {
   Serial.print(
       "range test: rangetest <hex-id> [seconds] | rangetest stop | rangetest | ping <hex-id> (one hop, both ways)\n"
+      "          trace <hex-id> [hops 1-8] (the path both ways, through relays)\n"
       "commands: send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | status | pos\n"
       "          keys | peer <hex-id> <hex-pubkey> | sos <text> | sosstop | sosack <hex-id>\n"
       "settings (saved): name [text] | name clear | setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
@@ -446,6 +459,23 @@ void handleCommand(std::string line) {
         case PR::TooSoon: Serial.println("one ping every 5 seconds"); break;
         case PR::NotNeighbor: Serial.println("not heard directly yet (a ping is one hop)"); break;
         case PR::BadNode: Serial.println("bad node ID"); break;
+      }
+    }
+  } else if (cmd == "trace") {
+    std::string a = word(line);
+    std::string hs = word(line);
+    uint32_t dst;
+    const int hops = hs.empty() ? 0 : std::atoi(hs.c_str());
+    if (!parseId(a, dst) || hops < 0 || hops > 255) {
+      Serial.println("usage: trace <hex-id> [hops 1-8]   (lists the path both ways)");
+    } else {
+      using TS = gw::Router::TraceStart;
+      switch (g_router->traceroute(dst, static_cast<uint8_t>(hops), nowMs())) {
+        case TS::Sent: Serial.printf("trace %08lx sent, answer within 45 s\n", static_cast<unsigned long>(dst)); break;
+        case TS::Busy: Serial.println("a trace is already out"); break;
+        case TS::TooSoon: Serial.println("one trace every 30 seconds"); break;
+        case TS::BadHops: Serial.println("hops is 1 to 8"); break;
+        case TS::BadNode: Serial.println("bad node ID"); break;
       }
     }
   } else if (cmd == "rangetest") {

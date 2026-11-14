@@ -51,6 +51,8 @@ message ToRadio {
     SetTx set_tx = 27;
     // protocol 1.9
     LinkPing link_ping = 28;
+    // protocol 1.10
+    Traceroute traceroute = 29;
   }
 }
 
@@ -168,6 +170,15 @@ message LinkPing {
   fixed32 node_id = 1;
 }
 
+// 1.10: trace the path to any node, through relays, and back
+// (docs/TRACEROUTE.md). Replies Ok when sent; the answer comes as TraceResult
+// within 45 s. RATE_LIMITED: a trace is out, or the last was under 30 s ago.
+// BAD_ARGUMENT: max_hops over 8.
+message Traceroute {
+  fixed32 node_id = 1;
+  uint32 max_hops = 2;   // 1-8; 0 = the node's default (5)
+}
+
 // --------------------------------------------------------------- node -> app
 
 message FromRadio {
@@ -199,6 +210,8 @@ message FromRadio {
     SosCancelled sos_cancelled = 29;
     // protocol 1.9
     LinkPingResult link_ping_result = 30;
+    // protocol 1.10
+    TraceResult trace_result = 31;
   }
 }
 
@@ -262,6 +275,21 @@ message LinkPingResult {
   bool answered = 2;
   optional sint32 forward_rssi_dbm = 3;
   optional sint32 reverse_rssi_dbm = 4;
+}
+
+// A Traceroute ended. answered false: no answer within 45 s (out of reach,
+// too few hops, a relay on older firmware); then the path is unknown and the
+// lists are empty. forward: the relays in order, then the target. back: the
+// relays from the target in order, then this node. Each *_rssi_dbm entry is
+// how strongly that node heard the frame it received, measured on its radio.
+// The two ways can differ, and so can two traces.
+message TraceResult {
+  fixed32 node_id = 1;
+  bool answered = 2;
+  repeated fixed32 forward_nodes = 3;
+  repeated sint32 forward_rssi_dbm = 4;
+  repeated fixed32 back_nodes = 5;
+  repeated sint32 back_rssi_dbm = 6;
 }
 
 message SosAckReceived {

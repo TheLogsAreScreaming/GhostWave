@@ -20,6 +20,7 @@ import 'node_journal_screen.dart';
 import 'node_mark.dart';
 import 'theme.dart';
 import 'timeline_screen.dart';
+import 'trace_route.dart';
 import 'widgets.dart';
 
 /// Contacts (with unread counts and last-seen) and nodes heard nearby.
@@ -713,6 +714,14 @@ void _showHeardNode(BuildContext context, WidgetRef ref, Neighbor n) {
                         unawaited(showLinkPing(context, ref, n.nodeId));
                       },
                       child: const Text('Ping'),
+                    ),
+                  if (ref.read(meshProvider.notifier).nodeCanTrace)
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(sheet).pop();
+                        unawaited(showTraceRoute(context, n.nodeId));
+                      },
+                      child: const Text('Trace route'),
                     ),
                   TextButton(
                     onPressed: () {

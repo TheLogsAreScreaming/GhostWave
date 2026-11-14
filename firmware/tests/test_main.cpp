@@ -17,6 +17,7 @@
 #include "monocypher.h"
 #include "ghostwave/crypto.h"
 #include "ghostwave/packet.h"
+#include "ghostwave/diagnostics.h"
 #include "ghostwave/router.h"
 #include "ghostwave/util.h"
 #include "beacon_timing.h"
@@ -271,6 +272,8 @@ struct TestApp : AppPort {
   struct Ping { uint32_t node; bool answered; int fwd, rev; };
   std::vector<Ping> pings;
   void onLinkPing(uint32_t node, bool answered, int fwd, int rev) override { pings.push_back({node, answered, fwd, rev}); }
+  std::vector<TraceResult> traces;
+  void onTrace(const TraceResult& r) override { traces.push_back(r); }
   int sig() const {
     int d = 0;
     return router && router->rxSignal(d) ? d : INT_MIN;
@@ -887,6 +890,87 @@ static void testLinkPing() {
   CHECK(a.router->linkPing(801, m.now) == PR::Sent);
   m.run(Router::kLinkPingTimeoutMs + 100);
   CHECK(a.app.pings.size() == 2 && !a.app.pings[1].answered);
+}
+
+// Multi-hop traceroute (probe collects): over a 5-node line every hop is
+// listed both ways with the signal the receiving node measured; one reply;
+// limits; nothing made up when it goes unanswered.
+static void testTraceroute() {
+  std::printf("router: traceroute over a 5-node line, both ways, limits\n");
+  Medium m;
+  for (int i = 0; i < 5; ++i) m.add(900 + i, 2.0 * i);   // 2 km apart: only neighbors hear each other
+  auto& a = *m.nodes[0];
+  auto& e = *m.nodes[4];
+  using TS = Router::TraceStart;
+  CHECK(a.router->traceroute(900, 4, m.now) == TS::BadNode);
+  CHECK(a.router->traceroute(0, 4, m.now) == TS::BadNode);
+  CHECK(a.router->traceroute(904, 9, m.now) == TS::BadHops);
+  m.run(5000);
+  const uint32_t before = m.count(PType::Diag);
+  CHECK(a.router->traceroute(904, 0, m.now) == TS::Sent);   // 0 = the default, 5 hops
+  CHECK(a.router->traceroute(904, 0, m.now) == TS::Busy);
+  m.run(20000);
+  CHECK(a.app.traces.size() == 1);
+  if (a.app.traces.size() == 1) {
+    const TraceResult& r = a.app.traces[0];
+    CHECK(r.answered && r.target == 904);
+    CHECK(r.forward.size() == 4 && r.back.size() == 4);
+    const uint32_t out[4] = {901, 902, 903, 904}, back[4] = {903, 902, 901, 900};
+    for (size_t i = 0; i < r.forward.size() && i < 4; ++i) {
+      CHECK(r.forward[i].node == out[i]);
+      CHECK(r.forward[i].rssiDbm == -125);   // 2 km of 2.5 km in this medium
+    }
+    for (size_t i = 0; i < r.back.size() && i < 4; ++i) CHECK(r.back[i].node == back[i] && r.back[i].rssiDbm == -125);
+  }
+  // One probe, one answer, each relayed once per node at most: no storm.
+  const uint32_t diagFrames = m.count(PType::Diag) - before;
+  std::printf("  trace frames on air: %u (4 hops each way)\n", diagFrames);
+  CHECK(diagFrames >= 8 && diagFrames <= 10);
+  CHECK(e.app.got.empty() && e.app.traces.empty());   // nothing shows up as a message on the target
+  CHECK(a.router->traceroute(904, 0, m.now) == TS::TooSoon);
+
+  // Too few hops allowed: the probe stops short and the trace goes unanswered.
+  m.run(Router::kTraceGapMs);
+  CHECK(a.router->traceroute(904, 2, m.now) == TS::Sent);
+  m.run(Router::kTraceTimeoutMs + 100);
+  CHECK(a.app.traces.size() == 2 && !a.app.traces.back().answered && a.app.traces.back().forward.empty() &&
+        a.app.traces.back().back.empty());
+
+  // A neighbor: one hop each way.
+  CHECK(a.router->traceroute(901, 1, m.now) == TS::Sent);
+  m.run(5000);
+  CHECK(a.app.traces.size() == 3 && a.app.traces.back().answered && a.app.traces.back().forward.size() == 1 &&
+        a.app.traces.back().forward[0].node == 901 && a.app.traces.back().back.size() == 1 &&
+        a.app.traces.back().back[0].node == 900);
+}
+
+// A relay passes on at most kTraceRelayMax trace frames a minute.
+static void testTraceRelayCap() {
+  std::printf("router: traceroute relay cap\n");
+  Medium m;
+  auto& a = m.add(950, 0);
+  auto& b = m.add(951, 2);
+  m.run(5000);
+  (void)a;
+  uint32_t relayed = 0;
+  // Probes for a node nobody has: b relays each one until its cap is used up.
+  for (int i = 0; i < 10; ++i) {
+    diag::Trace t;
+    t.token = 100 + i, t.origin = 950, t.target = 0xABCDEF01;
+    Packet p;
+    p.type = PType::Diag, p.mode = Mode::ScopedFlood, p.src = 950, p.dst = t.target;
+    p.msgId = 500 + i, p.hopsLeft = 4, p.prevHop = shortId(950);
+    uint8_t buf[128];
+    size_t n = diag::encodeTrace(t, buf, sizeof buf);
+    p.payload.assign(buf, buf + n);
+    uint8_t frame[kMaxFrame];
+    size_t len = encode(p, frame, sizeof frame);
+    const uint64_t fwdBefore = b.router->stats().forwarded;
+    b.router->onReceive(frame, len, -100, m.now);
+    relayed += static_cast<uint32_t>(b.router->stats().forwarded - fwdBefore);
+    m.run(100);
+  }
+  CHECK(relayed == Router::kTraceRelayMax);
 }
 
 static void testEncryptedRouting() {
@@ -2260,6 +2344,8 @@ int main() {
   testBeaconTimingFlags();
   testRxSignal();
   testLinkPing();
+  testTraceroute();
+  testTraceRelayCap();
   testBeaconVelocity();
   testBeaconMac();
   testBeaconRecoveryAfterMove();

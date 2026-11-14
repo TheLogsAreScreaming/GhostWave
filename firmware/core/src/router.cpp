@@ -385,6 +385,12 @@ void Router::tick(uint64_t now) {
     pingOn_ = false;
     app_.onLinkPing(ping_.node, false, 0, 0);
   }
+  if (traceOn_ && now >= trace_.deadline) {
+    traceOn_ = false;
+    TraceResult r;
+    r.target = trace_.target;
+    app_.onTrace(r);   // unanswered: nothing known about the path
+  }
   for (auto it = pending_.begin(); it != pending_.end();) {
     if (it->second.fireAt > now) {
       ++it;
@@ -1856,7 +1862,13 @@ void Router::sendDiag(uint32_t to, const uint8_t* payload, size_t n, uint64_t no
 }
 
 void Router::onDiag(const Packet& p, uint64_t now) {
-  if (p.dst != cfg_.nodeId || !inRx_) return;   // one hop, addressed to us; needs this frame's signal
+  if (!inRx_) return;   // needs this frame's signal
+  if (p.payload.size() >= 2 && (p.payload[1] == static_cast<uint8_t>(diag::Kind::Trace) ||
+                                p.payload[1] == static_cast<uint8_t>(diag::Kind::TraceBack))) {
+    onTraceFrame(p, now);
+    return;
+  }
+  if (p.dst != cfg_.nodeId) return;   // link ping: one hop, addressed to us
   diag::Probe pr;
   if (diag::decodeProbe(p.payload.data(), p.payload.size(), pr)) {
     if (pr.kind != diag::Kind::Probe || pr.target != cfg_.nodeId || pr.origin != p.src) return;
@@ -1879,6 +1891,135 @@ void Router::onDiag(const Packet& p, uint64_t now) {
   if (!pingOn_ || h.token != ping_.token || h.node != ping_.node || p.src != ping_.node) return;
   pingOn_ = false;
   app_.onLinkPing(h.node, true, h.rxRssiDbm, rxDbm_);
+}
+
+// -------------------------------------------------------------- traceroute --
+
+Router::TraceStart Router::traceroute(uint32_t node, uint8_t maxHops, uint64_t now) {
+  if (node == 0 || node == kBroadcast || node == cfg_.nodeId) return TraceStart::BadNode;
+  if (maxHops == 0) maxHops = kTraceDefaultHops;
+  if (maxHops > diag::kMaxTraceHops) return TraceStart::BadHops;
+  if (traceOn_) return TraceStart::Busy;
+  if (traceEver_ && now - lastTraceMs_ < kTraceGapMs) return TraceStart::TooSoon;
+  diag::Trace t;
+  t.kind = diag::Kind::Trace;
+  t.token = rng_.next() | 1u;
+  t.origin = cfg_.nodeId;
+  t.target = node;
+  Packet p;
+  p.type = PType::Diag;
+  p.mode = Mode::ScopedFlood;
+  p.src = cfg_.nodeId;
+  p.dst = node;   // older nodes drop a Diag frame not addressed to them
+  p.msgId = rng_.next() | 1u;
+  p.hopsLeft = static_cast<uint8_t>(maxHops - 1);   // relays allowed on the way out
+  p.prevHop = me16();
+  uint8_t b[kMaxFrame];
+  const size_t n = diag::encodeTrace(t, b, sizeof b);
+  if (!n) return TraceStart::BadNode;
+  p.payload.assign(b, b + n);
+  seen_[keyOf(p)].t = now;
+  enqueue(p, true, now);
+  traceOn_ = traceEver_ = true;
+  trace_ = {node, t.token, now + kTraceTimeoutMs};
+  lastTraceMs_ = now;
+  return TraceStart::Sent;
+}
+
+bool Router::traceRelayAllowed(uint64_t now) {
+  if (now - traceWindowMs_ >= kTraceRelayWindowMs) {
+    traceWindowMs_ = now;
+    traceRelays_ = 0;
+  }
+  if (traceRelays_ >= kTraceRelayMax) return false;
+  ++traceRelays_;
+  return true;
+}
+
+// A trace probe or its answer. Relayed once (scoped flood, hop-limited, rate
+// capped, suppressed when neighbors already relayed it), with this node's
+// reading appended. The target answers the first copy it hears; the origin
+// takes the first answer.
+void Router::onTraceFrame(const Packet& p, uint64_t now) {
+  if (p.encrypted) return;
+  diag::Trace t;
+  if (!diag::decodeTrace(p.payload.data(), p.payload.size(), t)) return;
+  const bool out = t.kind == diag::Kind::Trace;
+  if (p.src != (out ? t.origin : t.target) || p.dst != (out ? t.target : t.origin)) return;
+  Key k = keyOf(p);
+  if (seen_.count(k)) {
+    auto f = traceFlood_.find(k);
+    if (f != traceFlood_.end() && f->second.item && !f->second.item->sent && ++f->second.dups >= kSosDupCancel)
+      f->second.item->cancelled = true;
+    return;
+  }
+  seen_[k].t = now;
+  const diag::TraceHop mine{cfg_.nodeId, diag::clampDbm(rxDbm_)};
+  if (out && t.target == cfg_.nodeId) {
+    if (t.forward.size() >= diag::kMaxTraceHops) return;
+    if (traceAnswered_ && now - lastTraceAnswerMs_ < kTraceAnswerGapMs) return;   // no amplification
+    diag::Trace back;
+    back.kind = diag::Kind::TraceBack;
+    back.token = t.token;
+    back.origin = t.origin;
+    back.target = t.target;
+    back.forward = t.forward;
+    back.forward.push_back(mine);
+    Packet r;
+    r.type = PType::Diag;
+    r.mode = Mode::ScopedFlood;
+    r.src = cfg_.nodeId;
+    r.dst = t.origin;
+    r.msgId = rng_.next() | 1u;
+    // The way back may be a little longer than the way out.
+    r.hopsLeft = static_cast<uint8_t>(std::min<size_t>(diag::kMaxTraceBack, t.forward.size() + 2));
+    r.prevHop = me16();
+    uint8_t b[kMaxFrame];
+    const size_t n = diag::encodeTrace(back, b, sizeof b);
+    if (!n) return;
+    r.payload.assign(b, b + n);
+    seen_[keyOf(r)].t = now;
+    auto item = enqueue(r, true, now);
+    item->readyAt = now + rng_.range(0, kJitterMs);
+    traceAnswered_ = true;
+    lastTraceAnswerMs_ = now;
+    return;
+  }
+  if (!out && t.origin == cfg_.nodeId) {
+    if (!traceOn_ || t.token != trace_.token || t.target != trace_.target) return;
+    traceOn_ = false;
+    TraceResult res;
+    res.target = t.target;
+    res.answered = true;
+    for (const auto& h : t.forward) res.forward.push_back({h.node, h.rssiDbm});
+    for (const auto& h : t.back) res.back.push_back({h.node, h.rssiDbm});
+    res.back.push_back({cfg_.nodeId, mine.rssiDbm});
+    app_.onTrace(res);
+    return;
+  }
+  if (t.origin == cfg_.nodeId || t.target == cfg_.nodeId) return;   // our own frame, relayed back to us
+  if (p.hopsLeft == 0) return;
+  // Leave room: a probe for the target's own record, an answer within its cap.
+  if (out ? t.forward.size() + 1 >= diag::kMaxTraceHops : t.back.size() >= diag::kMaxTraceBack) return;
+  for (const auto& h : out ? t.forward : t.back)
+    if (h.node == cfg_.nodeId) return;   // a loop
+  if (!traceRelayAllowed(now)) return;
+  (out ? t.forward : t.back).push_back(mine);
+  Packet g = p;
+  g.hopsLeft = p.hopsLeft - 1;
+  g.prevHop = me16();
+  g.nextHop = 0;
+  uint8_t b[kMaxFrame];
+  const size_t n = diag::encodeTrace(t, b, sizeof b);
+  if (!n) return;
+  g.payload.assign(b, b + n);
+  auto item = enqueue(g, false, now);
+  const uint32_t unit = airtimeMs(cfg_.phy, encodedSize(g));
+  item->readyAt = now + rng_.range(0, 2 * unit + kJitterMs);
+  traceFlood_[k] = TraceFlood{item, 0, now};
+  ++stats_.forwarded;
+  for (auto it = traceFlood_.begin(); it != traceFlood_.end();)
+    it = now - it->second.t > 60000 ? traceFlood_.erase(it) : std::next(it);
 }
 
 }  // namespace gw

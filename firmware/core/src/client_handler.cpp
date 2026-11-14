@@ -439,6 +439,16 @@ void Handler::onLinkPing(uint32_t node, bool answered, int forwardDbm, int rever
   event(m, false);   // a stale result is useless: not held for a later app
 }
 
+void Handler::onTrace(const gw::TraceResult& r) {
+  FromRadio m;
+  m.kind = FromKind::TraceResult;
+  m.nodeId = r.target;
+  m.answered = r.answered;
+  for (const auto& h : r.forward) m.fwdNodes.push_back(h.node), m.fwdRssi.push_back(h.rssiDbm);
+  for (const auto& h : r.back) m.backNodes.push_back(h.node), m.backRssi.push_back(h.rssiDbm);
+  event(m, false);   // a stale result is useless: not held for a later app
+}
+
 void Handler::onNeighbor(uint32_t id, const gw::Position& pos, bool isNew) {
   FromRadio m;
   m.kind = FromKind::Neighbor;
@@ -528,7 +538,8 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
     case ToKind::SetName:
     case ToKind::RequestKey:
     case ToKind::SetTx:
-    case ToKind::LinkPing: break;
+    case ToKind::LinkPing:
+    case ToKind::Traceroute: break;
     default: return false;
   }
   switch (m.kind) {
@@ -617,6 +628,21 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
         case PR::TooSoon: error(c, req, ErrorCode::RateLimited, "one ping every 5 seconds"); break;
         case PR::NotNeighbor: error(c, req, ErrorCode::NotFound, "not heard directly: a link ping is one hop"); break;
         case PR::BadNode: error(c, req, ErrorCode::BadArgument, "bad node ID"); break;
+      }
+      return true;
+    }
+    case ToKind::Traceroute: {
+      using TS = gw::Router::TraceStart;
+      if (m.maxHops > 255) {
+        error(c, req, ErrorCode::BadArgument, "max_hops is 1 to 8");
+        return true;
+      }
+      switch (r_.traceroute(m.nodeId, static_cast<uint8_t>(m.maxHops), now)) {
+        case TS::Sent: reply(c, req, FromKind::Ok); break;
+        case TS::Busy: error(c, req, ErrorCode::RateLimited, "a trace is already out; wait for its result"); break;
+        case TS::TooSoon: error(c, req, ErrorCode::RateLimited, "one trace every 30 seconds"); break;
+        case TS::BadHops: error(c, req, ErrorCode::BadArgument, "max_hops is 1 to 8"); break;
+        case TS::BadNode: error(c, req, ErrorCode::BadArgument, "bad node ID"); break;
       }
       return true;
     }

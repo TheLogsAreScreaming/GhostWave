@@ -48,7 +48,8 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.count == b.count && a.status == b.status && a.error == b.error && a.detail == b.detail &&
          a.protocolMinor == b.protocolMinor && a.maxChannelTextBytes == b.maxChannelTextBytes &&
          a.channel == b.channel && a.psk == b.psk && a.nonce == b.nonce && a.rssiDbm == b.rssiDbm &&
-         a.answered == b.answered && a.reverseDbm == b.reverseDbm;
+         a.answered == b.answered && a.reverseDbm == b.reverseDbm && a.fwdNodes == b.fwdNodes &&
+         a.fwdRssi == b.fwdRssi && a.backNodes == b.backNodes && a.backRssi == b.backRssi;
 }
 
 static std::vector<ToRadio> sampleTo() {
@@ -102,6 +103,10 @@ static std::vector<ToRadio> sampleTo() {
   m = {}, m.reqId = 23, m.kind = ToKind::SetTx, m.on = false;   // an empty message, still SetTx
   v.push_back(m);
   m = {}, m.reqId = 24, m.kind = ToKind::LinkPing, m.nodeId = 0x9F219DBB;   // 1.9
+  v.push_back(m);
+  m = {}, m.reqId = 25, m.kind = ToKind::Traceroute, m.nodeId = 0x9F219DBB, m.maxHops = 6;   // 1.10
+  v.push_back(m);
+  m = {}, m.reqId = 26, m.kind = ToKind::Traceroute, m.nodeId = 7;   // default hops
   v.push_back(m);
   m = {}, m.reqId = 19, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientName = "app", m.clientShare = Bytes(16, 7),
   m.pinProof = key(2);   // 1.2
@@ -162,6 +167,12 @@ static std::vector<FromRadio> sampleFrom() {
   m.rssiDbm.set(-97), m.reverseDbm.set(-101);
   v.push_back(m);
   m = {}, m.kind = FromKind::LinkPingResult, m.nodeId = 7;   // no answer: no readings
+  v.push_back(m);
+  m = {}, m.kind = FromKind::TraceResult, m.nodeId = 0x9F219DBB, m.answered = true;   // 1.10
+  m.fwdNodes = {0xB6888904, 0x9F219DBB}, m.fwdRssi = {-128, 5};
+  m.backNodes = {0xB6888904, 1}, m.backRssi = {-64, -1};
+  v.push_back(m);
+  m = {}, m.kind = FromKind::TraceResult, m.nodeId = 3;   // unanswered: empty
   v.push_back(m);
   m = {}, m.kind = FromKind::ChannelMessage, m.channel = "camp", m.src = 1, m.msgId = 2, m.text = B("x");
   m.rssiDbm.set(-1);
@@ -274,6 +285,18 @@ static void testGolden() {
   CHECK(frameFrom(big, fr));
   CHECK(fr.size() <= kMaxFrame);
   std::printf("  largest ChannelMessage frame: %zu bytes (max %zu)\n", fr.size(), kMaxFrame);
+
+  // the largest trace result (8 hops out, 8 back, weakest signals) fits too
+  FromRadio tr;
+  tr.kind = FromKind::TraceResult, tr.reqId = 0xFFFFFFFF, tr.nodeId = 0xFFFFFFFF, tr.answered = true;
+  for (int i = 0; i < 8; ++i) {
+    tr.fwdNodes.push_back(0xFFFFFFF0u + i), tr.fwdRssi.push_back(-128);
+    tr.backNodes.push_back(0xFFFFFF00u + i), tr.backRssi.push_back(-128);
+  }
+  fr.clear();
+  CHECK(frameFrom(tr, fr));
+  CHECK(fr.size() <= kMaxFrame);
+  std::printf("  largest TraceResult frame: %zu bytes (max %zu)\n", fr.size(), kMaxFrame);
 
   // negative coordinates are zigzag varints (sint32)
   FromRadio p;
