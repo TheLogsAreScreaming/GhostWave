@@ -139,7 +139,8 @@ Notes on the requests:
   `ghostwaved` and the nRF52 firmware keep them across restarts (`<key file>.channels`, and
   `/gw/channels` in internal flash). Share one as text or a QR code:
   `ghostwave-ch:<name, percent-encoded>:<psk, 64 hex>`. Anyone with it can read and write the
-  channel. An `AddChannel` with a name already in use under another key, or a key already joined
+  channel. This is card format 1; it may end in an explicit `?v=1`. A reader takes a card with no
+  marker as format 1 and refuses any other `v` rather than guess, so a later format can bump it. An `AddChannel` with a name already in use under another key, or a key already joined
   under another name, gets `BAD_ARGUMENT`.
 - **SetTx (1.8)** turns the node's transmitter on or off and saves it, exactly like the `tx on` /
   `tx off` console command. A fresh board listens only until this. The app asks the user to check the

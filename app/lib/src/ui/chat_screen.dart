@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/mesh_controller.dart';
 import '../app/providers.dart';
+import '../data/chat_export.dart';
 import '../data/message_groups.dart';
 import '../data/message_split.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
+import 'chat_export_sheet.dart';
 import 'connection_strip.dart';
 import 'format.dart';
 import 'link_ping.dart';
@@ -165,6 +167,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 if (context.mounted) showSnack(context, 'Node ID copied');
                 return;
               }
+              if (c == 'export') {
+                final m = ref.read(meshProvider);
+                await showChatExportSheet(
+                  context,
+                  ChatExport.dm(
+                    peer: widget.peer,
+                    messages: m.messages[widget.peer] ?? const [],
+                    ownId: m.nodeId,
+                    nameOf: m.nameOf,
+                  ),
+                );
+                return;
+              }
               if (c != 'delete') return;
               final ok = await showDialog<bool>(
                 context: context,
@@ -185,6 +200,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               if (ref.read(meshProvider.notifier).nodeCanTrace)
                 const PopupMenuItem(value: 'trace', child: Text('Trace route')),
               const PopupMenuItem(value: 'copyId', child: Text('Copy node ID')),
+              const PopupMenuItem(value: 'export', child: Text('Export chat')),
               const PopupMenuItem(value: 'delete', child: Text('Delete conversation')),
             ],
           ),
