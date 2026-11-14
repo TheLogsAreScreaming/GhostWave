@@ -10,6 +10,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/mesh_store.dart';
+import '../data/message_refs.dart';
 import '../data/message_split.dart';
 import '../data/models.dart';
 import '../data/node_journal.dart';
@@ -23,6 +24,7 @@ import '../link/geo.dart';
 import '../link/node_link.dart';
 import '../link/session.dart';
 import 'mesh_alerts.dart';
+import 'notification_actions.dart';
 import 'providers.dart';
 
 /// Largest SOS text the node keeps, in UTF-8 bytes.
@@ -471,8 +473,9 @@ class MeshController extends Notifier<MeshState> {
     );
     final contacts = Map<int, Contact>.of(state.contacts);
     contacts[t.src] = (contacts[t.src] ?? Contact(nodeId: t.src)).copyWith(lastSeen: _now());
-    // a coverage walk's ping: kept in the chat, but no unread count or notification
-    final quiet = msg.text.startsWith('[Coverage] ');
+    // a coverage walk's ping or a reaction: kept in the chat, but no unread
+    // count or notification (reactions must never make a notification storm)
+    final quiet = msg.text.startsWith('[Coverage] ') || parseMeshText(msg.text) is ReactionText;
     state = state.copyWith(
       messages: {
         ...state.messages,
@@ -486,7 +489,12 @@ class MeshController extends Notifier<MeshState> {
       unawaited(
         ref
             .read(meshAlertsProvider)
-            .textReceived(peer: t.src, from: state.nameOf(t.src), text: _notificationText(msg.text))
+            .textReceived(
+              peer: t.src,
+              from: state.nameOf(t.src),
+              text: _notificationText(msg.text),
+              thread: _thread(DmThread(t.src)),
+            )
             .catchError((Object _) {}),
       );
     }
@@ -631,15 +639,17 @@ class MeshController extends Notifier<MeshState> {
       replayed: replayed,
       rssiDbm: c.hasRssiDbm() ? c.rssiDbm : null,
     );
+    // reactions are folded into their message: no unread count, no notification
+    final reaction = parseMeshText(msg.text) is ReactionText;
     state = state.copyWith(
       channelMessages: {
         ...state.channelMessages,
         c.channel: [...thread, msg],
       },
-      channelUnread: {...state.channelUnread, c.channel: (state.channelUnread[c.channel] ?? 0) + 1},
+      channelUnread: reaction ? null : {...state.channelUnread, c.channel: (state.channelUnread[c.channel] ?? 0) + 1},
     );
     _save();
-    if (!ref.read(appForegroundProvider)) {
+    if (!reaction && !ref.read(appForegroundProvider)) {
       unawaited(
         ref
             .read(meshAlertsProvider)
@@ -647,7 +657,8 @@ class MeshController extends Notifier<MeshState> {
               // one notification per channel, kept apart from the sender's DMs
               peer: c.channel.hashCode | 0x20000000,
               from: '#${c.channel} · ${state.nameOf(c.src)}',
-              text: msg.text,
+              text: friendlyText(msg.text),
+              thread: _thread(ChannelThread(c.channel)),
             )
             .catchError((Object _) {}),
       );
@@ -861,7 +872,7 @@ class MeshController extends Notifier<MeshState> {
   static String _notificationText(String text) {
     if (parseCheckIn(text) case final c?) return 'Check-in: ${c.kind.label}';
     final p = parsePart(text);
-    return p == null ? text : 'Part ${p.index} of ${p.total}: ${p.body}';
+    return p == null ? friendlyText(text) : 'Part ${p.index} of ${p.total}: ${friendlyText(p.body)}';
   }
 
   /// Sends [text], in labelled parts if it is too long for one radio message.
@@ -1273,6 +1284,65 @@ class MeshController extends Notifier<MeshState> {
     state = state.copyWith(alerts: [for (final a in state.alerts) a.src == src ? f(a) : a]);
     _save();
   }
+
+  // ------------------------------------------------ replies and reactions --
+
+  /// Where a notification's Reply and Mark read actions go, with this node's
+  /// ID so a reply saved while the app was closed reaches the right history.
+  NotificationThread? _thread(ChatTarget target) {
+    final own = state.nodeId;
+    if (own == null) return null;
+    // a locked app offers "Open to reply" instead of replying from the shade
+    return NotificationThread(node: own, target: target, inlineReply: !ref.read(appLockedProvider));
+  }
+
+  /// Replies to the DM with reference [ref] (see `messageRef`). Long replies
+  /// are split like any message; throws [ArgumentError] for an empty reply.
+  Future<void> sendReply(int peer, String ref, String text, int maxBytes) =>
+      sendMessage(peer, encodeReply(ref, text), maxBytes);
+
+  /// Sets our reaction to [peer]'s thread message [ref]; [emoji] null takes it
+  /// back. An earlier reaction of ours to the same message that has not left
+  /// the phone yet is replaced, so changing one's mind costs no airtime.
+  Future<void> react(int peer, String ref, String? emoji) async {
+    final text = encodeReaction(ref, emoji);
+    final thread = state.messages[peer] ?? const <ChatMessage>[];
+    final stale = [
+      for (final m in thread)
+        if (_unsentReactionTo(m.outgoing, m.state, m.clientMsgId, m.text, ref)) m,
+    ];
+    for (final m in stale) {
+      deleteMessage(m);
+    }
+    await sendText(peer, text);
+  }
+
+  /// Replies to the channel message [ref]. Throws [ArgumentError] when the
+  /// reply is empty or does not fit [maxBytes] (channel messages are not split).
+  Future<void> sendChannelReply(String channel, String ref, String text, int maxBytes) async {
+    final encoded = encodeReply(ref, text);
+    if (utf8.encode(encoded).length > maxBytes) throw ArgumentError.value(text, 'text', 'too long for one message');
+    await sendChannelText(channel, encoded);
+  }
+
+  /// [react] for a channel message.
+  Future<void> reactInChannel(String channel, String ref, String? emoji) async {
+    final text = encodeReaction(ref, emoji);
+    final thread = state.channelMessages[channel] ?? const <ChannelMessage>[];
+    for (final m in thread.toList()) {
+      if (_unsentReactionTo(m.outgoing, m.state, m.clientMsgId, m.text, ref)) deleteChannelMessage(m);
+    }
+    await sendChannelText(channel, text);
+  }
+
+  bool _unsentReactionTo(bool outgoing, MsgState s, int cmid, String text, String ref) =>
+      outgoing &&
+      (s == MsgState.pending || s == MsgState.failed) &&
+      !_inFlight.contains(cmid) &&
+      switch (parseMeshText(text)) {
+        ReactionText(ref: final r) => r == ref,
+        _ => false,
+      };
 
   // ----------------------------------------------------------- persistence --
 

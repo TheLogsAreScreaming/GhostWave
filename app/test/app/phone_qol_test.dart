@@ -48,13 +48,21 @@ class FakePositionSource implements PositionSource {
 
 class RecordingAlerts implements MeshAlerts {
   final List<String> shown = <String>[];
+  final List<NotificationThread?> threads = <NotificationThread?>[];
 
   @override
   Future<bool> requestPermission() async => true;
 
   @override
-  Future<void> textReceived({required int peer, required String from, required String text}) async =>
-      shown.add('text $from: $text');
+  Future<void> textReceived({
+    required int peer,
+    required String from,
+    required String text,
+    NotificationThread? thread,
+  }) async {
+    shown.add('text $from: $text');
+    threads.add(thread);
+  }
 
   @override
   Future<void> sosReceived({required int src, required String from, required String text}) async =>

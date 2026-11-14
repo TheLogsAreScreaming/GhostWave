@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app/mesh_controller.dart';
 import '../app/providers.dart';
 import '../data/message_groups.dart';
+import '../data/message_refs.dart';
 import '../data/message_split.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
@@ -17,6 +18,7 @@ import 'link_ping.dart';
 import 'message_bubble.dart';
 import 'trace_route.dart';
 import 'theme.dart';
+import 'thread_view.dart';
 import 'widgets.dart';
 
 /// Default DM limit if the node has not said (`NodeInfo.max_text_bytes`).
@@ -34,12 +36,14 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> with ThreadJumper {
   final TextEditingController _text = TextEditingController();
   final TextEditingController _search = TextEditingController();
   bool _searching = false;
   int? _loadedNode;
   bool _restoringDraft = false;
+  ReplyDraft? _replyTo;
+  final FocusNode _composer = FocusNode();
   static const _quickReplies = ['Received', 'On my way', 'I’m OK', 'Need assistance'];
 
   @override
@@ -68,6 +72,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    _composer.dispose();
     _search.dispose();
     _text.removeListener(_onDraftChanged);
     _text.dispose();
@@ -79,17 +84,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return m == 0 ? kDefaultMaxTextBytes : m;
   }
 
+  /// What goes on the air for the typed text: itself, or a reply to [_replyTo].
+  String _composed(String t) => _replyTo == null || t.isEmpty ? t : encodeReply(_replyTo!.ref, t);
+
   Future<void> _send() async {
     final t = _text.text.trim();
     final max = _max;
-    if (t.isEmpty || splitMessage(t, max).length > kMaxMessageParts) return;
+    final reply = _replyTo;
+    if (t.isEmpty || splitMessage(_composed(t), max).length > kMaxMessageParts) return;
     try {
-      await ref.read(meshProvider.notifier).sendMessage(widget.peer, t, max);
+      final ctl = ref.read(meshProvider.notifier);
+      if (reply == null) {
+        await ctl.sendMessage(widget.peer, t, max);
+      } else {
+        await ctl.sendReply(widget.peer, reply.ref, t, max);
+      }
       if (!mounted) return;
+      if (identical(_replyTo, reply)) setState(() => _replyTo = null);
       if (_text.text.trim() == t) _text.clear();
     } on Object catch (e) {
       if (mounted) showSnack(context, 'Could not queue message: $e');
     }
+  }
+
+  void _startReply(ReplyDraft d) {
+    setState(() => _replyTo = d);
+    _composer.requestFocus();
+  }
+
+  Future<void> _showOriginal(int row) async {
+    if (_searching) setState(() => _search.clear());
+    final found = await jumpTo(row);
+    if (!found && mounted) showSnack(context, 'The original is not in this view');
   }
 
   @override
@@ -101,21 +127,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _restoreDraft(mesh);
     final contact = mesh.contacts[widget.peer];
     final allMessages = groupThread(mesh.messages[widget.peer] ?? const <ChatMessage>[]);
+    final own = mesh.nodeId ?? 0;
+    final view = ThreadView(
+      [
+        for (final item in allMessages)
+          switch (item) {
+            SingleItem(message: final m) => RefEntry(
+              sender: m.outgoing ? own : widget.peer,
+              msgId: m.msgId,
+              text: m.text,
+              countable: !(m.outgoing && m.state == MsgState.failed),
+            ),
+            // a long message is known by its first part
+            LongMessageItem() => RefEntry(
+              sender: item.outgoing ? own : widget.peer,
+              msgId: item.parts[1]?.msgId ?? 0,
+              text: item.text,
+            ),
+          },
+      ],
+      [for (final item in allMessages) item.outgoing ? 'You' : mesh.nameOf(widget.peer)],
+      own,
+    );
     final query = _search.text.trim().toLowerCase();
+    // rows shown, as indices into allMessages (reactions folded away)
     final msgs = query.isEmpty
-        ? allMessages
-        : allMessages
-              .where(
-                (item) => switch (item) {
-                  SingleItem(message: final m) => m.text.toLowerCase().contains(query),
-                  LongMessageItem() => item.text.toLowerCase().contains(query),
-                },
-              )
-              .toList();
-    final bytes = utf8Length(_text.text.trim());
+        ? view.visible
+        : view.visible.where((i) => view.textOf(i).toLowerCase().contains(query)).toList();
+    final bytes = utf8Length(_composed(_text.text.trim()));
     final reportedMax = ref.watch(nodeInfoProvider.select((info) => info?.maxTextBytes ?? 0));
     final max = reportedMax == 0 ? kDefaultMaxTextBytes : reportedMax;
-    final parts = bytes == 0 ? 1 : splitMessage(_text.text.trim(), max).length;
+    final parts = bytes == 0 ? 1 : splitMessage(_composed(_text.text.trim()), max).length;
     final over = parts > kMaxMessageParts;
     final scheme = Theme.of(context).colorScheme;
 
@@ -238,19 +280,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: msgs.isEmpty
                   ? Center(child: Text(query.isEmpty ? 'No messages yet.' : 'No matching messages.'))
                   : ListView.builder(
+                      controller: jumpScroll,
                       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       reverse: true,
                       padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md),
                       itemCount: msgs.length,
                       itemBuilder: (context, i) {
                         final index = msgs.length - 1 - i;
-                        final item = msgs[index];
+                        final row = msgs[index];
+                        final item = allMessages[row];
                         final day = item.at.toLocal();
-                        final previous = index == 0 ? null : msgs[index - 1].at.toLocal();
-                        final bubble = switch (item) {
+                        final previous = index == 0 ? null : allMessages[msgs[index - 1]].at.toLocal();
+                        final ref = view.refOf(row);
+                        final quote = view.quoteOf(row, (j) => unawaited(_showOriginal(j)));
+                        final reactions = view.reactionsOf(row);
+                        final mine = view.myReactionTo(row);
+                        final onReply = ref == null
+                            ? null
+                            : () => _startReply(
+                                ReplyDraft(ref: ref, sender: view.names[row], snippet: snippet(view.textOf(row))),
+                              );
+                        final onReact = ref == null ? null : (String? e) => unawaited(ctl.react(widget.peer, ref, e));
+                        final Widget bubble = switch (item) {
                           SingleItem(message: final m) => MessageBubble(
+                            key: keyFor(row),
+                            highlighted: flashed == row,
+                            quote: quote,
+                            reactions: reactions,
+                            myReaction: mine,
+                            onReply: onReply,
+                            onReact: onReact,
                             outgoing: m.outgoing,
-                            text: m.text,
+                            text: view.textOf(row),
                             at: m.at,
                             state: m.state,
                             replayed: m.replayed,
@@ -260,8 +321,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             onDelete: () => ctl.deleteMessage(m),
                           ),
                           LongMessageItem() => MessageBubble(
+                            key: keyFor(row),
+                            highlighted: flashed == row,
+                            quote: quote,
+                            reactions: reactions,
+                            myReaction: mine,
+                            onReply: onReply,
+                            onReact: onReact,
                             outgoing: item.outgoing,
-                            text: item.text,
+                            text: view.textOf(row),
                             at: item.at,
                             state: item.state,
                             replayed: item.replayed,
@@ -303,7 +371,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       },
                     ),
             ),
-            if (!_searching)
+            // while replying, the reply bar takes the quick replies' place
+            if (!_searching && _replyTo == null)
               SizedBox(
                 height: 46,
                 child: ListView(
@@ -324,6 +393,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ],
                 ),
               ),
+            if (_replyTo case final r?) ReplyBar(draft: r, onCancel: () => setState(() => _replyTo = null)),
             SafeArea(
               top: false,
               child: Padding(
@@ -334,12 +404,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Expanded(
                       child: TextField(
                         controller: _text,
+                        focusNode: _composer,
                         minLines: 1,
                         maxLines: 4,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _send(),
                         decoration: InputDecoration(
-                          hintText: 'Message',
+                          hintText: _replyTo == null ? 'Message' : 'Reply',
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GwRadius.lg),
                             borderSide: const BorderSide(color: GwColors.outlineVariant),

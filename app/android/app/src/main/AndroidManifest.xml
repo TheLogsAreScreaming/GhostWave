@@ -64,6 +64,10 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/ghostwave_widget_info" />
         </receiver>
+        <!-- Reply and Mark read on message notifications (flutter_local_notifications) -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
+            android:exported="false" />
         <service
             android:name=".LinkForegroundService"
             android:exported="false"
