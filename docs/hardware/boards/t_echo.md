@@ -6,7 +6,7 @@ Build env: `t_echo` (`cd firmware/mcu && pio run -e t_echo`). Pins come from mes
 
 Flash the UF2 (`.pio/build/t_echo/firmware.uf2`) through the bootloader drive. Check `INFO_UF2.TXT` first: this build needs SoftDevice **S140 6.1.1**. It has the Bluetooth phone link.
 
-Fit the antenna first, then type `tx on`: a fresh board only receives until you do. GPS, buttons and other extras are not used yet.
+Fit the antenna first, then type `tx on`: a fresh board only receives until you do. The built-in GPS gives the node its position once it has a fix (`pos` shows it). The button: press it to turn the screen page (or wake a dark screen), hold it 3 seconds to start an SOS, double-press to stop it. The green LED blinks every 5 seconds, the blue LED stays on while a phone is connected, and green flashes once a second during an SOS.
 
 Meshtastic marks this TCXO as optional. This build always asks for 1.8 V, so a board without a TCXO would report radio FAILED.
 

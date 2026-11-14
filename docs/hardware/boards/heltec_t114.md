@@ -6,6 +6,6 @@ Build env: `heltec_t114` (`cd firmware/mcu && pio run -e heltec_t114`). Pins com
 
 Flash the UF2 (`.pio/build/heltec_t114/firmware.uf2`) through the bootloader drive. Check `INFO_UF2.TXT` first: this build needs SoftDevice **S140 6.1.1**. It has the Bluetooth phone link.
 
-Fit the antenna first, then type `tx on`: a fresh board only receives until you do. GPS, buttons and other extras are not used yet.
+Fit the antenna first, then type `tx on`: a fresh board only receives until you do. The button: press it to turn the screen page (or wake a dark screen), hold it 3 seconds to start an SOS, double-press to stop it. The green LED blinks every 5 seconds, twice when a phone is connected, and flashes once a second during an SOS. An optional GPS is not used yet.
 
 The 1.14" colour screen shows the same status, node, neighbour and message pages as the OLED boards, drawn at their original 128×64 size in the middle of the panel. The pairing key appears there while the phone pairs.

@@ -28,6 +28,8 @@ void showPasskey(const uint8_t digits[6]);
 void clearPasskey();
 // Wakes the screen (the `display` console command).
 void wake();
+// The board button: turns to the next page, or wakes a dark screen.
+void nextPage();
 // Whether draw() has work to do now; once a second at most (twice while an SOS
 // flashes), unless something new happened, so filling Status and the I2C
 // transfer cannot crowd the radio.

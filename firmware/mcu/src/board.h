@@ -57,6 +57,11 @@ constexpr int kPinGpsRx = 33;       // GPS_RX_PIN (ESP32 RX <- GPS TX)
 constexpr int kPinGpsTx = 34;       // GPS_TX_PIN (ESP32 TX -> GPS RX)
 constexpr int kPinGpsReset = 35;    // PIN_GPS_RESET; GPS_RESET_MODE LOW = held in reset
 constexpr uint32_t kGpsBaud = 115200;   // GPS_BAUDRATE (UC6580)
+#define GW_GPS_RESET 35             // held LOW = reset, so HIGH to run
+// USER button on GPIO 0 (active LOW) and the LED on GPIO 18 (variant: LED_POWER 18).
+#define GW_BUTTON_PIN 0
+#define GW_LED_PIN 18
+#define GW_LED_ON HIGH
 
 #elif defined(GW_BOARD_HELTEC_V3)
 // Source: variants/esp32s3/heltec_v3/variant.h
@@ -89,6 +94,13 @@ constexpr bool kVextOn = false;     // LOW = on
 #define GW_OLED_SDA 17
 #define GW_OLED_SCL 18
 #define GW_OLED_RST 21
+// PRG button on GPIO 0 (active LOW) and the white LED on GPIO 35 (variant: LED_POWER LED).
+#define GW_BUTTON_PIN 0
+// GPIO 0 is also wired to the USB serial chip's DTR line (auto-download), so an
+// open serial terminal can hold it low: the button only turns pages here.
+#define GW_BUTTON_SOS 0
+#define GW_LED_PIN 35
+#define GW_LED_ON HIGH
 
 #elif defined(GW_BOARD_RAK4631)
 // Sources: RAK4631 datasheet "RAK4630 internal connections" table, cross-
@@ -118,6 +130,12 @@ constexpr int kPin3v3SEnable = 34;
 #define GW_HAS_GPS 0                // no GPS on a bare RAK19007: app or CLI position
 #define GW_HAS_BLE 1
 #define GW_HAS_OLED 1               // RAK1921 in the I2C slot; optional, detected at boot
+// The RAK4631's green (P1.03) and blue (P1.04) LEDs, lit HIGH (variant: PIN_LED1,
+// LED_BLUE). The base board has no user button.
+#define GW_LED_PIN 35
+#define GW_LED_ON HIGH
+#define GW_LED2_PIN 36
+#define GW_LED2_ON HIGH
 #define GW_NRF52 1
 
 #elif defined(GW_BOARD_RAK3401_1W)
@@ -148,6 +166,12 @@ constexpr uint8_t kPaGainDb[22] = {7, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 
 #define GW_HAS_GPS 0
 #define GW_HAS_BLE 1
 #define GW_NRF52 1
+// Green (P1.03) and blue (P1.04) LEDs on the RAK3401, lit HIGH (Meshtastic
+// rak3401_1watt variant.h: PIN_LED1, LED_BLUE). No user button.
+#define GW_LED_PIN 35
+#define GW_LED_ON HIGH
+#define GW_LED2_PIN 36
+#define GW_LED2_ON HIGH
 #elif defined(GW_BOARD_T1000E)
 // Seeed SenseCAP T1000-E. Sources: Seeed's T1000-E SDK (smtc_hal_config.h),
 // Seeed's Arduino variant and meshtastic/firmware @ 11e3b28
@@ -200,6 +224,43 @@ constexpr int kPinSensorPower = 38; // P1.06 SENSE_POWER_EN (Meshtastic PIN_3V3_
 #endif
 #ifndef GW_HAS_UI
 #define GW_HAS_UI 0
+#endif
+
+// The board's button and status LEDs (board_io.h), -1 = none.
+#ifndef GW_BUTTON_PIN
+#define GW_BUTTON_PIN -1
+#endif
+#ifndef GW_BUTTON_SOS
+#define GW_BUTTON_SOS 1   // 0 where a serial cable can hold the button down (DTR)
+#endif
+#ifndef GW_BUTTON_ACTIVE_LOW
+#define GW_BUTTON_ACTIVE_LOW 1
+#endif
+#ifndef GW_LED_PIN
+#define GW_LED_PIN -1
+#endif
+#ifndef GW_LED_ON
+#define GW_LED_ON HIGH
+#endif
+#ifndef GW_LED2_PIN
+#define GW_LED2_PIN -1   // a second LED: lit while a phone is connected
+#endif
+#ifndef GW_LED2_ON
+#define GW_LED2_ON HIGH
+#endif
+// GPS control lines, -1 = not wired. Reset and standby are driven HIGH (run,
+// awake); the enable line to GW_GPS_EN_ON.
+#ifndef GW_GPS_EN
+#define GW_GPS_EN -1
+#endif
+#ifndef GW_GPS_EN_ON
+#define GW_GPS_EN_ON HIGH
+#endif
+#ifndef GW_GPS_RESET
+#define GW_GPS_RESET -1
+#endif
+#ifndef GW_GPS_STANDBY
+#define GW_GPS_STANDBY -1
 #endif
 
 #ifndef GW_HAS_ANT_POWER

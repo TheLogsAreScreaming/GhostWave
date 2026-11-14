@@ -16,5 +16,8 @@ constexpr bool kVextOn = false;
 #define GW_HAS_OLED 1
 #define GW_OLED_SDA 18
 #define GW_OLED_SCL 17
+#define GW_BUTTON_PIN 0   // BOOT button, active LOW
+#define GW_LED_PIN 37
+#define GW_LED_ON HIGH
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0

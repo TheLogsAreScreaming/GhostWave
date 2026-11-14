@@ -21,6 +21,9 @@ constexpr bool kVextOn = false;
 #define GW_HAS_OLED 1
 #define GW_OLED_SDA 21
 #define GW_OLED_SCL 22
+#define GW_BUTTON_PIN 38   // the middle button, active LOW
+#define GW_LED_PIN 4      // the extra LED on T-Beam 1.1, lit LOW
+#define GW_LED_ON LOW
 #define GW_HAS_KCT8103L 0
 #define GW_HAS_GPS 0
 #define GW_HAS_BOARD_POWER 1

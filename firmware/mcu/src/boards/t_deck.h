@@ -28,6 +28,7 @@ constexpr bool kVextOn = true;
 #define GW_TFT_BL_ON HIGH
 #define GW_TFT_W 320
 #define GW_TFT_H 240
+#define GW_BUTTON_PIN 0   // pressing the trackball, active LOW
 inline void gwBoardPower() {
   // Display and SD card share the radio SPI bus: keep them deselected.
   pinMode(12, OUTPUT);
