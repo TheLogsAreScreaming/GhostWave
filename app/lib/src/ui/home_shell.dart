@@ -202,7 +202,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       bottomNavigationBar: size != WindowSizeClass.compact
           ? null
           : DecoratedBox(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: GwColors.outlineVariant)),
               ),
               child: NavigationBar(

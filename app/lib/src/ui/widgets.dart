@@ -53,8 +53,10 @@ class ConnectionBar extends ConsumerWidget {
     };
     // the wordmark only where it fits on one line: large text on a narrow phone keeps just the logo
     final wordmark = MediaQuery.sizeOf(context).width / MediaQuery.textScalerOf(context).scale(1) >= 300;
+    // over a gradient or photo the bar is frosted, not solid
+    final glass = GwColors.glass;
     return Material(
-      color: GwColors.ghostBlack,
+      color: glass ? GwColors.background.withValues(alpha: 0.35) : GwColors.background,
       child: SafeArea(
         top: safeTop,
         bottom: false,
@@ -68,8 +70,12 @@ class ConnectionBar extends ConsumerWidget {
             child: Container(
               constraints: const BoxConstraints(minHeight: 62),
               padding: const EdgeInsets.fromLTRB(GwSpace.lg + GwSpace.xs, GwSpace.sm, GwSpace.md, GwSpace.sm),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [GwColors.surface2, GwColors.ghostBlack]),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: glass
+                      ? [GwColors.surface2.withValues(alpha: 0.6), Colors.transparent]
+                      : [GwColors.surface2, GwColors.background],
+                ),
                 border: Border(bottom: BorderSide(color: GwColors.outlineVariant)),
               ),
               child: Row(
@@ -115,7 +121,7 @@ class ConnectionBar extends ConsumerWidget {
                       children: [
                         Icon(icon, size: icon == Icons.circle ? 9 : 15, color: color),
                         const SizedBox(width: GwSpace.xs + 2),
-                        Text(word, style: text.labelLarge?.copyWith(color: GwColors.mistWhite)),
+                        Text(word, style: text.labelLarge?.copyWith(color: GwColors.text)),
                       ],
                     ),
                   ),

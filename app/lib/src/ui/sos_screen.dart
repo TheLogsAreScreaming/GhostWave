@@ -124,7 +124,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                   else
                     for (final a in own.acks.reversed)
                       ListTile(
-                        leading: const Icon(Icons.check_circle, color: GwColors.success),
+                        leading: Icon(Icons.check_circle, color: GwColors.success),
                         title: Text(mesh.nameOf(a.responder)),
                         subtitle: Text('${timeAgo(a.at)} · seq ${a.seq}'),
                       ),
@@ -567,7 +567,7 @@ class SosAlertBanner extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
           child: Row(
             children: [
-              const Icon(Icons.sos, color: GwColors.onAlert, size: 32),
+              Icon(Icons.sos, color: GwColors.onAlert, size: 32),
               const SizedBox(width: 8),
               Expanded(
                 child: GestureDetector(
@@ -584,7 +584,7 @@ class SosAlertBanner extends ConsumerWidget {
                     children: [
                       Text(
                         'SOS from ${mesh.nameOf(a.src)}${alerts.length > 1 ? ' (+${alerts.length - 1} more)' : ''}',
-                        style: const TextStyle(color: GwColors.onAlert, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: GwColors.onAlert, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         [
@@ -592,7 +592,7 @@ class SosAlertBanner extends ConsumerWidget {
                           timeAgo(a.receivedAt),
                           if (a.replayed) 'held, may be old',
                         ].join(' · '),
-                        style: const TextStyle(color: GwColors.onAlert),
+                        style: TextStyle(color: GwColors.onAlert),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),

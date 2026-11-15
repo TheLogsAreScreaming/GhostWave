@@ -84,7 +84,7 @@ void main() {
   });
 
   testWidgets('Privacy & data: delete chat history asks first and keeps contacts', (tester) async {
-    tester.view.physicalSize = const Size(412, 1800);
+    tester.view.physicalSize = const Size(412, 2100);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});

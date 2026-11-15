@@ -259,12 +259,12 @@ class MessageBubble extends StatelessWidget {
             margin: const EdgeInsets.symmetric(vertical: 2),
             padding: const EdgeInsets.fromLTRB(GwSpace.md + 2, GwSpace.sm + 1, GwSpace.md + 2, GwSpace.sm - 2),
             decoration: BoxDecoration(
-              color: outgoing ? GwColors.spectralCyan.withValues(alpha: 0.16) : GwColors.surface2,
+              color: outgoing ? GwColors.accent.withValues(alpha: 0.16) : GwColors.surface2,
               border: Border.all(
                 color: highlighted
-                    ? GwColors.spectralCyan
+                    ? GwColors.accent
                     : outgoing
-                    ? GwColors.spectralCyan.withValues(alpha: 0.30)
+                    ? GwColors.accent.withValues(alpha: 0.30)
                     : GwColors.outlineVariant,
                 width: highlighted ? 2 : 1,
               ),
@@ -310,7 +310,7 @@ class MessageBubble extends StatelessWidget {
                         color: switch (state) {
                           MsgState.failed => scheme.error,
                           MsgState.delivered => GwColors.success,
-                          MsgState.sent => GwColors.spectralCyan,
+                          MsgState.sent => GwColors.accent,
                           MsgState.pending => GwColors.mutedText,
                         },
                         style: meta,
@@ -386,8 +386,8 @@ class _Quote extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: GwSpace.xs),
       padding: const EdgeInsets.fromLTRB(GwSpace.sm, 2, GwSpace.sm, 2),
       decoration: BoxDecoration(
-        color: GwColors.spectralCyan.withValues(alpha: 0.08),
-        border: const BorderDirectional(start: BorderSide(color: GwColors.spectralCyan, width: 3)),
+        color: GwColors.accent.withValues(alpha: 0.08),
+        border: BorderDirectional(start: BorderSide(color: GwColors.accent, width: 3)),
         borderRadius: BorderRadius.circular(GwSpace.xs),
       ),
       child: Column(
@@ -445,7 +445,7 @@ class _ReactionChip extends StatelessWidget {
               color: GwColors.surface2,
               borderRadius: BorderRadius.circular(GwRadius.lg),
               border: Border.all(
-                color: reaction.mine ? GwColors.spectralCyan : GwColors.outlineVariant,
+                color: reaction.mine ? GwColors.accent : GwColors.outlineVariant,
                 width: reaction.mine ? 1.5 : 1,
               ),
             ),
@@ -492,8 +492,8 @@ class _ReactionPick extends StatelessWidget {
         decoration: selected
             ? BoxDecoration(
                 shape: BoxShape.circle,
-                color: GwColors.spectralCyan.withValues(alpha: 0.16),
-                border: Border.all(color: GwColors.spectralCyan),
+                color: GwColors.accent.withValues(alpha: 0.16),
+                border: Border.all(color: GwColors.accent),
               )
             : null,
         child: Text(emoji, style: const TextStyle(fontSize: 26)),
@@ -551,7 +551,7 @@ class _SwipeToReplyState extends State<_SwipeToReply> {
               start: 0,
               child: Opacity(
                 opacity: (_dx / _threshold).clamp(0, 1),
-                child: const Icon(Icons.reply, color: GwColors.spectralCyan),
+                child: Icon(Icons.reply, color: GwColors.accent),
               ),
             ),
           Transform.translate(offset: Offset(rtl ? -_dx : _dx, 0), child: widget.child),

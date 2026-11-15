@@ -147,7 +147,7 @@ class _Field extends StatelessWidget {
     title: Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: GwColors.mutedText)),
     subtitle: SelectableText(
       value.isEmpty ? '—' : value,
-      style: GwText.mono.copyWith(color: GwColors.mistWhite, fontSize: 13),
+      style: GwText.mono.copyWith(color: GwColors.text, fontSize: 13),
     ),
     trailing: copy && value.isNotEmpty
         ? IconButton(

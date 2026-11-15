@@ -70,12 +70,12 @@ class ChannelsList extends ConsumerWidget {
                 child: ListTile(
                   selected: twoPane && ref.watch(openChatProvider) == OpenChannel(name),
                   selectedTileColor: GwColors.surface2,
-                  selectedColor: GwColors.mistWhite,
+                  selectedColor: GwColors.text,
                   leading: ExcludeSemantics(
                     child: CircleAvatar(
                       radius: 22,
-                      backgroundColor: GwColors.phantomViolet.withValues(alpha: 0.22),
-                      foregroundColor: GwColors.violetLight,
+                      backgroundColor: GwColors.secondary.withValues(alpha: 0.22),
+                      foregroundColor: GwColors.tertiary,
                       child: const Icon(Icons.tag),
                     ),
                   ),
@@ -86,7 +86,7 @@ class ChannelsList extends ConsumerWidget {
                         : '${m.outgoing ? 'You' : mesh.nameOf(m.src)}: ${friendlyText(m.text)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.mistWhite) : null,
+                    style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.text) : null,
                   ),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -523,11 +523,11 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> with Thre
                             : 'Reply',
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GwRadius.lg),
-                          borderSide: const BorderSide(color: GwColors.outlineVariant),
+                          borderSide: BorderSide(color: GwColors.outlineVariant),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(GwRadius.lg),
-                          borderSide: const BorderSide(color: GwColors.spectralCyan, width: 1.5),
+                          borderSide: BorderSide(color: GwColors.accent, width: 1.5),
                         ),
                         counterText: '$bytes / $max bytes',
                         counterStyle: TextStyle(color: over ? scheme.error : null),

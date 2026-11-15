@@ -21,6 +21,7 @@ import '../link/geo.dart';
 import 'chat_screen.dart';
 import 'format.dart';
 import 'link_ping.dart';
+import 'look_screen.dart';
 import 'node_journal_screen.dart';
 import 'node_mark.dart';
 import 'theme.dart';
@@ -140,7 +141,35 @@ class _NodeDetailsScreenState extends ConsumerState<NodeDetailsScreen> {
           children: [
             Row(
               children: [
-                NodeMark(nodeId: id, size: 64, semanticLabel: 'Generated mark for node $hex'),
+                Semantics(
+                  button: true,
+                  label: 'Picture for node $hex',
+                  hint: 'Change its photo or colour on this phone',
+                  excludeSemantics: true,
+                  child: InkResponse(
+                    onTap: () => unawaited(showNodeLookSheet(context, id)),
+                    radius: 40,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        NodeMark(nodeId: id, size: 64),
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: GwColors.surface3,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: GwColors.outlineVariant),
+                            ),
+                            child: Icon(Icons.edit, size: 14, color: GwColors.text),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(width: GwSpace.lg),
                 Expanded(
                   child: Column(
@@ -341,7 +370,7 @@ class _Bearing extends StatelessWidget {
           children: [
             Transform.rotate(
               angle: bearing * math.pi / 180,
-              child: const Icon(Icons.navigation, size: 20, color: GwColors.spectralCyan),
+              child: Icon(Icons.navigation, size: 20, color: GwColors.accent),
             ),
             const SizedBox(width: GwSpace.md),
             Expanded(
@@ -500,7 +529,7 @@ class SignalGraphPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
     }
     final line = Paint()
-      ..color = GwColors.spectralCyan.withValues(alpha: 0.6)
+      ..color = GwColors.accent.withValues(alpha: 0.6)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     final path = Path()..moveTo(at(readings.first).dx, at(readings.first).dy);
@@ -509,7 +538,7 @@ class SignalGraphPainter extends CustomPainter {
       path.lineTo(p.dx, p.dy);
     }
     canvas.drawPath(path, line);
-    final dot = Paint()..color = GwColors.spectralCyan;
+    final dot = Paint()..color = GwColors.accent;
     for (final r in readings) {
       final p = at(r);
       switch (r.source) {

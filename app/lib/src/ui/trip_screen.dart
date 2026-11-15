@@ -52,7 +52,7 @@ class TripCard extends ConsumerWidget {
       child: ListTile(
         leading: Icon(
           overdue.isEmpty ? Icons.hiking : Icons.warning_amber_rounded,
-          color: overdue.isEmpty ? GwColors.spectralCyan : scheme.error,
+          color: overdue.isEmpty ? GwColors.accent : scheme.error,
           size: 32,
         ),
         title: Text(
@@ -314,9 +314,7 @@ class _TeamRow extends ConsumerWidget {
         ),
         subtitle: Text(
           lines.join(' · '),
-          style: overdue
-              ? const TextStyle(color: GwColors.onAlertContainer)
-              : TextStyle(color: scheme.onSurfaceVariant),
+          style: overdue ? TextStyle(color: GwColors.onAlertContainer) : TextStyle(color: scheme.onSurfaceVariant),
         ),
       ),
     );

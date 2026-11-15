@@ -11,6 +11,7 @@ import 'src/app/field_reports_controller.dart';
 import 'src/app/backup.dart';
 import 'src/app/home_surfaces.dart';
 import 'src/app/location_share.dart';
+import 'src/app/look.dart';
 import 'src/app/mesh_alerts.dart';
 import 'src/app/mesh_controller.dart';
 import 'src/app/notification_actions.dart';
@@ -94,6 +95,8 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
       ref.read(nodeLinkProvider).checkNow();
       // the user may be back from Android's battery screen
       ref.invalidate(batteryExemptProvider);
+      // the Season theme may have moved on while the app was away
+      ref.invalidate(paletteProvider);
     }
     // save chat history before the OS may kill a backgrounded app
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
@@ -114,11 +117,22 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
     // and Reply / Mark read from message notifications
     ref.watch(notificationActionsProvider);
     final hasAddress = ref.watch(nodeAddressProvider) != null;
+    final palette = ref.watch(paletteProvider);
+    // frosted pages only over a gradient or photo, and never in high contrast
+    final glass = ref.watch(lookProvider.select((l) => l.glass)) && !MediaQuery.highContrastOf(context);
+    final changed = GwColors.palette != palette || GwColors.glass != glass;
+    GwColors.use(palette, glass: glass);
+    // screens read GwColors directly, so a new look rebuilds every widget
+    if (changed) WidgetsBinding.instance.addPostFrameCallback((_) => _rebuildAll(context));
     return MaterialApp(
       title: 'GhostWave',
       debugShowCheckedModeBanner: false,
-      theme: buildGhostWaveTheme(),
+      theme: buildGhostWaveTheme(palette, glass),
       themeMode: ThemeMode.dark,
+      // Night vision: everything on screen, maps and photos too, in dim red only
+      builder: (context, child) => palette.redOnly && child != null
+          ? ColorFiltered(colorFilter: const ColorFilter.matrix(kNightVisionMatrix), child: child)
+          : child ?? const SizedBox.shrink(),
       home: hasAddress
           ? const HomeShell()
           : ref.watch(walkthroughDoneProvider)
@@ -126,6 +140,17 @@ class _GhostWaveAppState extends ConsumerState<GhostWaveApp> with WidgetsBinding
           : WalkthroughScreen(onDone: ref.read(walkthroughDoneProvider.notifier).finish),
     );
   }
+}
+
+/// Marks every widget under [context] to build again.
+void _rebuildAll(BuildContext context) {
+  if (!context.mounted) return;
+  void mark(Element e) {
+    e.markNeedsBuild();
+    e.visitChildren(mark);
+  }
+
+  (context as Element).visitChildren(mark);
 }
 
 /// First launch: no node yet, so start on Connect.

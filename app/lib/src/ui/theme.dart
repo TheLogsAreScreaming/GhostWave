@@ -7,65 +7,85 @@ library;
 
 import 'package:flutter/material.dart';
 
-/// Colour tokens. Primitives first (brand guide), then roles.
+import 'page_backdrop.dart';
+import 'palettes.dart';
+
+export 'palettes.dart';
+
+/// Colour roles for the active theme. Screens read these; [use] switches
+/// them when the user changes the theme, and the app root then rebuilds every
+/// widget. Map marker colours are fixed: they sit on light map tiles.
 abstract final class GwColors {
-  // Brand primitives (README_Brand_Guide.txt).
-  /// Spectral Cyan.
-  static const Color spectralCyan = Color(0xFF55F1D8);
+  static GwPalette _p = GwPalette.stock;
+  static bool _glass = false;
 
-  /// Phantom Violet.
-  static const Color phantomViolet = Color(0xFF872BFF);
+  /// The active palette.
+  static GwPalette get palette => _p;
 
-  /// Ghost Black: the app background.
-  static const Color ghostBlack = Color(0xFF090D19);
+  /// Whether pages are see-through over a gradient or photo background.
+  static bool get glass => _glass;
 
-  /// Mist White: body text.
-  static const Color mistWhite = Color(0xFFF2F7FF);
+  /// Makes [palette] the active one; [glass] when the background shows
+  /// through. Called by the app root before it builds.
+  static void use(GwPalette palette, {bool glass = false}) {
+    _p = palette;
+    _glass = glass;
+  }
 
-  // Surfaces, stepped up from Ghost Black.
+  /// Main accent (Spectral Cyan in the stock theme).
+  static Color get accent => _p.accent;
+
+  /// Second colour (Phantom Violet in the stock theme).
+  static Color get secondary => _p.secondary;
+
+  /// Page background (Ghost Black in the stock theme).
+  static Color get background => _p.background;
+
+  /// Body text (Mist White in the stock theme).
+  static Color get text => _p.text;
+
   /// Cards and sheets.
-  static const Color surface1 = Color(0xFF11192B);
+  static Color get surface1 => _p.surface1;
+
+  /// Card fill: [surface1], frosted when the background shows through.
+  static Color get card => _glass ? _p.surface1.withValues(alpha: kGlassCardAlpha) : _p.surface1;
 
   /// Raised containers (chat bubbles from others, banners).
-  static const Color surface2 = Color(0xFF182440);
+  static Color get surface2 => _p.surface2;
 
   /// Highest containers.
-  static const Color surface3 = Color(0xFF233359);
+  static Color get surface3 => _p.surface3;
 
-  /// Secondary text on surfaces (8.9:1 on Ghost Black).
-  static const Color mutedText = Color(0xFFA9B4CC);
+  /// Secondary text on surfaces.
+  static Color get mutedText => _p.mutedText;
 
   /// Borders and disabled icons.
-  static const Color outline = Color(0xFF5E6A85);
+  static Color get outline => _p.outline;
 
   /// Hairlines.
-  static const Color outlineVariant = Color(0xFF34446A);
+  static Color get outlineVariant => _p.outlineVariant;
 
-  /// Lighter violet for text and icons on dark (Phantom Violet itself is too
-  /// dark for small text on Ghost Black).
-  static const Color violetLight = Color(0xFFBF9BFF);
+  /// Lighter third colour for text and icons on dark.
+  static Color get tertiary => _p.tertiary;
 
-  // Status roles (not brand colours).
   /// Success: link up, delivered, ack received.
-  static const Color success = Color(0xFF3DDC84);
+  static Color get success => _p.success;
 
-  /// Alert red fill: SOS button, SOS banners, SOS map marker. White on it is
-  /// 5.6:1. Not used for text on dark backgrounds (3.5:1); see [errorText].
-  static const Color alert = Color(0xFFC62828);
+  /// Alert fill: SOS button, banners and map marker; not for text on dark (see [errorText]).
+  static Color get alert => _p.alert;
 
   /// Text and icons on [alert].
-  static const Color onAlert = Color(0xFFFFFFFF);
+  static Color get onAlert => _p.onAlert;
 
-  /// Error and warning text and icons on dark surfaces (8.6:1 on Ghost Black).
-  static const Color errorText = Color(0xFFFF8A80);
+  /// Error and warning text and icons on dark surfaces.
+  static Color get errorText => _p.errorText;
 
-  /// Dark red container for warnings inside a page (key change, SOS active).
-  static const Color alertContainer = Color(0xFF4A0D12);
+  /// Container for warnings inside a page (key change, SOS active).
+  static Color get alertContainer => _p.alertContainer;
 
   /// Text on [alertContainer].
-  static const Color onAlertContainer = Color(0xFFFFDAD6);
+  static Color get onAlertContainer => _p.onAlertContainer;
 
-  // Map markers sit on light OpenStreetMap tiles, so they use darker tones.
   /// Own node on the map.
   static const Color mapMe = Color(0xFF00838F);
 
@@ -75,6 +95,13 @@ abstract final class GwColors {
   /// Other heard nodes on the map.
   static const Color mapNearby = Color(0xFF546E7A);
 }
+
+/// How opaque frosted cards are over a gradient or photo background. High
+/// enough that text on a card keeps its contrast over any photo.
+const double kGlassCardAlpha = 0.72;
+
+/// How opaque the navigation bar and rail are over a background.
+const double kGlassBarAlpha = 0.80;
 
 /// Spacing steps (logical px). Layout uses these, not ad-hoc numbers.
 abstract final class GwSpace {
@@ -150,42 +177,43 @@ abstract final class GwText {
   static const TextStyle mono = TextStyle(fontFamily: GwFonts.mono, fontFeatures: [FontFeature.tabularFigures()]);
 }
 
-/// The app theme: dark only.
-ThemeData buildGhostWaveTheme() {
-  const scheme = ColorScheme(
+/// The app theme for [p] (dark only). With [glass], pages are see-through so
+/// a gradient or photo background shows, and cards and bars are frosted.
+ThemeData buildGhostWaveTheme([GwPalette p = GwPalette.stock, bool glass = false]) {
+  final scheme = ColorScheme(
     brightness: Brightness.dark,
-    primary: GwColors.spectralCyan,
-    onPrimary: GwColors.ghostBlack,
-    primaryContainer: Color(0xFF003A40),
-    onPrimaryContainer: Color(0xFFA6F6FB),
-    secondary: GwColors.phantomViolet,
-    onSecondary: GwColors.mistWhite,
-    secondaryContainer: Color(0xFF2D1563),
-    onSecondaryContainer: Color(0xFFE6D8FF),
-    tertiary: GwColors.violetLight,
-    onTertiary: GwColors.ghostBlack,
-    tertiaryContainer: Color(0xFF3A2470),
-    onTertiaryContainer: Color(0xFFEBDFFF),
-    error: GwColors.errorText,
-    onError: GwColors.ghostBlack,
-    errorContainer: GwColors.alertContainer,
-    onErrorContainer: GwColors.onAlertContainer,
-    surface: GwColors.ghostBlack,
-    onSurface: GwColors.mistWhite,
-    onSurfaceVariant: GwColors.mutedText,
-    surfaceContainerLowest: Color(0xFF04070F),
-    surfaceContainerLow: Color(0xFF0B101D),
-    surfaceContainer: GwColors.surface1,
-    surfaceContainerHigh: GwColors.surface2,
-    surfaceContainerHighest: GwColors.surface3,
-    outline: GwColors.outline,
-    outlineVariant: GwColors.outlineVariant,
-    inverseSurface: GwColors.mistWhite,
-    onInverseSurface: GwColors.ghostBlack,
-    inversePrimary: Color(0xFF00696F),
+    primary: p.accent,
+    onPrimary: p.onAccent,
+    primaryContainer: p.accentContainer,
+    onPrimaryContainer: p.onAccentContainer,
+    secondary: p.secondary,
+    onSecondary: p.onSecondary,
+    secondaryContainer: p.secondaryContainer,
+    onSecondaryContainer: p.onSecondaryContainer,
+    tertiary: p.tertiary,
+    onTertiary: p.onTertiary,
+    tertiaryContainer: p.tertiaryContainer,
+    onTertiaryContainer: p.onTertiaryContainer,
+    error: p.errorText,
+    onError: p.background,
+    errorContainer: p.alertContainer,
+    onErrorContainer: p.onAlertContainer,
+    surface: p.background,
+    onSurface: p.text,
+    onSurfaceVariant: p.mutedText,
+    surfaceContainerLowest: p.surfaceLowest,
+    surfaceContainerLow: p.surfaceLow,
+    surfaceContainer: p.surface1,
+    surfaceContainerHigh: p.surface2,
+    surfaceContainerHighest: p.surface3,
+    outline: p.outline,
+    outlineVariant: p.outlineVariant,
+    inverseSurface: p.text,
+    onInverseSurface: p.background,
+    inversePrimary: p.inverseAccent,
     shadow: Colors.black,
     scrim: Colors.black,
-    surfaceTint: GwColors.spectralCyan,
+    surfaceTint: p.accent,
   );
 
   final base = ThemeData(colorScheme: scheme, useMaterial3: true, fontFamily: GwFonts.body);
@@ -203,50 +231,56 @@ ThemeData buildGhostWaveTheme() {
     labelLarge: t.labelLarge?.copyWith(fontWeight: FontWeight.w700),
   );
   final pill = RoundedRectangleBorder(borderRadius: BorderRadius.circular(GwRadius.md));
+  // glass: pages are clear so the background shows; bars and cards are frosted
+  final page = glass ? Colors.transparent : p.background;
+  final bar = glass ? p.surface1.withValues(alpha: kGlassBarAlpha) : p.surface1;
+  final card = glass ? p.surface1.withValues(alpha: kGlassCardAlpha) : p.surface1;
+  final cardEdge = glass ? p.text.withValues(alpha: 0.16) : p.outlineVariant;
   final rounded = RoundedRectangleBorder(borderRadius: BorderRadius.circular(GwRadius.md));
 
   return base.copyWith(
     textTheme: text,
-    scaffoldBackgroundColor: GwColors.ghostBlack,
+    pageTransitionsTheme: glass ? backdropPageTransitions() : null,
+    scaffoldBackgroundColor: page,
     appBarTheme: AppBarTheme(
-      backgroundColor: GwColors.ghostBlack,
-      foregroundColor: GwColors.mistWhite,
+      backgroundColor: page,
+      foregroundColor: p.text,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: text.titleLarge?.copyWith(color: GwColors.mistWhite),
+      titleTextStyle: text.titleLarge?.copyWith(color: p.text),
       titleSpacing: GwSpace.lg + GwSpace.xs,
       scrolledUnderElevation: 0,
       centerTitle: false,
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: GwColors.surface1,
-      indicatorColor: GwColors.spectralCyan.withValues(alpha: 0.23),
+      backgroundColor: bar,
+      indicatorColor: p.accent.withValues(alpha: 0.23),
       surfaceTintColor: Colors.transparent,
       height: 76,
       indicatorShape: rounded,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => text.labelMedium?.copyWith(
           fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
-          color: s.contains(WidgetState.selected) ? GwColors.mistWhite : GwColors.mutedText,
+          color: s.contains(WidgetState.selected) ? p.text : p.mutedText,
         ),
       ),
       iconTheme: WidgetStateProperty.resolveWith(
-        (s) => IconThemeData(color: s.contains(WidgetState.selected) ? GwColors.spectralCyan : GwColors.mutedText),
+        (s) => IconThemeData(color: s.contains(WidgetState.selected) ? p.accent : p.mutedText),
       ),
     ),
     navigationRailTheme: NavigationRailThemeData(
-      backgroundColor: GwColors.surface1,
-      indicatorColor: GwColors.spectralCyan.withValues(alpha: 0.16),
-      selectedIconTheme: const IconThemeData(color: GwColors.spectralCyan),
-      unselectedIconTheme: const IconThemeData(color: GwColors.mutedText),
-      selectedLabelTextStyle: text.labelLarge?.copyWith(color: GwColors.mistWhite, fontWeight: FontWeight.w700),
-      unselectedLabelTextStyle: text.labelLarge?.copyWith(color: GwColors.mutedText),
+      backgroundColor: bar,
+      indicatorColor: p.accent.withValues(alpha: 0.16),
+      selectedIconTheme: IconThemeData(color: p.accent),
+      unselectedIconTheme: IconThemeData(color: p.mutedText),
+      selectedLabelTextStyle: text.labelLarge?.copyWith(color: p.text, fontWeight: FontWeight.w700),
+      unselectedLabelTextStyle: text.labelLarge?.copyWith(color: p.mutedText),
     ),
     tabBarTheme: TabBarThemeData(
       dividerColor: Colors.transparent,
       indicatorSize: TabBarIndicatorSize.tab,
-      indicator: BoxDecoration(color: GwColors.surface3, borderRadius: BorderRadius.circular(GwRadius.pill)),
-      labelColor: GwColors.mistWhite,
-      unselectedLabelColor: GwColors.mutedText,
+      indicator: BoxDecoration(color: p.surface3, borderRadius: BorderRadius.circular(GwRadius.pill)),
+      labelColor: p.text,
+      unselectedLabelColor: p.mutedText,
       labelStyle: text.labelLarge,
       unselectedLabelStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w500),
       splashBorderRadius: BorderRadius.circular(GwRadius.pill),
@@ -255,14 +289,14 @@ ThemeData buildGhostWaveTheme() {
       contentPadding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.xs),
       minVerticalPadding: GwSpace.xs,
       horizontalTitleGap: GwSpace.md,
-      titleTextStyle: text.titleMedium?.copyWith(color: GwColors.mistWhite),
-      subtitleTextStyle: text.bodyMedium?.copyWith(color: GwColors.mutedText),
-      iconColor: GwColors.mutedText,
+      titleTextStyle: text.titleMedium?.copyWith(color: p.text),
+      subtitleTextStyle: text.bodyMedium?.copyWith(color: p.mutedText),
+      iconColor: p.mutedText,
       shape: rounded,
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: GwColors.spectralCyan,
-      foregroundColor: GwColors.ghostBlack,
+      backgroundColor: p.accent,
+      foregroundColor: p.onAccent,
       elevation: 0,
       focusElevation: 0,
       hoverElevation: 0,
@@ -277,7 +311,7 @@ ThemeData buildGhostWaveTheme() {
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(48, 48),
         shape: pill,
-        side: const BorderSide(color: GwColors.outline),
+        side: BorderSide(color: p.outline),
         textStyle: text.labelLarge,
       ),
     ),
@@ -286,50 +320,50 @@ ThemeData buildGhostWaveTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: GwColors.surface2,
+      fillColor: p.surface2,
       contentPadding: const EdgeInsets.symmetric(horizontal: GwSpace.lg, vertical: GwSpace.md + 2),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(GwRadius.md), borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GwRadius.md),
-        borderSide: const BorderSide(color: GwColors.outlineVariant),
+        borderSide: BorderSide(color: p.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(GwRadius.md),
-        borderSide: const BorderSide(color: GwColors.spectralCyan, width: 1.5),
+        borderSide: BorderSide(color: p.accent, width: 1.5),
       ),
-      hintStyle: text.bodyLarge?.copyWith(color: GwColors.mutedText),
+      hintStyle: text.bodyLarge?.copyWith(color: p.mutedText),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: GwColors.surface2,
-      side: const BorderSide(color: GwColors.outlineVariant),
+      backgroundColor: p.surface2,
+      side: BorderSide(color: p.outlineVariant),
       shape: pill,
-      labelStyle: text.labelLarge?.copyWith(color: GwColors.mistWhite),
+      labelStyle: text.labelLarge?.copyWith(color: p.text),
     ),
-    badgeTheme: const BadgeThemeData(backgroundColor: GwColors.spectralCyan, textColor: GwColors.ghostBlack),
+    badgeTheme: BadgeThemeData(backgroundColor: p.accent, textColor: p.onAccent),
     cardTheme: CardThemeData(
-      color: GwColors.surface1,
+      color: card,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(GwRadius.lg),
-        side: const BorderSide(color: GwColors.outlineVariant),
+        side: BorderSide(color: cardEdge),
       ),
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: GwColors.surface1,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: p.surface1,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(GwRadius.lg))),
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: GwColors.surface1,
+      backgroundColor: p.surface1,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GwRadius.lg)),
     ),
-    dividerTheme: const DividerThemeData(color: GwColors.outlineVariant, space: 1),
-    snackBarTheme: const SnackBarThemeData(
-      backgroundColor: GwColors.surface3,
-      contentTextStyle: TextStyle(color: GwColors.mistWhite, fontFamily: GwFonts.body),
+    dividerTheme: DividerThemeData(color: p.outlineVariant, space: 1),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: p.surface3,
+      contentTextStyle: TextStyle(color: p.text, fontFamily: GwFonts.body),
     ),
   );
 }

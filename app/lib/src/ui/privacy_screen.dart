@@ -89,6 +89,11 @@ class PrivacyScreen extends ConsumerWidget {
                     'Only during a trip: your position and your trip contacts\', for 24 hours, encrypted with your chats.',
                   ),
                   (Icons.map_outlined, 'Offline maps', 'Map tiles for areas you saved.'),
+                  (
+                    Icons.photo_outlined,
+                    'Photos you picked',
+                    'Copies of your background photo and node pictures, in the app\'s own folder. Never sent.',
+                  ),
                   (Icons.tune, 'Settings', 'Units, the node address, and the like.'),
                 ]),
                 section('What leaves this phone', const [
@@ -158,7 +163,7 @@ class PrivacyScreen extends ConsumerWidget {
                       ListTile(
                         leading: Icon(Icons.delete_forever_outlined, color: Theme.of(context).colorScheme.error),
                         title: const Text('Delete everything on this phone'),
-                        subtitle: const Text('Chats, contacts, field tests, trip, maps, PINs and settings'),
+                        subtitle: const Text('Chats, contacts, field tests, trip, maps, photos, PINs and settings'),
                         onTap: () => unawaited(confirmAndResetAppData(context, ref)),
                       ),
                     ],
