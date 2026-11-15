@@ -483,9 +483,40 @@ class MeshController extends Notifier<MeshState> {
         log(a.src, HeardVia.sos, pos: a.hasPos() ? LatLon.fromProto(a.pos) : null);
       case pb.FromRadio_Event.peerIdent:
         log(e.peerIdent.nodeId, HeardVia.ident, name: decodeLenient(e.peerIdent.name));
+      case pb.FromRadio_Event.delivered:
+        final d = e.delivered;
+        // receipts can repeat: count only the one that marks a message delivered
+        if (!(state.messages[d.dest] ?? const <ChatMessage>[]).any((m) => _receiptFor(d, m))) return;
+        log(d.dest, HeardVia.receipt, rssi: d.hasRssiDbm() ? d.rssiDbm : null);
+        if (timed) _touchContact(d.dest);
+      case pb.FromRadio_Event.linkPingResult:
+        final r = e.linkPingResult;
+        if (!r.answered) return;
+        // reverse: how strongly our node heard its reply
+        log(r.nodeId, HeardVia.ping, rssi: r.hasReverseRssiDbm() ? r.reverseRssiDbm : null);
+        if (timed) _touchContact(r.nodeId);
       default:
         break;
     }
+  }
+
+  /// Whether receipt [d] marks outgoing message [m] delivered now.
+  static bool _receiptFor(pb.Delivered d, ChatMessage m) =>
+      m.outgoing &&
+      m.state != MsgState.delivered &&
+      ((d.clientMsgId != 0 && m.clientMsgId == d.clientMsgId) || (d.msgId != 0 && m.msgId == d.msgId));
+
+  /// Notes that contact [id] was just heard from (the "seen" time in its chat).
+  void _touchContact(int id) {
+    final c = state.contacts[id];
+    if (c == null) return;
+    state = state.copyWith(
+      contacts: {
+        ...state.contacts,
+        id: c.copyWith(lastSeen: _now()),
+      },
+    );
+    _save();
   }
 
   /// Replaces the user's tags on [nodeId]'s journal entry.
@@ -555,9 +586,7 @@ class MeshController extends Notifier<MeshState> {
     var changed = false;
     final updated = [
       for (final m in thread)
-        if (m.outgoing &&
-            m.state != MsgState.delivered &&
-            ((d.clientMsgId != 0 && m.clientMsgId == d.clientMsgId) || (d.msgId != 0 && m.msgId == d.msgId)))
+        if (_receiptFor(d, m))
           () {
             changed = true;
             return m.copyWith(

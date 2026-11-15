@@ -10,6 +10,7 @@ import 'package:ghostwave_app/src/app/mesh_controller.dart';
 import 'package:ghostwave_app/src/app/providers.dart';
 import 'package:ghostwave_app/src/data/mesh_store.dart';
 import 'package:ghostwave_app/src/data/models.dart';
+import 'package:ghostwave_app/src/data/node_journal.dart';
 import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
 import 'package:ghostwave_app/src/link/contact_card.dart';
 import 'package:ghostwave_app/src/link/node_link.dart';
@@ -343,6 +344,40 @@ void main() {
       final back = ChatMessage.fromJson(msgs.firstWhere((m) => m.text == 'heard').toJson());
       expect(back.rssiDbm, -97);
       expect(ChatMessage.fromJson(msgs.firstWhere((m) => m.text == 'old node').toJson()).rssiDbm, isNull);
+    });
+  });
+
+  group('heard from', () {
+    test('a delivery receipt counts as hearing the node, once per message', () async {
+      final n = ChannelNode();
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      await ctl().addContact(ContactCard(nodeId: bob, ed25519Pub: key(1), name: 'bob'));
+      expect(mesh().contacts[bob]!.lastSeen, isNull);
+      expect(mesh().journal.entries[bob], isNull);
+      await ctl().sendMessage(bob, 'out', 73);
+      await settle();
+      final out = mesh().messages[bob]!.single;
+      final receipt = pb.FromRadio(
+        delivered: pb.Delivered(dest: bob, msgId: out.msgId, clientMsgId: out.clientMsgId, rssiDbm: -104),
+      );
+      n.node.last
+        ..send(receipt)
+        ..send(receipt); // receipts can repeat
+      await settle();
+      expect(mesh().contacts[bob]!.lastSeen, isNotNull, reason: 'the chat says when it was seen');
+      final e = mesh().journal.entries[bob]!;
+      expect(e.via, {HeardVia.receipt: 1});
+      expect(e.lastRssi, -104);
+    });
+
+    test('a receipt for nothing pending is not a sign of life', () async {
+      final n = ChannelNode();
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      n.node.last.send(pb.FromRadio(delivered: pb.Delivered(dest: bob, msgId: 99)));
+      await settle();
+      expect(mesh().journal.entries[bob], isNull);
     });
   });
 

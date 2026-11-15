@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ghostwave_app/src/app/mesh_controller.dart';
 import 'package:ghostwave_app/src/app/providers.dart';
 import 'package:ghostwave_app/src/data/mesh_store.dart';
+import 'package:ghostwave_app/src/data/node_journal.dart';
 import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
 import 'package:ghostwave_app/src/link/session.dart';
 import 'package:ghostwave_app/src/ui/link_ping.dart';
@@ -106,5 +107,18 @@ void main() {
     expect(c.read(meshProvider.notifier).nodeCanLinkPing, isFalse);
     await expectLater(c.read(meshProvider.notifier).linkPing(ridge), throwsA(isA<StateError>()));
     expect(node.requests.where((r) => r.hasLinkPing()), isEmpty);
+  });
+
+  test('an answered ping counts as hearing the node; no answer does not', () async {
+    c.read(nodeLinkProvider).connect(pingNode(answer: false));
+    await settle();
+    await c.read(meshProvider.notifier).linkPing(ridge);
+    expect(c.read(meshProvider).journal.entries[ridge], isNull);
+    c.read(nodeLinkProvider).connect(pingNode());
+    await settle();
+    await c.read(meshProvider.notifier).linkPing(ridge);
+    final e = c.read(meshProvider).journal.entries[ridge]!;
+    expect(e.via, {HeardVia.ping: 1});
+    expect(e.lastRssi, -112, reason: 'how strongly our radio heard its reply');
   });
 }
