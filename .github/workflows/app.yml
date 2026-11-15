@@ -240,3 +240,15 @@ jobs:
       - run: flutter pub get
       - name: flutter build ios --no-codesign
         run: flutter build ios --no-codesign --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
+      - name: Package unsigned .ipa for sideloading
+        # Unsigned: Sideloadly or AltStore signs it with your own Apple ID when installing.
+        run: |
+          rm -rf build/ipa && mkdir -p build/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ipa/Payload/
+          cd build/ipa && zip -qry ../GhostWave-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: GhostWave-ios-unsigned-ipa
+          path: app/build/GhostWave-unsigned.ipa
+          retention-days: 30
+          if-no-files-found: error
