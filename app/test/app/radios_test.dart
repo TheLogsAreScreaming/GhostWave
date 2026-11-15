@@ -264,7 +264,9 @@ void main() {
     final c = await container();
     await connect(c, addrA);
     await c.read(radiosProvider.notifier).switchTo(addrB);
-    await settle();
+    // the second radio's history is opened and saved with real file I/O,
+    // which can lag on CI runners
+    await settleUntil(() => c.read(meshProvider).nodeId == 0x55667788);
     c.read(meshProvider.notifier).flush();
     await store.idle;
     expect((await store.exportAll()).keys, hasLength(2));
