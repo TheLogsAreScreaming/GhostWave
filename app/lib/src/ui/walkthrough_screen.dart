@@ -87,11 +87,7 @@ class _WalkthroughScreenState extends State<WalkthroughScreen> {
                         if (p.icon == null)
                           Image.asset('assets/brand/logo.png', width: 120, height: 120, excludeFromSemantics: true)
                         else
-                          Icon(
-                            p.icon,
-                            size: 96,
-                            color: p.icon == Icons.sos ? GwColors.errorText : GwColors.spectralCyan,
-                          ),
+                          Icon(p.icon, size: 96, color: p.icon == Icons.sos ? GwColors.errorText : GwColors.accent),
                         const SizedBox(height: 24),
                         Semantics(
                           header: true,
@@ -117,7 +113,7 @@ class _WalkthroughScreenState extends State<WalkthroughScreen> {
                         height: 8,
                         margin: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: i == _page ? GwColors.spectralCyan : GwColors.outline,
+                          color: i == _page ? GwColors.accent : GwColors.outline,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),

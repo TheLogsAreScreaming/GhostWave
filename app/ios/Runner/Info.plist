@@ -12,6 +12,8 @@
 	<string>GhostWave connects to your GhostWave radio over Bluetooth.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>GhostWave scans contact-card QR codes with the camera.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GhostWave uses a photo you pick as the app background or as a node's picture. It stays on this phone.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>GhostWave connects to your GhostWave node over the local network.</string>
 	<key>CFBundleDisplayName</key>

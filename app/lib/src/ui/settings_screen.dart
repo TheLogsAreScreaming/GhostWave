@@ -11,6 +11,7 @@ import '../app/trip_controller.dart';
 import '../app/field_reports_controller.dart';
 import '../app/background_link.dart';
 import '../app/location_share.dart';
+import '../app/look.dart';
 import '../app/backup.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
@@ -20,6 +21,7 @@ import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'background_setup_screen.dart';
 import 'backup_screen.dart';
+import 'look_screen.dart';
 import 'my_radios_screen.dart';
 import 'node_settings_screen.dart';
 import 'offline_maps_screen.dart';
@@ -165,6 +167,12 @@ class SettingsScreen extends ConsumerWidget {
               title: const Text('My radios'),
               subtitle: Text(_radiosSummary(ref.watch(radiosProvider).length, ref.watch(activeRadioProvider))),
               onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const MyRadiosScreen())),
+            ),
+            ListTile(
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('Look'),
+              subtitle: Text(lookSummary(ref.watch(lookProvider), ref.watch(lookClockProvider)())),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LookScreen())),
             ),
             ListTile(
               leading: const Icon(Icons.straighten),
@@ -322,6 +330,10 @@ Future<void> confirmAndResetAppData(BuildContext context, WidgetRef ref) async {
     ref.read(fieldReportsProvider.notifier).deleteAll();
     await ref.read(fieldReportStoreProvider)?.idle;
     await ref.read(pinStoreProvider).clear();
+    // background and node photos are copies in the app's folder
+    await ref.read(nodeLooksProvider.notifier).deletePhotos();
+    final photo = ref.read(lookProvider).photoPath;
+    if (photo != null) await ref.read(lookPhotosProvider).remove(photo);
     await ref.read(sharedPrefsProvider).clear();
     ref
       ..invalidate(tripProvider)
@@ -333,7 +345,9 @@ Future<void> confirmAndResetAppData(BuildContext context, WidgetRef ref) async {
       ..invalidate(backgroundEnabledProvider)
       ..invalidate(locationShareProvider)
       ..invalidate(tileSourceProvider)
-      ..invalidate(walkthroughDoneProvider);
+      ..invalidate(walkthroughDoneProvider)
+      ..invalidate(lookProvider)
+      ..invalidate(nodeLooksProvider);
     // back to the first screen: with no saved address, the app shows Connect
     navigator.popUntil((r) => r.isFirst);
   }

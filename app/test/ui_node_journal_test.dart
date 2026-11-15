@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/mesh_controller_test.dart' show answeringNode, makeContainer, settle;
 import 'support/journal_seed.dart';
+import 'support/wait.dart';
 
 final DateTime now = DateTime(2026, 11, 13, 15);
 
@@ -66,14 +67,19 @@ void main() {
 
     testWidgets('decorative unless given a label', (tester) async {
       final handle = tester.ensureSemantics();
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
       await tester.pumpWidget(
-        const Directionality(
-          textDirection: TextDirection.ltr,
-          child: Row(
-            children: [
-              NodeMark(nodeId: ridge),
-              NodeMark(nodeId: rover, semanticLabel: 'Generated mark for node 0c0ffee0'),
-            ],
+        ProviderScope(
+          overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+          child: const Directionality(
+            textDirection: TextDirection.ltr,
+            child: Row(
+              children: [
+                NodeMark(nodeId: ridge),
+                NodeMark(nodeId: rover, semanticLabel: 'Generated mark for node 0c0ffee0'),
+              ],
+            ),
           ),
         ),
       );
@@ -172,6 +178,8 @@ void main() {
       addTearDown(c.dispose);
       c.read(nodeLinkProvider).connect(answeringNode()); // same node ID
       await settle();
+      // reading the saved history back is real file I/O, slow on a busy runner
+      await settleUntil(() => c.read(meshProvider).journal.entries[rover] != null);
       final e = c.read(meshProvider).journal.entries[rover]!;
       expect(e.tags, ['truck']);
       expect(e.note, 'Forest service truck');

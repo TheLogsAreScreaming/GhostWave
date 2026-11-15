@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/look.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
@@ -181,7 +182,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 for (final n in shownNearby)
                   Card(
                     margin: const EdgeInsets.symmetric(horizontal: GwSpace.md, vertical: GwSpace.xs),
-                    color: GwColors.surface1,
+                    color: GwColors.card,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                       side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
@@ -298,7 +299,7 @@ class _NoChatOpen extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.forum_outlined, size: 48, color: GwColors.outline),
+          Icon(Icons.forum_outlined, size: 48, color: GwColors.outline),
           const SizedBox(height: GwSpace.md),
           Text('Pick a conversation', style: text.titleMedium),
           const SizedBox(height: GwSpace.xs),
@@ -430,7 +431,7 @@ class _ContactTile extends ConsumerWidget {
     final (IconData trustIcon, String trust, Color trustColor) = c.keyChanged
         ? (Icons.warning_amber, 'This node announced a different key', scheme.error)
         : c.pinned
-        ? (Icons.verified, 'Key pinned from a contact card', GwColors.spectralCyan)
+        ? (Icons.verified, 'Key pinned from a contact card', GwColors.accent)
         : (Icons.wifi_tethering, 'Key learned over the air (not checked against a QR code)', GwColors.mutedText);
     final twoPane = ChatPaneScope.isTwoPane(context);
     void open() {
@@ -444,7 +445,7 @@ class _ContactTile extends ConsumerWidget {
     final selected = twoPane && ref.watch(openChatProvider) == OpenPeer(c.nodeId);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: GwSpace.md, vertical: GwSpace.xs),
-      color: selected ? GwColors.surface3 : GwColors.surface1,
+      color: selected ? GwColors.surface3 : GwColors.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: selected ? scheme.primary : scheme.outlineVariant),
@@ -452,7 +453,7 @@ class _ContactTile extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: ListTile(
         selected: selected,
-        selectedColor: GwColors.mistWhite,
+        selectedColor: GwColors.text,
         leading: _Avatar(name: name, id: c.nodeId),
         title: Row(
           children: [
@@ -472,7 +473,7 @@ class _ContactTile extends ConsumerWidget {
                 '${last.outgoing ? 'You: ' : ''}${friendlyText(last.text)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.mistWhite) : null,
+                style: unread > 0 ? text.bodyMedium?.copyWith(color: GwColors.text) : null,
               ),
             Text(nodeIdHex(c.nodeId), style: GwText.mono.copyWith(fontSize: 11.5, color: GwColors.mutedText)),
             const SizedBox(height: GwSpace.xs),
@@ -582,7 +583,7 @@ class NodeMetrics extends ConsumerWidget {
       if (c != null && c.keyChanged)
         (Icons.warning_amber, 'key changed', scheme.error)
       else if (c != null && c.pinned)
-        (Icons.verified, 'verified by QR', GwColors.spectralCyan)
+        (Icons.verified, 'verified by QR', GwColors.accent)
       else if (c != null)
         (Icons.wifi_tethering, 'key learned over the air', null)
       else if (!keyKnown)
@@ -620,16 +621,24 @@ class NodeMetrics extends ConsumerWidget {
   }
 }
 
-/// A round avatar with the name's first letter, tinted per node.
-class _Avatar extends StatelessWidget {
+/// A round avatar: the node's photo if one is set on this phone, else the
+/// name's first letter, in the node's chosen colour or a tint per node.
+class _Avatar extends ConsumerWidget {
   const _Avatar({required this.name, required this.id});
 
   final String name;
   final int id;
 
   @override
-  Widget build(BuildContext context) {
-    final tint = id.isEven ? GwColors.spectralCyan : GwColors.violetLight;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final look = ref.watch(nodeLooksProvider.select((m) => m[id]));
+    if (look?.photoPath != null) return NodeMark(nodeId: id);
+    final hue = look?.hue;
+    final tint = hue != null
+        ? NodeMarkSpec.forNode(id).withHue(hue).color
+        : id.isEven
+        ? GwColors.accent
+        : GwColors.tertiary;
     return ExcludeSemantics(
       child: CircleAvatar(
         radius: 22,

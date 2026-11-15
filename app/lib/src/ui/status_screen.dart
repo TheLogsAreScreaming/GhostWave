@@ -216,7 +216,7 @@ class _Metric extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final color = alert ? scheme.onErrorContainer : GwColors.mistWhite;
+    final color = alert ? scheme.onErrorContainer : GwColors.text;
     return Semantics(
       container: true,
       label: '$label: $value${note == null ? '' : ', $note'}',
@@ -228,7 +228,7 @@ class _Metric extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 20, color: alert ? color : GwColors.spectralCyan),
+              Icon(icon, size: 20, color: alert ? color : GwColors.accent),
               const SizedBox(height: GwSpace.sm),
               Text(
                 value,

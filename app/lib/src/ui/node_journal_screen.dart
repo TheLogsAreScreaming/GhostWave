@@ -228,7 +228,7 @@ class _JournalTile extends StatelessWidget {
     final hex = nodeIdHex(entry.nodeId);
     return Card(
       margin: const EdgeInsets.symmetric(vertical: GwSpace.xs),
-      color: GwColors.surface1,
+      color: GwColors.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: scheme.outlineVariant),
@@ -247,15 +247,13 @@ class _JournalTile extends StatelessWidget {
                 Icon(
                   readings.isEmpty ? Icons.hourglass_empty : Icons.insights_outlined,
                   size: 14,
-                  color: readings.isEmpty ? GwColors.mutedText : GwColors.spectralCyan,
+                  color: readings.isEmpty ? GwColors.mutedText : GwColors.accent,
                 ),
                 const SizedBox(width: GwSpace.xs),
                 Flexible(
                   child: Text(
                     _headline(readings),
-                    style: text.labelMedium?.copyWith(
-                      color: readings.isEmpty ? GwColors.mutedText : GwColors.spectralCyan,
-                    ),
+                    style: text.labelMedium?.copyWith(color: readings.isEmpty ? GwColors.mutedText : GwColors.accent),
                   ),
                 ),
               ],
@@ -296,19 +294,19 @@ class _TagPill extends StatelessWidget {
     excludeSemantics: true,
     child: DecoratedBox(
       decoration: BoxDecoration(
-        color: GwColors.phantomViolet.withValues(alpha: 0.18),
+        color: GwColors.secondary.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(GwRadius.pill),
-        border: Border.all(color: GwColors.violetLight.withValues(alpha: 0.5)),
+        border: Border.all(color: GwColors.tertiary.withValues(alpha: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: GwSpace.sm, vertical: 2),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.sell_outlined, size: 11, color: GwColors.violetLight),
+            Icon(Icons.sell_outlined, size: 11, color: GwColors.tertiary),
             const SizedBox(width: 4),
             Flexible(
-              child: Text(tag, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: GwColors.violetLight)),
+              child: Text(tag, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: GwColors.tertiary)),
             ),
           ],
         ),
@@ -543,7 +541,7 @@ class _ReadingCard extends StatelessWidget {
     final r = reading;
     return Card(
       margin: const EdgeInsets.only(bottom: GwSpace.sm),
-      color: GwColors.surface1,
+      color: GwColors.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
@@ -561,7 +559,7 @@ class _ReadingCard extends StatelessWidget {
                 Semantics(header: true, child: Text(r.trait.label, style: theme.textTheme.titleMedium)),
                 Text(
                   '${r.strength} · ${r.percent}%',
-                  style: theme.textTheme.labelLarge?.copyWith(color: GwColors.spectralCyan),
+                  style: theme.textTheme.labelLarge?.copyWith(color: GwColors.accent),
                 ),
               ],
             ),
@@ -575,7 +573,7 @@ class _ReadingCard extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: r.confidence,
                   minHeight: 6,
-                  color: GwColors.spectralCyan,
+                  color: GwColors.accent,
                   backgroundColor: GwColors.surface3,
                 ),
               ),
@@ -590,7 +588,7 @@ class _ReadingCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const ExcludeSemantics(
+                    ExcludeSemantics(
                       child: Padding(
                         padding: EdgeInsets.only(top: 3, right: GwSpace.sm),
                         child: Icon(Icons.check, size: 14, color: GwColors.mutedText),
@@ -618,7 +616,7 @@ class _InfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      color: GwColors.surface1,
+      color: GwColors.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: theme.colorScheme.outlineVariant),

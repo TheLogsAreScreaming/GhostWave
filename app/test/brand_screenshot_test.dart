@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ghostwave_app/main.dart';
+import 'package:ghostwave_app/src/app/look.dart';
 import 'package:ghostwave_app/src/app/mesh_controller.dart';
 import 'package:ghostwave_app/src/app/providers.dart';
 import 'package:ghostwave_app/src/data/mesh_store.dart';
@@ -140,8 +141,17 @@ void main() {
   });
 
   // A connected node with contacts, a nearby node, chats and an SOS, for the screens people use most.
-  Future<FakeNode> populated(WidgetTester tester, GlobalKey key, {Size size = const Size(412, 892)}) async {
-    SharedPreferences.setMockInitialValues({'node_address': '192.168.1.20:47800', 'walkthrough_done': true});
+  Future<FakeNode> populated(
+    WidgetTester tester,
+    GlobalKey key, {
+    Size size = const Size(412, 892),
+    Map<String, Object> extraPrefs = const {},
+  }) async {
+    SharedPreferences.setMockInitialValues({
+      'node_address': '192.168.1.20:47800',
+      'walkthrough_done': true,
+      ...extraPrefs,
+    });
     final prefs = await SharedPreferences.getInstance();
     final dir = Directory.systemTemp.createTempSync('gw_shots_store');
     final node = answeringNode(
@@ -239,4 +249,23 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await _shot(tester, key, 'desktop_chat_open');
   });
+
+  // Each colour theme, solid and with the gradient background and frosted cards.
+  for (final theme in LookTheme.values) {
+    for (final backdrop in [LookBackdrop.solid, LookBackdrop.gradient]) {
+      if (theme == LookTheme.night && backdrop != LookBackdrop.solid) continue;
+      testWidgets('look: ${theme.name} ${backdrop.name}', skip: skip != false, (tester) async {
+        final key = GlobalKey();
+        await populated(tester, key, extraPrefs: {'look_theme': theme.name, 'look_backdrop': backdrop.name});
+        await _shot(tester, key, 'look_${theme.name}_${backdrop.name}_chats');
+        await tester.tap(find.text('Ridge').first);
+        await tester.pumpAndSettle(
+          const Duration(milliseconds: 100),
+          EnginePhase.sendSemanticsUpdate,
+          const Duration(seconds: 2),
+        );
+        await _shot(tester, key, 'look_${theme.name}_${backdrop.name}_chat');
+      });
+    }
+  }
 }

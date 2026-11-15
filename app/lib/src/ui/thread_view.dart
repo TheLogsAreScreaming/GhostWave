@@ -116,12 +116,12 @@ class ReplyBar extends StatelessWidget {
       padding: const EdgeInsetsDirectional.fromSTEB(GwSpace.sm, GwSpace.xs, 0, GwSpace.xs),
       decoration: BoxDecoration(
         color: GwColors.surface2,
-        border: const BorderDirectional(start: BorderSide(color: GwColors.spectralCyan, width: 3)),
+        border: BorderDirectional(start: BorderSide(color: GwColors.accent, width: 3)),
         borderRadius: BorderRadius.circular(GwSpace.xs),
       ),
       child: Row(
         children: [
-          const Icon(Icons.reply, size: 18, color: GwColors.spectralCyan),
+          Icon(Icons.reply, size: 18, color: GwColors.accent),
           const SizedBox(width: GwSpace.sm),
           Expanded(
             child: Semantics(

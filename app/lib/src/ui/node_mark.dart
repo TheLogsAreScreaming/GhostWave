@@ -5,8 +5,12 @@ library;
 
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../app/look.dart';
 import 'theme.dart';
 
 /// The core shape at the centre of a mark.
@@ -102,6 +106,17 @@ class NodeMarkSpec {
   /// Where the small accent dot sits on the outer ring, in turns.
   final double moonTurn;
 
+  /// The same mark with its main colour set to [newHue] (the user's chosen
+  /// colour for this node); the accent keeps its distance on the wheel.
+  NodeMarkSpec withHue(int newHue) => NodeMarkSpec(
+    hue: newHue % 360,
+    accentHue: (newHue + (accentHue - hue)) % 360,
+    rings: rings,
+    core: core,
+    coreTurn: coreTurn,
+    moonTurn: moonTurn,
+  );
+
   /// Main colour: light enough to read on the app's dark surfaces.
   Color get color => HSLColor.fromAHSL(1, hue.toDouble(), 0.78, 0.66).toColor();
 
@@ -159,9 +174,10 @@ class _Bits {
   }
 }
 
-/// Draws [nodeId]'s mark in a circle [size] across. Decorative by default;
-/// give [semanticLabel] when nothing next to it names the node.
-class NodeMark extends StatelessWidget {
+/// Draws [nodeId]'s mark in a circle [size] across: its photo or chosen
+/// colour if one is set on this phone, else the generated mark. Decorative by
+/// default; give [semanticLabel] when nothing next to it names the node.
+class NodeMark extends ConsumerWidget {
   /// Creates the mark.
   const NodeMark({required this.nodeId, this.size = 44, this.semanticLabel, super.key});
 
@@ -175,10 +191,30 @@ class NodeMark extends StatelessWidget {
   final String? semanticLabel;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final look = ref.watch(nodeLooksProvider.select((m) => m[nodeId]));
+    final spec = NodeMarkSpec.forNode(nodeId);
+    final generated = CustomPaint(painter: NodeMarkPainter(look?.hue == null ? spec : spec.withHue(look!.hue!)));
+    final photo = look?.photoPath;
     final mark = SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: NodeMarkPainter(NodeMarkSpec.forNode(nodeId))),
+      child: photo == null
+          ? generated
+          : DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: spec.color.withValues(alpha: 0.6), width: 1.5),
+              ),
+              child: ClipOval(
+                child: Image.file(
+                  File(photo),
+                  fit: BoxFit.cover,
+                  cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+                  errorBuilder: (_, _, _) => generated,
+                ),
+              ),
+            ),
     );
     final label = semanticLabel;
     return label == null
@@ -189,17 +225,23 @@ class NodeMark extends StatelessWidget {
 
 /// Paints a [NodeMarkSpec].
 class NodeMarkPainter extends CustomPainter {
-  /// Creates the painter.
-  NodeMarkPainter(this.spec);
+  /// Creates the painter, in the active theme's colours.
+  NodeMarkPainter(this.spec) : base = GwColors.surface2, dot = GwColors.text;
 
   /// What to draw.
   final NodeMarkSpec spec;
+
+  /// Disc behind the rings (from the theme).
+  final Color base;
+
+  /// The small dot on the outer ring (from the theme).
+  final Color dot;
 
   @override
   void paint(Canvas canvas, Size size) {
     final r = size.shortestSide / 2;
     final c = size.center(Offset.zero);
-    canvas.drawCircle(c, r, Paint()..color = GwColors.surface2);
+    canvas.drawCircle(c, r, Paint()..color = base);
     canvas.drawCircle(
       c,
       r - 0.5,
@@ -231,11 +273,7 @@ class NodeMarkPainter extends CustomPainter {
 
     // accent dot riding the outer ring
     final moon = spec.moonTurn * 2 * math.pi - math.pi / 2;
-    canvas.drawCircle(
-      c + Offset(math.cos(moon), math.sin(moon)) * outer,
-      stroke * 0.95,
-      Paint()..color = GwColors.mistWhite,
-    );
+    canvas.drawCircle(c + Offset(math.cos(moon), math.sin(moon)) * outer, stroke * 0.95, Paint()..color = dot);
 
     final core = r * 0.22;
     final fill = Paint()..color = spec.color;
@@ -287,5 +325,6 @@ class NodeMarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(NodeMarkPainter oldDelegate) => oldDelegate.spec != spec;
+  bool shouldRepaint(NodeMarkPainter oldDelegate) =>
+      oldDelegate.spec != spec || oldDelegate.base != base || oldDelegate.dot != dot;
 }

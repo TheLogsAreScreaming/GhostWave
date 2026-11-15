@@ -435,11 +435,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with ThreadJumper {
                           hintText: _replyTo == null ? 'Message' : 'Reply',
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GwRadius.lg),
-                            borderSide: const BorderSide(color: GwColors.outlineVariant),
+                            borderSide: BorderSide(color: GwColors.outlineVariant),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(GwRadius.lg),
-                            borderSide: const BorderSide(color: GwColors.spectralCyan, width: 1.5),
+                            borderSide: BorderSide(color: GwColors.accent, width: 1.5),
                           ),
                           counterText: parts > 1 ? '$bytes bytes · $parts messages' : '$bytes / $max bytes',
                           counterStyle: TextStyle(color: over ? scheme.error : null),
@@ -489,7 +489,7 @@ class _KeyChangeBanner extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.gpp_maybe, color: GwColors.onAlertContainer),
+              Icon(Icons.gpp_maybe, color: GwColors.onAlertContainer),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -505,7 +505,7 @@ class _KeyChangeBanner extends ConsumerWidget {
             'Someone announced a different key for ${nodeIdHex(contact.nodeId)}. An honest node cannot do this '
             '(its ID is a hash of its key), so it may be an impersonation attempt. Your node still uses the '
             'old key. Accept the new key only if you checked it with the person, ideally by scanning their QR code.',
-            style: const TextStyle(color: GwColors.onAlertContainer),
+            style: TextStyle(color: GwColors.onAlertContainer),
           ),
           if (pending != null) ...[
             const SizedBox(height: 6),
@@ -516,7 +516,7 @@ class _KeyChangeBanner extends ConsumerWidget {
             children: [
               TextButton(
                 onPressed: () => ctl.rejectKeyChange(contact.nodeId),
-                child: const Text('Keep old key', style: TextStyle(color: GwColors.onAlertContainer)),
+                child: Text('Keep old key', style: TextStyle(color: GwColors.onAlertContainer)),
               ),
               if (pending != null)
                 TextButton(
@@ -530,7 +530,7 @@ class _KeyChangeBanner extends ConsumerWidget {
                       if (context.mounted) showSnack(context, '$e');
                     }
                   },
-                  child: const Text('Accept new key', style: TextStyle(color: GwColors.onAlertContainer)),
+                  child: Text('Accept new key', style: TextStyle(color: GwColors.onAlertContainer)),
                 ),
             ],
           ),
