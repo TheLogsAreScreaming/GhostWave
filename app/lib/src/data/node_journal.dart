@@ -24,6 +24,12 @@ enum HeardVia {
 
   /// An SOS from it.
   sos,
+
+  /// Its delivery receipt for a message you sent it.
+  receipt,
+
+  /// Its answer to a link check (one-hop ping).
+  ping,
 }
 
 /// Hours are counted in whole UTC hours since the epoch.

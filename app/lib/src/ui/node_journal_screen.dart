@@ -394,6 +394,8 @@ class _JournalNodeScreenState extends ConsumerState<JournalNodeScreen> {
         HeardVia.direct: 'direct message',
         HeardVia.channel: 'channel message',
         HeardVia.sos: 'SOS',
+        HeardVia.receipt: 'delivery receipt',
+        HeardVia.ping: 'link check',
       };
       final parts = [
         for (final v in HeardVia.values)
