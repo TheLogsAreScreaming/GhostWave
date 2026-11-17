@@ -123,6 +123,8 @@ static std::vector<ToRadio> sampleTo() {
   v.push_back(m);
   m = {}, m.reqId = 27, m.kind = ToKind::GetTelemetry, m.nodeId = 0x9F219DBB;   // 1.12
   v.push_back(m);
+  m = {}, m.reqId = 30, m.kind = ToKind::Restart;   // 1.13, no fields
+  v.push_back(m);
   m = {}, m.reqId = 19, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientName = "app", m.clientShare = Bytes(16, 7),
   m.pinProof = key(2);   // 1.2
   v.push_back(m);
@@ -373,7 +375,7 @@ static void testUnknownAndMalformed() {
   const uint8_t future[] = {0x08, 0x05, 0x9A, 0x06, 0x02, 0x08, 0x01};
   CHECK(decodeTo(future, sizeof future, t) && t.kind == ToKind::None && t.reqId == 5);
   // unused oneof numbers (between and after this version's) are skipped too
-  for (uint8_t f : {32, 33, 34, 36, 37}) {
+  for (uint8_t f : {32, 33, 34, 37, 38}) {
     const uint8_t other[] = {0x08, 0x05, static_cast<uint8_t>(((f << 3) | 2) | 0x80),
                              static_cast<uint8_t>(((f << 3) | 2) >> 7), 0x02, 0x08, 0x01};   // tag is a 2-byte varint
     CHECK(decodeTo(other, sizeof other, t) && t.kind == ToKind::None && t.reqId == 5);

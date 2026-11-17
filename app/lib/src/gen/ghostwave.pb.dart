@@ -114,6 +114,7 @@ enum ToRadio_Request {
   getSettings,
   setSettings,
   getTelemetry,
+  restart,
   notSet
 }
 
@@ -143,6 +144,7 @@ class ToRadio extends $pb.GeneratedMessage {
     GetSettings? getSettings,
     Settings? setSettings,
     GetTelemetry? getTelemetry,
+    Restart? restart,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -169,6 +171,7 @@ class ToRadio extends $pb.GeneratedMessage {
     if (getSettings != null) result.getSettings = getSettings;
     if (setSettings != null) result.setSettings = setSettings;
     if (getTelemetry != null) result.getTelemetry = getTelemetry;
+    if (restart != null) result.restart = restart;
     return result;
   }
 
@@ -205,6 +208,7 @@ class ToRadio extends $pb.GeneratedMessage {
     30: ToRadio_Request.getSettings,
     31: ToRadio_Request.setSettings,
     35: ToRadio_Request.getTelemetry,
+    36: ToRadio_Request.restart,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -235,7 +239,8 @@ class ToRadio extends $pb.GeneratedMessage {
       29,
       30,
       31,
-      35
+      35,
+      36
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
@@ -284,6 +289,8 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: Settings.$_createMessage)
     ..aOM<GetTelemetry>(35, _omitFieldNames ? '' : 'getTelemetry',
         subBuilder: GetTelemetry.$_createMessage)
+    ..aOM<Restart>(36, _omitFieldNames ? '' : 'restart',
+        subBuilder: Restart.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -329,6 +336,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(30)
   @$pb.TagNumber(31)
   @$pb.TagNumber(35)
+  @$pb.TagNumber(36)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -353,6 +361,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(30)
   @$pb.TagNumber(31)
   @$pb.TagNumber(35)
+  @$pb.TagNumber(36)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -624,6 +633,18 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearGetTelemetry() => $_clearField(35);
   @$pb.TagNumber(35)
   GetTelemetry ensureGetTelemetry() => $_ensure(23);
+
+  /// protocol 1.13
+  @$pb.TagNumber(36)
+  Restart get restart => $_getN(24);
+  @$pb.TagNumber(36)
+  set restart(Restart value) => $_setField(36, value);
+  @$pb.TagNumber(36)
+  $core.bool hasRestart() => $_has(24);
+  @$pb.TagNumber(36)
+  void clearRestart() => $_clearField(36);
+  @$pb.TagNumber(36)
+  Restart ensureRestart() => $_ensure(24);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -2325,6 +2346,52 @@ class GetTelemetry extends $pb.GeneratedMessage {
   $core.bool hasNodeId() => $_has(0);
   @$pb.TagNumber(1)
   void clearNodeId() => $_clearField(1);
+}
+
+/// 1.13: restart the node, as the `reboot` console command, so saved settings
+/// that apply after a restart take effect. Replies Ok, then the node restarts
+/// about a second later: the link drops and the app reconnects. Saved settings,
+/// contacts, keys and channels are kept; messages and SOS the node is holding
+/// in memory for others are lost. Nodes that can't restart themselves
+/// (ghostwaved) answer UNKNOWN_REQUEST.
+class Restart extends $pb.GeneratedMessage {
+  factory Restart() => Restart._();
+
+  Restart._();
+
+  factory Restart.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Restart()..mergeFromBuffer(data, registry);
+  factory Restart.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Restart()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Restart',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: Restart.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Restart clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Restart copyWith(void Function(Restart) updates) =>
+      super.copyWith((message) => updates(message as Restart)) as Restart;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Restart() / Restart.new instead')
+  static Restart create() => Restart._();
+  static $pb.GeneratedMessage $_createMessage() => Restart._();
+  @$core.override
+  Restart createEmptyInstance() => Restart._();
+  @$core.pragma('dart2js:noInline')
+  static Restart getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Restart>(Restart.$_createMessage);
+  static Restart? _defaultInstance;
 }
 
 enum FromRadio_Event {

@@ -90,6 +90,10 @@ class Handler {
     // Applies the fields present, all or none, and saves them: ErrorCode::None,
     // or an error with `err` naming the field. Unset: UNKNOWN_REQUEST.
     std::function<ErrorCode(const SettingsMsg&, std::string&)> setSettings;
+    // Restart (1.13): schedules a restart soon after the Ok reply has gone out
+    // (the board restarts itself about a second later). False if it can't.
+    // Unset: UNKNOWN_REQUEST (a node that can't restart itself, like ghostwaved).
+    std::function<bool()> restart;
   };
 
   static constexpr size_t kDefaultQueueMax = 64;

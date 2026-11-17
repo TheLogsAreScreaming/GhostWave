@@ -26,6 +26,7 @@ import 'my_radios_screen.dart';
 import 'node_settings_screen.dart';
 import 'offline_maps_screen.dart';
 import 'privacy_screen.dart';
+import 'restart.dart';
 import 'transmit.dart';
 import 'theme.dart';
 import 'walkthrough_screen.dart';
@@ -119,6 +120,13 @@ class SettingsScreen extends ConsumerWidget {
                   dense: true,
                   leading: Icon(Icons.system_update_alt),
                   title: Text('Update the node\'s firmware to change its radio and device settings from here.'),
+                ),
+              if (ref.read(meshProvider.notifier).nodeCanRestart)
+                ListTile(
+                  leading: const Icon(Icons.restart_alt),
+                  title: const Text('Restart the node'),
+                  subtitle: const Text('Applies saved settings that need a restart'),
+                  onTap: () => unawaited(confirmRestartNode(context, ref)),
                 ),
               ListTile(
                 leading: const Icon(Icons.memory),

@@ -23,6 +23,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | 2 | the PIN handshake on `Hello` (`PinChallenge`, `Hello.pin_proof`, error `BAD_PIN`) (§7), replaced by 3 |
 | 3 | that handshake also agrees keys, and the link is encrypted after it (`PinChallenge.server_share`, `Hello.client_share`, sealed frames with version byte 2) (§7). Not compatible with minor 2: both ends must be updated. |
 | 11 | `GetSettings` (30), `SetSettings` (31) and `Settings` (32): the node's radio and device settings from the app: name, region, frequency, output power, channel key, require-encryption, SOS responder, Bluetooth PIN, screen timeout, status LEDs and button SOS, with the board's limits and what it has. A request changes all its fields or none (`BAD_ARGUMENT` names the field). Nodes without the hooks (ghostwaved) answer `UNKNOWN_REQUEST`. |
+| 13 | `Restart` (36): restart the node from the app, as the `reboot` console command, so settings that apply after a restart take effect. Replies `Ok`, then restarts about 1.5 s later; the link drops and the app reconnects. Messages held in the node's memory are lost. Nodes that can't restart themselves (ghostwaved) answer `UNKNOWN_REQUEST`. |
 | 12 | `GetTelemetry` (35) and `NodeTelemetry` (34): battery %, battery mV and uptime that neighbors carry in their beacons (DESIGN §4.4). Live `NodeTelemetry` events as beacons arrive; `GetTelemetry` asks for the latest one held. A field is absent when that node cannot read it. |
 | 10 | `Traceroute` (29) and `TraceResult` (31): trace the path to any node through relays, both ways, with each node's own signal reading (docs/TRACEROUTE.md). `max_hops` 1–8 (0 = 5). `RATE_LIMITED` while one is out or within 30 s; `BAD_ARGUMENT` for more than 8 hops. |
 | 9 | `LinkPing` (28) and `LinkPingResult` (30): ping a node heard directly and measure the link both ways (docs/TRACEROUTE.md). `NOT_FOUND` if not heard directly, `RATE_LIMITED` while one is out or within 5 s. |
@@ -158,6 +159,10 @@ Notes on the requests:
   `tx off` console command. A fresh board listens only until this. The app asks the user to check the
   antenna and region first. `Status.tx_off` shows the result. If the switch flips but cannot be saved,
   the reply is `SEND_FAILED`.
+- **Restart (1.13)** restarts the node, exactly like the `reboot` console command. The node replies
+  `Ok` first and restarts about 1.5 s later, so the reply reaches the app. Saved settings, contacts,
+  keys and channels are kept; messages and SOS held in memory for other nodes are lost, so the app
+  says so before asking. ghostwaved answers `UNKNOWN_REQUEST`.
 - **RequestKey (1.4)** asks a node in radio range for its signed IDENT now, instead of waiting for
   the node's own request (DESIGN §4.5). Beacons carry no key and a node ID is only a hash, so a node
   that was only heard can't be sent a sealed DM: an app should hold a message for it until

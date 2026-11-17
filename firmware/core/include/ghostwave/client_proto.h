@@ -31,7 +31,8 @@ constexpr uint8_t kProtocolVersion = 1;
 // 10: Traceroute / TraceResult (multi-hop).
 // 11: GetSettings / SetSettings / Settings (radio and device settings).
 // 12: GetTelemetry / NodeTelemetry (battery and uptime from neighbors' beacons).
-constexpr uint32_t kProtocolMinor = 12;
+// 13: Restart (the node restarts itself, as the `reboot` console command).
+constexpr uint32_t kProtocolMinor = 13;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -151,6 +152,7 @@ enum class ToKind : uint8_t {
   GetSettings = 30,       // 1.11
   SetSettings = 31,       // 1.11
   GetTelemetry = 35,      // 1.12
+  Restart = 36,           // 1.13 (no fields)
 };
 
 struct ToRadio {

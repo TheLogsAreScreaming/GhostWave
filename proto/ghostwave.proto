@@ -58,6 +58,8 @@ message ToRadio {
     Settings set_settings = 31;
     // protocol 1.12
     GetTelemetry get_telemetry = 35;
+    // protocol 1.13
+    Restart restart = 36;
   }
 }
 
@@ -226,6 +228,14 @@ message Settings {
 message GetTelemetry {
   fixed32 node_id = 1;
 }
+
+// 1.13: restart the node, as the `reboot` console command, so saved settings
+// that apply after a restart take effect. Replies Ok, then the node restarts
+// about a second later: the link drops and the app reconnects. Saved settings,
+// contacts, keys and channels are kept; messages and SOS the node is holding
+// in memory for others are lost. Nodes that can't restart themselves
+// (ghostwaved) answer UNKNOWN_REQUEST.
+message Restart {}
 
 // --------------------------------------------------------------- node -> app
 
