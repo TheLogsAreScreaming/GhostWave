@@ -358,7 +358,7 @@ bool StatusInfo::operator==(const StatusInfo& o) const {
 // are skipped, so the message reads as no request / no event.
 static bool knownTo(uint32_t f) {
   return (f >= 10 && f <= static_cast<uint32_t>(ToKind::SetSettings)) ||
-         f == static_cast<uint32_t>(ToKind::GetTelemetry);
+         f == static_cast<uint32_t>(ToKind::GetTelemetry) || f == static_cast<uint32_t>(ToKind::Restart);
 }
 static bool knownFrom(uint32_t f) {
   return (f >= 10 && f <= static_cast<uint32_t>(FromKind::Settings)) ||
@@ -423,6 +423,7 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
       s.u32(2, m.maxHops);
       break;
     case ToKind::SetSettings: writeSettings(s, m.settings); break;
+    case ToKind::Restart:
     case ToKind::GetSettings:
     case ToKind::ListChannels:
     case ToKind::ListContacts:

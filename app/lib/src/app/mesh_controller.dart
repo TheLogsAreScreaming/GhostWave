@@ -964,6 +964,23 @@ class MeshController extends Notifier<MeshState> {
     if (on && !state.txOff) unawaited(_flushOutbox(session).catchError((Object _) {}));
   }
 
+  /// Whether the connected node can be restarted from the app (Restart,
+  /// protocol 1.13). Only radio boards restart themselves: a Pi node
+  /// (ghostwaved, no `ghostwave-<board>` firmware name) answers UNKNOWN_REQUEST.
+  bool get nodeCanRestart {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 13 && s.info.firmware.startsWith('ghostwave-');
+  }
+
+  /// Asks the node to restart. It answers first, then restarts about 1.5 s
+  /// later: the link drops and reconnects by itself. Throws [NodeError] or
+  /// [StateError].
+  Future<void> restartNode() async {
+    final session = _link.session;
+    if (session == null || !nodeCanRestart) throw StateError('This node cannot restart from the app.');
+    await session.request(pb.ToRadio(restart: pb.Restart()));
+  }
+
   /// Whether the connected node takes radio and device settings from the app
   /// (GetSettings / SetSettings, protocol 1.11).
   bool get nodeCanSettings {

@@ -305,6 +305,7 @@ class SerialApp : public gw::AppPort {
 gw::mcu::Settings g_set;
 gw::mcu::DeviceSettings g_dev;   // screen timeout, LEDs, button SOS (app settings, 1.11)
 bool g_restartNeeded = false;    // saved settings that apply after a restart
+uint64_t g_restartAtMs = 0;      // the app asked for a restart (Restart, 1.13): when to do it
 bool g_displayOk = false;
 gw::mcu::McuRadio g_radio;
 SerialApp g_app;
@@ -1032,6 +1033,13 @@ void startBle() {
                           g_radio.outputDbm());
     return saved;
   };
+  // The app's Restart (1.13): exactly the `reboot` command, a moment after the
+  // Ok reply so it reaches the phone first.
+  hooks.restart = [] {
+    g_restartAtMs = nowMs() + 1500;
+    Serial.println("app asked for a restart: rebooting in 1.5 s");
+    return true;
+  };
   hooks.edKeys = &g_edKeys;
   loadEdPins();
   g_channels.reset(new SavedChannelBook(*g_router));
@@ -1304,6 +1312,12 @@ void gwLoop() {
   static uint64_t lastTick = 0;
   static uint8_t buf[256];
   uint64_t now = nowMs();
+  if (g_restartAtMs != 0 && now >= g_restartAtMs) {
+    Serial.println("rebooting");
+    Serial.flush();
+    delay(50);
+    gw::mcu::reboot();
+  }
   size_t len;
   float rssi;
   if (g_radioOk && g_radio.poll(buf, sizeof buf, len, rssi)) {

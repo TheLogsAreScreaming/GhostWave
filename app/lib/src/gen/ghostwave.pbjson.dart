@@ -241,6 +241,15 @@ const ToRadio$json = {
       '9': 0,
       '10': 'getTelemetry'
     },
+    {
+      '1': 'restart',
+      '3': 36,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.Restart',
+      '9': 0,
+      '10': 'restart'
+    },
   ],
   '8': [
     {'1': 'request'},
@@ -277,7 +286,8 @@ final $typed_data.Uint8List toRadioDescriptor = $convert.base64Decode(
     'Rfc2V0dGluZ3MYHiABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYxLkdldFNldHRpbmdzSABSC2dl'
     'dFNldHRpbmdzEkIKDHNldF9zZXR0aW5ncxgfIAEoCzIdLmdob3N0d2F2ZS5jbGllbnQudjEuU2'
     'V0dGluZ3NIAFILc2V0U2V0dGluZ3MSSAoNZ2V0X3RlbGVtZXRyeRgjIAEoCzIhLmdob3N0d2F2'
-    'ZS5jbGllbnQudjEuR2V0VGVsZW1ldHJ5SABSDGdldFRlbGVtZXRyeUIJCgdyZXF1ZXN0');
+    'ZS5jbGllbnQudjEuR2V0VGVsZW1ldHJ5SABSDGdldFRlbGVtZXRyeRI4CgdyZXN0YXJ0GCQgAS'
+    'gLMhwuZ2hvc3R3YXZlLmNsaWVudC52MS5SZXN0YXJ0SABSB3Jlc3RhcnRCCQoHcmVxdWVzdA==');
 
 @$core.Deprecated('Use helloDescriptor instead')
 const Hello$json = {
@@ -753,6 +763,15 @@ const GetTelemetry$json = {
 /// Descriptor for `GetTelemetry`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List getTelemetryDescriptor = $convert
     .base64Decode('CgxHZXRUZWxlbWV0cnkSFwoHbm9kZV9pZBgBIAEoB1IGbm9kZUlk');
+
+@$core.Deprecated('Use restartDescriptor instead')
+const Restart$json = {
+  '1': 'Restart',
+};
+
+/// Descriptor for `Restart`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List restartDescriptor =
+    $convert.base64Decode('CgdSZXN0YXJ0');
 
 @$core.Deprecated('Use fromRadioDescriptor instead')
 const FromRadio$json = {

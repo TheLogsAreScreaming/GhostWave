@@ -10,6 +10,7 @@ import '../app/mesh_controller.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import '../link/contact_card.dart';
 import '../link/session.dart';
+import 'restart.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -173,9 +174,19 @@ class _NodeSettingsScreenState extends ConsumerState<NodeSettingsScreen> {
     return ListView(
       children: [
         if (s.restartNeeded)
-          const _Banner(
-            'Some saved changes apply after the node restarts: press its reset button or unplug it and plug it back in.',
-          ),
+          ref.read(meshProvider.notifier).nodeCanRestart
+              ? _Banner(
+                  'Some saved changes apply after the node restarts.',
+                  action: TextButton(
+                    onPressed: () async {
+                      if (await confirmRestartNode(context, ref) && mounted) Navigator.pop(context);
+                    },
+                    child: const Text('Restart now'),
+                  ),
+                )
+              : const _Banner(
+                  'Some saved changes apply after the node restarts: press its reset button or unplug it and plug it back in.',
+                ),
         const _Section('Radio'),
         if (s.hasName())
           ListTile(
@@ -512,9 +523,12 @@ class _Section extends StatelessWidget {
 }
 
 class _Banner extends StatelessWidget {
-  const _Banner(this.text);
+  const _Banner(this.text, {this.action});
 
   final String text;
+
+  /// An optional button under the text.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -526,7 +540,19 @@ class _Banner extends StatelessWidget {
         children: [
           const Icon(Icons.restart_alt),
           const SizedBox(width: GwSpace.md),
-          Expanded(child: Text(text)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(text),
+                if (action case final a?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: GwSpace.sm),
+                    child: a,
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     ),

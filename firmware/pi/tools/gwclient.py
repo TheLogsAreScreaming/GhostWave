@@ -77,6 +77,7 @@ TO_REQUESTS = {
     29: ("traceroute", {1: ("node_id", "fx32"), 2: ("max_hops", "u32")}),
     # protocol 1.12 (30-34 are 1.11's)
     35: ("get_telemetry", {1: ("node_id", "fx32")}),
+    36: ("restart", {}),
 }
 
 FROM_EVENTS = {

@@ -560,7 +560,8 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
     case ToKind::SetTx:
     case ToKind::LinkPing:
     case ToKind::Traceroute:
-    case ToKind::GetTelemetry: break;
+    case ToKind::GetTelemetry:
+    case ToKind::Restart: break;
     case ToKind::GetSettings:
     case ToKind::SetSettings:
       if (!hooks_.getSettings || !hooks_.setSettings) {
@@ -707,6 +708,19 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
         q.reqId = req;
         send(c, q);
       }
+      return true;
+    }
+    case ToKind::Restart: {
+      if (!hooks_.restart) {
+        error(c, req, ErrorCode::UnknownRequest, "this node can't restart itself");
+        return true;
+      }
+      if (!hooks_.restart()) {
+        error(c, req, ErrorCode::SendFailed, "could not schedule a restart");
+        return true;
+      }
+      t_.log("client asked the node to restart");
+      reply(c, req, FromKind::Ok);
       return true;
     }
     case ToKind::SetTx: {
