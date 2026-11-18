@@ -11,7 +11,10 @@ One command stages a release from a commit on main and, with `--publish`, publis
   workflow runs only when `firmware/` changes, so release new firmware from the commit that bumped
   `GW_FW_VERSION` (or a later one that also touched `firmware/`).
 - Bump `GW_FW_VERSION` in `firmware/mcu/src/main.cpp` when the firmware changed. The app's dev number
-  is picked for you.
+  is picked for you: each App build already reports the next `0.1.0-dev.N` (one past the highest
+  `app-v` tag on GhostWave-Releases) and the release uses that number, so Android's version name
+  matches the release tag and Obtainium can compare them. A build made before another app release
+  has a stale number: the script refuses it, so rerun the App workflow on main first.
 
 ## Dry run (the default)
 
@@ -55,5 +58,5 @@ A commit that only changed firmware has no App build (that workflow skips it). R
 firmware with `--skip-app`, and the app from the last commit that changed it
 (`--commit SHA --skip-firmware`).
 
-Options: `--commit SHA` (default main's head), `--app-version 0.1.0-dev.N`, `--skip-firmware`,
+Options: `--commit SHA` (default main's head), `--app-version 0.1.0-dev.N` (must match the build), `--skip-firmware`,
 `--skip-app`. Tests: `python3 scripts/test-release.py` (offline).
