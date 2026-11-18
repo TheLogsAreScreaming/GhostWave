@@ -15,6 +15,7 @@ import 'package:ghostwave_app/src/data/traffic.dart';
 import 'package:ghostwave_app/src/link/geo.dart';
 import 'package:ghostwave_app/src/ui/map_screen.dart';
 import 'package:ghostwave_app/src/ui/theme.dart';
+import 'package:ghostwave_app/src/ui/traffic_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const int me = 0x00000009;
@@ -22,14 +23,19 @@ const int ridge = 0x9F219DBB;
 const int saddle = 0x0000B002;
 const int ghost = 0x0000C003;
 
-Future<ProviderContainer> _pumpMap(WidgetTester tester, {bool reduceMotion = false}) async {
+Future<ProviderContainer> _pumpMap(WidgetTester tester, {bool reduceMotion = false, DateTime Function()? clock}) async {
   // wide enough for the map attribution in the test font
   tester.view.physicalSize = const Size(1000, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  final c = ProviderContainer(overrides: [sharedPrefsProvider.overrideWithValue(prefs)]);
+  final c = ProviderContainer(
+    overrides: [
+      sharedPrefsProvider.overrideWithValue(prefs),
+      if (clock != null) clockProvider.overrideWithValue(clock),
+    ],
+  );
   addTearDown(c.dispose);
   final now = DateTime.now();
   c.read(meshProvider.notifier).state = c
@@ -133,5 +139,65 @@ void main() {
     expect(find.textContaining('Ridge →'), findsOneWidget);
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets("the card's age counts up while it shows a packet", (tester) async {
+    var t = DateTime(2026, 11, 18, 13);
+    final c = await _pumpMap(tester, clock: () => t);
+    c.read(trafficProvider.notifier)
+      ..setOn(true)
+      ..add(TrafficPacket(kind: TrafficKind.advert, path: const [ridge, me], hops: 1, at: t));
+    await tester.pump();
+    expect(find.textContaining('0s ago'), findsOneWidget);
+    t = t.add(const Duration(seconds: 7));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('7s ago'), findsOneWidget, reason: 'no new packet, but the age moved on');
+    c.read(trafficProvider.notifier).setOn(false);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Fit all keeps every pin clear of the route card and the toolbar', (tester) async {
+    final c = await _pumpMap(tester);
+    c.read(trafficProvider.notifier).setOn(true);
+    await tester.pump();
+    await tester.tap(find.byTooltip('Show all'));
+    await tester.pump();
+    final card = tester.getRect(find.byType(TrafficRouteCard));
+    final toolbar = tester.getRect(find.byType(MapToolbar));
+    for (final label in [RegExp('^My node'), RegExp('^Ridge'), RegExp('^0000b002')]) {
+      final pin = tester.getRect(find.bySemanticsLabel(label).first);
+      expect(pin.overlaps(card), isFalse, reason: '$label pin is above the card');
+      expect(pin.overlaps(toolbar), isFalse, reason: '$label pin is left of the toolbar');
+    }
+    await tester.pumpAndSettle();
+  });
+
+  group('mapFitPadding', () {
+    const map = Rect.fromLTWH(0, 0, 400, 800);
+
+    test('with nothing over the map, the plain margin on every side', () {
+      expect(mapFitPadding(map), const EdgeInsets.all(kMapFitMargin));
+    });
+
+    test('a wide card at the bottom and a tall toolbar on the right push the pins away', () {
+      final p = mapFitPadding(map, overlays: const [Rect.fromLTWH(12, 600, 376, 172), Rect.fromLTWH(320, 12, 68, 400)]);
+      expect(p.bottom, 800 - 600 + kMapFitMargin);
+      expect(p.right, 400 - 320 + kMapFitMargin);
+      expect(p.top, kMapFitMargin);
+      expect(p.left, kMapFitMargin);
+    });
+
+    test('overlays too big to clear still leave a quarter of the map', () {
+      final p = mapFitPadding(map, overlays: const [Rect.fromLTWH(0, 0, 400, 300), Rect.fromLTWH(0, 500, 400, 300)]);
+      expect(p.top + p.bottom, closeTo(800 * 0.75, 0.001));
+      expect(p.top, closeTo(p.bottom, 0.001), reason: 'shared fairly');
+    });
+
+    test('an overlay outside the map is ignored', () {
+      expect(
+        mapFitPadding(map, overlays: const [Rect.fromLTWH(0, 900, 400, 100)]),
+        const EdgeInsets.all(kMapFitMargin),
+      );
+    });
   });
 }
