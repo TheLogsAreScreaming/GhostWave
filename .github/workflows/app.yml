@@ -31,6 +31,24 @@ defaults:
     working-directory: app
 
 jobs:
+  # The version the app reports (Android versionName etc.): the next
+  # app-v0.1.0-dev.N on GhostWave-Releases, so a build that gets released as
+  # dev.N says 0.1.0-dev.N and update checkers (Obtainium) can compare it.
+  version:
+    name: App version name
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      name: ${{ steps.v.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - id: v
+        working-directory: .
+        run: |
+          name=$(python3 scripts/app-build-name.py)
+          echo "App version name: $name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
   check:
     name: App format, analyze, unit tests
     runs-on: ubuntu-24.04
@@ -99,6 +117,7 @@ jobs:
 
   android:
     name: App Android APK
+    needs: version
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -133,7 +152,7 @@ jobs:
         env:
           GW_DEV_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_DEV_KEYSTORE_PASSWORD }}
           GW_DEV_KEY_ALIAS: ${{ secrets.ANDROID_DEV_KEY_ALIAS }}
-        run: flutter build apk --release --split-per-abi --target-platform android-arm64 --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
+        run: flutter build apk --release --split-per-abi --target-platform android-arm64 --build-name ${{ needs.version.outputs.name }} --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
       - name: Check the APK signer
         run: |
           bt=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
@@ -159,7 +178,7 @@ jobs:
         run: |
           short=$(git rev-parse --short HEAD)
           mkdir -p out
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "out/ghostwave-app-${{ github.run_number }}-$short-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "out/ghostwave-app-${{ needs.version.outputs.name }}-${{ github.run_number }}-$short-arm64.apk"
           {
             echo "### APK built"
             if [ "$HAS_DEV_KEY" = "true" ]; then echo "Signed with the GhostWave dev key"; else echo "Signed with a throwaway debug key"; fi
@@ -177,6 +196,7 @@ jobs:
 
   windows:
     name: App Windows build
+    needs: version
     runs-on: windows-2022
     timeout-minutes: 45
     steps:
@@ -187,7 +207,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter pub get
-      - run: flutter build windows --release --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
+      - run: flutter build windows --release --build-name ${{ needs.version.outputs.name }} --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
       - name: Zip the app folder
         shell: pwsh
         run: |
@@ -202,6 +222,7 @@ jobs:
 
   macos:
     name: App macOS build
+    needs: version
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -212,7 +233,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter pub get
-      - run: flutter build macos --release --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
+      - run: flutter build macos --release --build-name ${{ needs.version.outputs.name }} --build-number ${{ github.run_number }} --dart-define=GW_COMMIT=${{ github.sha }}
       - name: Zip the app
         run: |
           mkdir -p out
