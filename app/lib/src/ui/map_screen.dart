@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -8,14 +9,18 @@ import 'package:latlong2/latlong.dart' as ll;
 import '../app/coverage.dart';
 import '../app/mesh_controller.dart';
 import '../app/preferences.dart';
+import '../app/traffic.dart';
+import '../link/contact_card.dart' show nodeIdHex;
 import '../link/geo.dart';
 import '../map/offline_maps.dart';
 import '../data/coverage_sample.dart';
+import '../data/traffic.dart';
 import 'coverage_screen.dart' show coverageLook;
 import 'format.dart';
 import 'node_details_screen.dart';
 import 'offline_maps_screen.dart';
 import 'tile_provider.dart';
+import 'traffic_map.dart';
 import 'waypoint_screens.dart';
 import 'widgets.dart';
 import 'theme.dart';
@@ -33,7 +38,7 @@ class MapScreen extends ConsumerStatefulWidget {
 enum _Kind { me, contact, nearby, sos }
 
 class _Pin {
-  const _Pin(this.kind, this.pos, this.title, this.detail, {this.nodeId});
+  const _Pin(this.kind, this.pos, this.title, this.detail, {this.nodeId, this.seen});
 
   final _Kind kind;
   final LatLon pos;
@@ -42,6 +47,9 @@ class _Pin {
 
   /// The node it stands for; tapping opens its details. Null for an SOS spot.
   final int? nodeId;
+
+  /// When it was last heard, if known.
+  final DateTime? seen;
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
@@ -113,12 +121,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           m.nameOf(c.nodeId),
           seen == null ? p.toString() : 'seen ${timeAgo(seen)}',
           nodeId: c.nodeId,
+          seen: seen,
         ),
       );
     }
     for (final n in m.neighbors.values) {
       if (n.pos == null || ids.contains(n.nodeId)) continue;
-      pins.add(_Pin(_Kind.nearby, n.pos!, m.nameOf(n.nodeId), 'heard ${timeAgo(n.lastSeen)}', nodeId: n.nodeId));
+      pins.add(
+        _Pin(
+          _Kind.nearby,
+          n.pos!,
+          m.nameOf(n.nodeId),
+          'heard ${timeAgo(n.lastSeen)}',
+          nodeId: n.nodeId,
+          seen: n.lastSeen,
+        ),
+      );
     }
     for (final a in m.alerts) {
       if (a.pos == null) continue;
@@ -148,9 +166,100 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
+  void _locate(MeshState m) {
+    final p = m.ownPos;
+    if (p == null) {
+      showSnack(context, 'Your position is not known yet.');
+      return;
+    }
+    _map.move(ll.LatLng(p.lat, p.lon), math.max(_map.camera.zoom, 14));
+  }
+
+  Future<void> _filter() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => Consumer(
+      builder: (context, ref, _) {
+        final kinds = ref.watch(trafficProvider.select((s) => s.kinds));
+        return ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg),
+              child: Text('Packet types to show', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            for (final k in TrafficKind.values)
+              CheckboxListTile(
+                value: kinds.contains(k),
+                onChanged: (v) => ref.read(trafficProvider.notifier).setKind(k, v ?? false),
+                secondary: Icon(Icons.circle, size: 14, color: trafficColor(k)),
+                title: Text(k.label),
+              ),
+          ],
+        );
+      },
+    ),
+  );
+
+  Future<void> _search(List<_Pin> pins) async {
+    final nodes = [
+      for (final p in pins)
+        if (p.nodeId != null) p,
+    ];
+    final picked = await showModalBottomSheet<_Pin>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _NodeSearchSheet(pins: nodes),
+    );
+    if (picked != null && mounted) _map.move(ll.LatLng(picked.pos.lat, picked.pos.lon), math.max(_map.camera.zoom, 14));
+  }
+
+  Future<void> _options() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => Consumer(
+      builder: (context, ref, _) {
+        final t = ref.watch(trafficProvider);
+        final ctl = ref.read(trafficProvider.notifier);
+        return ListView(
+          shrinkWrap: true,
+          children: [
+            SwitchListTile(
+              value: t.on,
+              onChanged: ctl.setOn,
+              title: const Text('Show traffic'),
+              subtitle: const Text('Packets your node hears travel across the map.'),
+            ),
+            SwitchListTile(
+              value: t.hopLabels,
+              onChanged: t.on ? ctl.setHopLabels : null,
+              title: const Text('Hop names'),
+              subtitle: const Text('Name each hop while a route is on screen.'),
+            ),
+            ListTile(
+              enabled: t.recent.isNotEmpty,
+              leading: const Icon(Icons.delete_sweep_outlined),
+              title: const Text('Clear heard traffic'),
+              onTap: ctl.clear,
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final mesh = ref.watch(meshProvider);
+    final traffic = ref.watch(trafficProvider);
+    final trafficOn = traffic.on;
+    final darkTiles = trafficOn && Theme.of(context).brightness == Brightness.dark;
+    final now = ref.read(clockProvider);
+    String nameOf(int id) => id == mesh.nodeId ? 'You' : mesh.nameOf(id);
+    LatLon? posOf(int id) => id == mesh.nodeId
+        ? mesh.ownPos
+        : mesh.contacts[id]?.pos ?? mesh.neighbors[id]?.pos ?? mesh.journal.entries[id]?.lastPos;
     final pins = _pins(mesh);
     final waypoints = [
       for (final w in mesh.waypoints.all.reversed)
@@ -237,7 +346,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             },
             icon: const Icon(Icons.push_pin_outlined),
           ),
-          IconButton(tooltip: 'Show all', onPressed: () => _fit(pins), icon: const Icon(Icons.fit_screen)),
         ],
       ),
       body: Stack(
@@ -251,11 +359,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               onLongPress: (_, p) => unawaited(openNewWaypoint(context, pos: LatLon(p.latitude, p.longitude))),
             ),
             children: [
-              TileLayer(
-                urlTemplate: source.urlTemplate,
-                userAgentPackageName: 'org.ghostwave.ghostwave_app',
-                tileProvider: _tileProvider(ref.read(offlineStoreProvider), source.urlTemplate, off.regions),
-                maxZoom: 19,
+              ColorFiltered(
+                // the traffic view on a dark theme darkens the tiles; otherwise
+                // an identity filter keeps the tile layer's state across toggles
+                colorFilter: darkTiles ? kDarkTiles : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+                child: TileLayer(
+                  urlTemplate: source.urlTemplate,
+                  userAgentPackageName: 'org.ghostwave.ghostwave_app',
+                  tileProvider: _tileProvider(ref.read(offlineStoreProvider), source.urlTemplate, off.regions),
+                  maxZoom: 19,
+                ),
               ),
               if (_showTrails && trails.isNotEmpty)
                 PolylineLayer(
@@ -311,18 +424,27 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               ? showSnack(context, '${p.title}: ${p.detail}')
                               : unawaited(openNodeDetails(context, p.nodeId!)),
                           child: ExcludeSemantics(
-                            child: Icon(iconOf(p.kind), color: colorOf(p.kind), size: p.kind == _Kind.sos ? 44 : 36),
+                            child: trafficOn && (p.kind == _Kind.nearby || p.kind == _Kind.contact)
+                                ? Center(
+                                    child: TrafficNodePin(
+                                      color: colorOf(p.kind),
+                                      heardRecently: heardRecently(p.seen, now()),
+                                      icon: p.kind == _Kind.contact ? Icons.person : Icons.cell_tower,
+                                    ),
+                                  )
+                                : Icon(iconOf(p.kind), color: colorOf(p.kind), size: p.kind == _Kind.sos ? 44 : 36),
                           ),
                         ),
                       ),
                     ),
                 ],
               ),
+              if (trafficOn) TrafficRoutesLayer(posOf: posOf, nameOf: nameOf),
               // always visible: the OSM policy does not allow it behind a toggle
               SimpleAttributionWidget(source: Text(source.attributionText)),
             ],
           ),
-          if (_showTrails && trails.isNotEmpty)
+          if (_showTrails && trails.isNotEmpty && !trafficOn)
             Positioned(
               left: 12,
               bottom: 28,
@@ -348,7 +470,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             ),
-          if (_showCoverage && coverage.isNotEmpty)
+          if (_showCoverage && coverage.isNotEmpty && !trafficOn)
             Positioned(
               right: 12,
               bottom: 28,
@@ -389,7 +511,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             Positioned(
               top: 12,
               left: 12,
-              right: 12,
+              right: 88, // clear of the toolbar
               child: Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -405,7 +527,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             Positioned(
               top: 12,
               left: 12,
-              right: 12,
+              right: 88, // clear of the toolbar
               child: Card(
                 child: ListTile(
                   leading: const Icon(Icons.location_searching),
@@ -425,35 +547,148 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               ),
             ),
+          if (trafficOn)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 28, // above the attribution
+              child: SafeArea(
+                top: false,
+                child: TrafficRouteCard(posOf: posOf, nameOf: nameOf, now: now),
+              ),
+            ),
           Positioned(
-            left: 12,
-            bottom: 12,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final k in _Kind.values)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(iconOf(k), color: colorOf(k), size: 16),
-                          const SizedBox(width: 4),
-                          Text(switch (k) {
-                            _Kind.me => 'My node',
-                            _Kind.contact => 'Contact',
-                            _Kind.nearby => 'Nearby',
-                            _Kind.sos => 'SOS',
-                          }, style: Theme.of(context).textTheme.labelSmall),
-                        ],
-                      ),
-                  ],
+            top: 12,
+            right: 12,
+            child: MapToolbar(
+              children: [
+                MapToolButton(
+                  icon: Icons.near_me_outlined,
+                  label: 'Locate',
+                  tooltip: 'Go to my position',
+                  onPressed: () => _locate(mesh),
+                ),
+                MapToolButton(
+                  icon: Icons.filter_list,
+                  label: 'Filter',
+                  tooltip: 'Packet types to show',
+                  onPressed: () => unawaited(_filter()),
+                ),
+                MapToolButton(
+                  icon: Icons.route,
+                  label: 'Traffic',
+                  tooltip: trafficOn ? 'Hide live traffic' : 'Show live traffic',
+                  selected: trafficOn,
+                  onPressed: () => ref.read(trafficProvider.notifier).setOn(!trafficOn),
+                ),
+                MapToolButton(
+                  icon: Icons.search,
+                  label: 'Search',
+                  tooltip: 'Find a node on the map',
+                  onPressed: () => unawaited(_search(pins)),
+                ),
+                MapToolButton(
+                  icon: Icons.open_in_full,
+                  label: 'Fit all',
+                  tooltip: 'Show all',
+                  onPressed: () => _fit(pins),
+                ),
+                MapToolButton(
+                  icon: Icons.more_horiz,
+                  label: 'Options',
+                  tooltip: 'Map options',
+                  onPressed: () => unawaited(_options()),
+                ),
+              ],
+            ),
+          ),
+          if (!trafficOn)
+            Positioned(
+              left: 12,
+              bottom: 12,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final k in _Kind.values)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(iconOf(k), color: colorOf(k), size: 16),
+                            const SizedBox(width: 4),
+                            Text(switch (k) {
+                              _Kind.me => 'My node',
+                              _Kind.contact => 'Contact',
+                              _Kind.nearby => 'Nearby',
+                              _Kind.sos => 'SOS',
+                            }, style: Theme.of(context).textTheme.labelSmall),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Finds a node that has a position, by name or ID.
+class _NodeSearchSheet extends StatefulWidget {
+  const _NodeSearchSheet({required this.pins});
+
+  final List<_Pin> pins;
+
+  @override
+  State<_NodeSearchSheet> createState() => _NodeSearchSheetState();
+}
+
+class _NodeSearchSheetState extends State<_NodeSearchSheet> {
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _q.trim().toLowerCase();
+    final hits = [
+      for (final p in widget.pins)
+        if (q.isEmpty || p.title.toLowerCase().contains(q) || nodeIdHex(p.nodeId!).toLowerCase().contains(q)) p,
+    ];
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: GwSpace.lg),
+              child: TextField(
+                autofocus: true,
+                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Node name or ID'),
+                onChanged: (v) => setState(() => _q = v),
+              ),
+            ),
+            Flexible(
+              child: hits.isEmpty
+                  ? const Padding(padding: EdgeInsets.all(GwSpace.lg), child: Text('No node on the map matches.'))
+                  : ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final p in hits)
+                          ListTile(
+                            title: Text(p.title),
+                            subtitle: Text(p.detail),
+                            onTap: () => Navigator.pop(context, p),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

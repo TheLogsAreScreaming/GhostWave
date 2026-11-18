@@ -19,8 +19,13 @@ import 'package:ghostwave_app/main.dart';
 import 'package:ghostwave_app/src/app/look.dart';
 import 'package:ghostwave_app/src/app/mesh_controller.dart';
 import 'package:ghostwave_app/src/app/providers.dart';
+import 'package:ghostwave_app/src/app/traffic.dart';
 import 'package:ghostwave_app/src/data/mesh_store.dart';
+import 'package:ghostwave_app/src/data/models.dart';
+import 'package:ghostwave_app/src/data/traffic.dart';
 import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
+import 'package:ghostwave_app/src/link/geo.dart';
+import 'package:ghostwave_app/src/ui/map_screen.dart';
 import 'package:ghostwave_app/src/ui/node_journal_screen.dart';
 import 'package:ghostwave_app/src/ui/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -238,6 +243,55 @@ void main() {
     await tester.tap(find.text('Rover'));
     await tester.pumpAndSettle();
     await _shot(tester, key, 'journal_node');
+  });
+
+  testWidgets('map: live traffic', skip: skip != false, (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    const me = 0x00000009, ridge = 0x1A2B3C4D, saddle = 0x5EED1234, kestrel = 0x7E57C0DE, ghost = 0x0000C003;
+    final seed = const MeshState().copyWith(
+      nodeId: me,
+      ownPos: const LatLon(46.872, -113.994),
+      contacts: {
+        ridge: Contact(nodeId: ridge, name: 'Ridge', pos: const LatLon(46.955, -114.120), lastSeen: now),
+        kestrel: Contact(nodeId: kestrel, name: 'Kestrel', pos: const LatLon(46.80, -114.15)),
+      },
+      neighbors: {saddle: Neighbor(nodeId: saddle, lastSeen: now, pos: const LatLon(46.915, -114.035))},
+    );
+    final key = GlobalKey();
+    tester.view.physicalSize = const Size(412, 892) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: key,
+        child: ProviderScope(
+          overrides: [sharedPrefsProvider.overrideWithValue(prefs), meshProvider.overrideWith(() => SeededMesh(seed))],
+          child: MaterialApp(debugShowCheckedModeBanner: false, theme: buildGhostWaveTheme(), home: const MapScreen()),
+        ),
+      ),
+    );
+    await tester.pump();
+    final c = ProviderScope.containerOf(tester.element(find.byType(MapScreen)));
+    c.read(trafficProvider.notifier)
+      ..setOn(true)
+      ..add(
+        TrafficPacket(
+          kind: TrafficKind.trace,
+          path: const [ridge, ghost, saddle, me],
+          pathKnown: true,
+          hops: 3,
+          lastHop: saddle,
+          rssiDbm: -97,
+          at: now,
+        ),
+      );
+    await tester.pump(); // the layer picks the packet up
+    await tester.pump(const Duration(milliseconds: 16)); // the animation's first frame
+    await tester.pump(const Duration(milliseconds: 950)); // mid-way along the second hop
+    await _shot(tester, key, 'map_traffic');
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets('desktop width', skip: skip != false, (tester) async {

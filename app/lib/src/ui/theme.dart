@@ -94,6 +94,27 @@ abstract final class GwColors {
 
   /// Other heard nodes on the map.
   static const Color mapNearby = Color(0xFF546E7A);
+
+  /// Traffic map: adverts (beacons, identities).
+  static const Color trafficAdvert = Color(0xFFFF5FA2);
+
+  /// Traffic map: direct messages.
+  static const Color trafficDirect = Color(0xFF4C8DFF);
+
+  /// Traffic map: channel messages.
+  static const Color trafficChannel = Color(0xFF3DDC84);
+
+  /// Traffic map: receipts and acknowledgements.
+  static const Color trafficAck = Color(0xFF22D3EE);
+
+  /// Traffic map: traceroutes.
+  static const Color trafficTrace = Color(0xFFFF9F1C);
+
+  /// Traffic map: everything else.
+  static const Color trafficOther = Color(0xFFB07CFF);
+
+  /// Traffic map: the ring around a node heard in the last few minutes.
+  static const Color trafficHeard = Color(0xFF3DDC84);
 }
 
 /// How opaque frosted cards are over a gradient or photo background. High
