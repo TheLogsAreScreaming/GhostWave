@@ -83,6 +83,14 @@ def next_app_version(tags) -> str:
     return f'0.1.0-dev.{max(nums, default=0) + 1}'
 
 
+def apk_version(apk_name: str):
+    """The version name an App CI APK reports, from its file name
+    (ghostwave-app-<version>-<run>-<sha>-arm64.apk), or None for builds made
+    before the workflow set it (those report 1.0.0)."""
+    m = re.fullmatch(r'ghostwave-app-(\d+\.\d+\.\d+-dev\.\d+)-\d+-[0-9a-f]+-arm64\.apk', apk_name)
+    return m[1] if m else None
+
+
 def source_commit(release_body: str):
     """The 40-hex source commit a release's notes name, or None."""
     m = re.search(r'Source commit: ([0-9a-f]{40})', release_body or '')
@@ -122,10 +130,10 @@ def nrf_notes(board, version, commit, run_url, bootloader, sha256) -> str:
             f'`ghostwave-{board}-{version}.uf2` onto the UF2 drive.\n\nSHA-256: `{sha256}`\n')
 
 
-def app_notes(version, build, commit, run_url, apk_sha, changes) -> str:
+def app_notes(version, build, commit, run_url, apk_sha, changes, shown='1.0.0') -> str:
     listed = '\n'.join(changes) if changes else '- Maintenance build.'
     return (f'Development prerelease. Android arm64 APK signed with the GhostWave development key, plus Windows (x64) '
-            f'and macOS builds. Shows as **1.0.0 ({2000 + build})** in Android\'s app info.\n\n'
+            f'and macOS builds. Shows as **{shown} ({2000 + build})** in Android\'s app info.\n\n'
             f'Merged since the last app release:\n\n{listed}\n\n'
             f'Source commit: {commit}. [App CI run]({run_url}). Windows and macOS builds have not been opened on '
             f'a computer by this script.\n\nAPK SHA-256: `{apk_sha}`\n')
@@ -143,6 +151,13 @@ def api(path):
 
 def release_tags():
     return set(gh('api', '--paginate', f'repos/{RELEASES}/releases?per_page=100', '--jq', '.[].tag_name').split())
+
+
+def git_tags():
+    """Every tag on GhostWave-Releases. Tags outlive deleted releases, so the
+    next app number never reuses one."""
+    out = subprocess.check_output(['git', 'ls-remote', '--tags', f'https://github.com/{RELEASES}.git'], text=True)
+    return {line.split('refs/tags/', 1)[1].removesuffix('^{}') for line in out.splitlines() if 'refs/tags/' in line}
 
 
 def runs_for(commit, keys):
@@ -211,9 +226,18 @@ def stage_firmware(commit, version, runs, tags, out: Path):
 
 
 def stage_app(commit, runs, tags, out: Path, version=None):
-    version = version or next_app_version(tags)
+    files = {artifact: download(runs['app']['id'], artifact, out / 'app' / artifact) for artifact in APP_ASSETS}
+    apk = next(f for f in files['ghostwave-app-apk'] if f.match('*.apk'))
+    built = apk_version(apk.name)
+    if built:
+        if version and version != built:
+            raise ValueError(f'this build reports {built}, not {version}: release it as {built}')
+        version = built
+    else:
+        version = version or next_app_version(tags | git_tags())
+        print(f'app: this build predates version names and will show as 1.0.0 (release {version} anyway)')
     if f'app-v{version}' in tags:
-        raise ValueError(f'app-v{version} already exists')
+        raise ValueError(f'app-v{version} already exists (this build was made before it; rebuild main to get the next number)')
     previous = sorted((t for t in tags if t.startswith('app-v0.1.0-dev.')),
                       key=lambda t: int(t.rsplit('.', 1)[1]))
     changes = []
@@ -232,8 +256,7 @@ def stage_app(commit, runs, tags, out: Path, version=None):
                 print('app: could not list changes (commits not in this clone); notes say so')
     assets = []
     for artifact, (pattern, suffix) in APP_ASSETS.items():
-        files = download(runs['app']['id'], artifact, out / 'app' / artifact)
-        src = next(f for f in files if f.match(pattern))
+        src = next(f for f in files[artifact] if f.match(pattern))
         dest = out / 'app' / f'ghostwave-app-{version}-{suffix}'
         shutil.copyfile(src, dest)
         assets.append(dest)
@@ -241,7 +264,8 @@ def stage_app(commit, runs, tags, out: Path, version=None):
     sums.write_text(''.join(f'{hashlib.sha256(a.read_bytes()).hexdigest()}  {a.name}\n' for a in assets))
     notes = out / 'app' / 'notes.md'
     apk_sha = hashlib.sha256(assets[0].read_bytes()).hexdigest()
-    notes.write_text(app_notes(version, runs['app']['run_number'], commit, runs['app']['html_url'], apk_sha, changes))
+    notes.write_text(app_notes(version, runs['app']['run_number'], commit, runs['app']['html_url'], apk_sha, changes,
+                               shown=built or '1.0.0'))
     print(f'app {version}: {len(assets)} builds, {len(changes)} changes listed')
     return version, {'tag': f'app-v{version}', 'assets': [*assets, sums], 'notes': notes}
 
@@ -292,7 +316,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--out', type=Path, required=True, help='a new directory for downloads and staging')
     p.add_argument('--commit', help='commit on main (default: main head)')
-    p.add_argument('--app-version', help='e.g. 0.1.0-dev.25 (default: the next dev number)')
+    p.add_argument('--app-version', help='e.g. 0.1.0-dev.25 (default: the version the build reports)')
     p.add_argument('--site', type=Path, help='a meshmayhem-site clone, to prepare the site PR')
     p.add_argument('--skip-firmware', action='store_true')
     p.add_argument('--skip-app', action='store_true')

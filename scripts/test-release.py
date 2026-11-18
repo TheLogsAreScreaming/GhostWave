@@ -64,6 +64,12 @@ check(r.next_app_version({'app-v0.1.0-dev.9', 'app-v0.1.0-dev.24', 'fw-rak4631-v
       'next app version is numeric, not alphabetical (24 > 9)')
 check(r.next_app_version(set()) == '0.1.0-dev.1', 'first app version')
 
+# version name from the App CI APK file name
+check(r.apk_version('ghostwave-app-0.1.0-dev.33-250-4090764-arm64.apk') == '0.1.0-dev.33', 'reads the build version')
+check(r.apk_version('ghostwave-app-242-5aa4592-arm64.apk') is None, 'older builds have no version name')
+check('**0.1.0-dev.33 (2250)**' in r.app_notes('0.1.0-dev.33', 250, 'a' * 40, 'u', 'h', [], shown='0.1.0-dev.33'),
+      'notes show the version the phone reports')
+
 # source commit from release notes
 sha = 'f05676cdb220cee7fa6da3f70a5fe3e7797f6e96'
 check(r.source_commit(f'blah\n\nSource commit: {sha}. [App CI run]') == sha, 'finds the source commit')
