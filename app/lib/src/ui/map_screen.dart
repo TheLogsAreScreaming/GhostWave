@@ -54,6 +54,9 @@ class _Pin {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _map = MapController();
+  final _stackKey = GlobalKey();
+  final _toolbarKey = GlobalKey();
+  final _cardKey = GlobalKey();
   bool _fitted = false;
   bool _showTrails = true;
   bool _showCoverage = true;
@@ -162,8 +165,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (pts.length == 1) {
       _map.move(pts.first, 14);
     } else {
-      _map.fitCamera(CameraFit.coordinates(coordinates: pts, padding: const EdgeInsets.all(48), maxZoom: 15));
+      _map.fitCamera(CameraFit.coordinates(coordinates: pts, padding: _fitPadding(), maxZoom: 15));
     }
+  }
+
+  /// Room around the fitted pins, kept clear of the toolbar and the traffic
+  /// card that float over the map.
+  EdgeInsets _fitPadding() {
+    Rect? rectOf(GlobalKey k) {
+      final box = k.currentContext?.findRenderObject();
+      final stack = _stackKey.currentContext?.findRenderObject();
+      if (box is! RenderBox || stack is! RenderBox || !box.hasSize) return null;
+      return box.localToGlobal(Offset.zero, ancestor: stack) & box.size;
+    }
+
+    final stack = _stackKey.currentContext?.size;
+    if (stack == null) return const EdgeInsets.all(kMapFitMargin);
+    return mapFitPadding(Offset.zero & stack, overlays: [?rectOf(_toolbarKey), ?rectOf(_cardKey)]);
   }
 
   void _locate(MeshState m) {
@@ -349,6 +367,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ],
       ),
       body: Stack(
+        key: _stackKey,
         children: [
           FlutterMap(
             mapController: _map,
@@ -554,13 +573,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               bottom: 28, // above the attribution
               child: SafeArea(
                 top: false,
-                child: TrafficRouteCard(posOf: posOf, nameOf: nameOf, now: now),
+                child: TrafficRouteCard(key: _cardKey, posOf: posOf, nameOf: nameOf, now: now),
               ),
             ),
           Positioned(
             top: 12,
             right: 12,
             child: MapToolbar(
+              key: _toolbarKey,
               children: [
                 MapToolButton(
                   icon: Icons.near_me_outlined,

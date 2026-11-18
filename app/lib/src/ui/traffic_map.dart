@@ -28,6 +28,44 @@ const Duration kTrafficLegTime = Duration(milliseconds: 650);
 /// How long a route stays on screen, fading, after its dot arrives.
 const Duration kTrafficFadeTime = Duration(milliseconds: 3200);
 
+/// How far fitted pins stay from the map's edges and from anything floating
+/// over it, in logical pixels.
+const double kMapFitMargin = 48;
+
+/// The padding that keeps fitted pins inside [map] and clear of [overlays]
+/// (the toolbar, the route card). A wide overlay pushes the pins away from the
+/// top or bottom edge it sits on, a tall one from the left or right edge. Each
+/// side is capped so at least a quarter of the map stays usable.
+EdgeInsets mapFitPadding(Rect map, {List<Rect> overlays = const []}) {
+  var left = kMapFitMargin, top = kMapFitMargin, right = kMapFitMargin, bottom = kMapFitMargin;
+  for (final o in overlays) {
+    final r = o.intersect(map);
+    if (r.isEmpty) continue;
+    if (r.width >= r.height) {
+      if (r.center.dy >= map.center.dy) {
+        bottom = bottom > map.bottom - r.top + kMapFitMargin ? bottom : map.bottom - r.top + kMapFitMargin;
+      } else {
+        top = top > r.bottom - map.top + kMapFitMargin ? top : r.bottom - map.top + kMapFitMargin;
+      }
+    } else if (r.center.dx >= map.center.dx) {
+      right = right > map.right - r.left + kMapFitMargin ? right : map.right - r.left + kMapFitMargin;
+    } else {
+      left = left > r.right - map.left + kMapFitMargin ? left : r.right - map.left + kMapFitMargin;
+    }
+  }
+  double cap(double a, double b, double size) {
+    final most = size * 0.75;
+    return a + b <= most ? a : a * most / (a + b);
+  }
+
+  return EdgeInsets.fromLTRB(
+    cap(left, right, map.width),
+    cap(top, bottom, map.height),
+    cap(right, left, map.width),
+    cap(bottom, top, map.height),
+  );
+}
+
 /// Darkens light map tiles for the traffic view on a dark theme: inverts
 /// lightness, keeps hue, and dims, so roads and water stay readable.
 const ColorFilter kDarkTiles = ColorFilter.matrix(<double>[
@@ -396,8 +434,9 @@ class TrafficKindPill extends StatelessWidget {
 }
 
 /// The card at the bottom of the traffic view: the latest packet's route,
-/// kind, signal and hops off the map, then the colour legend.
-class TrafficRouteCard extends ConsumerWidget {
+/// kind, signal and hops off the map, then the colour legend. While it shows a
+/// packet its age counts up once a second.
+class TrafficRouteCard extends ConsumerStatefulWidget {
   /// Creates the card.
   const TrafficRouteCard({required this.posOf, required this.nameOf, required this.now, super.key});
 
@@ -411,9 +450,36 @@ class TrafficRouteCard extends ConsumerWidget {
   final DateTime Function() now;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TrafficRouteCard> createState() => _TrafficRouteCardState();
+}
+
+class _TrafficRouteCardState extends ConsumerState<TrafficRouteCard> {
+  Timer? _tick;
+
+  /// Runs the once-a-second rebuild only while there is an age to show.
+  void _keepTicking({required bool showing}) {
+    if (showing && _tick == null) {
+      _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (!showing) {
+      _tick?.cancel();
+      _tick = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final traffic = ref.watch(trafficProvider);
     final p = traffic.latest;
+    _keepTicking(showing: p != null);
+    final posOf = widget.posOf, nameOf = widget.nameOf, now = widget.now;
     final text = Theme.of(context).textTheme;
     final muted = text.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
     final route = p == null ? null : buildRoute(p, posOf);
