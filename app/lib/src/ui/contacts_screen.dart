@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/look.dart';
 import '../app/mesh_controller.dart';
+import '../app/node_hygiene.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../data/mesh_store.dart';
@@ -61,7 +62,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       return last.isAfter(seen) ? last : seen;
     }
 
-    final contacts = mesh.contacts.values.toList()..sort((a, b) => lastActivity(b).compareTo(lastActivity(a)));
+    final ignored = ref.watch(ignoredNodesProvider);
+    final contacts = mesh.contacts.values.where((c) => !ignored.contains(c.nodeId)).toList()
+      ..sort((a, b) => lastActivity(b).compareTo(lastActivity(a)));
     int waiting(int peer) =>
         (mesh.messages[peer] ?? const <ChatMessage>[]).where((m) => m.outgoing && m.state == MsgState.pending).length;
     // messages written for a node that has gone quiet stay findable until its key arrives
@@ -70,8 +73,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         if (!mesh.contacts.containsKey(peer) && !mesh.neighbors.containsKey(peer) && waiting(peer) > 0)
           peer: Neighbor(nodeId: peer, lastSeen: msgs.last.at),
     };
-    final nearby = [...mesh.neighbors.values.where((n) => !mesh.contacts.containsKey(n.nodeId)), ...held.values]
-      ..sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
+    final nearby = [
+      ...mesh.neighbors.values.where((n) => !mesh.contacts.containsKey(n.nodeId)),
+      ...held.values,
+    ].where((n) => !ignored.contains(n.nodeId)).toList()..sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
 
     bool matches(int id) {
       final name = mesh.nameOf(id).toLowerCase();
@@ -155,7 +160,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                                 _PeopleFilter.all => contacts.length + nearby.length,
                                 _PeopleFilter.unread => mesh.unread.values.where((n) => n > 0).length,
                                 _PeopleFilter.contacts => contacts.length,
-                                _PeopleFilter.nearby => mesh.neighbors.length,
+                                _PeopleFilter.nearby => mesh.neighbors.keys.where((id) => !ignored.contains(id)).length,
                               },
                             ),
                             selected: _filter == choice,
@@ -563,15 +568,29 @@ class NodeMetrics extends ConsumerWidget {
     final n = mesh.neighbors[nodeId];
     final c = contact;
     final heard = n?.lastSeen ?? c?.lastSeen;
-    final inRange = n != null && DateTime.now().difference(n.lastSeen) < inRangeFor;
+    final now = DateTime.now();
+    final inRange = n != null && now.difference(n.lastSeen) < inRangeFor;
+    final stale = !inRange && isStale(heard, now, ref.watch(staleAfterProvider));
     final pos = n?.pos ?? c?.pos;
     final own = mesh.ownPos;
     final chips = <(IconData, String, Color?)>[
       if (heard != null)
         (
-          inRange ? Icons.circle : Icons.history,
-          '${inRange ? 'in range · ' : ''}${timeAgo(heard)}',
-          inRange ? GwColors.success : null,
+          inRange
+              ? Icons.circle
+              : stale
+              ? Icons.hourglass_bottom
+              : Icons.history,
+          '${inRange
+              ? 'in range · '
+              : stale
+              ? 'stale · '
+              : ''}${timeAgo(heard)}',
+          inRange
+              ? GwColors.success
+              : stale
+              ? scheme.tertiary
+              : null,
         ),
       if (n?.rssiDbm case final d?) (Icons.signal_cellular_alt, signalText(d), null),
       if (own != null && pos != null)

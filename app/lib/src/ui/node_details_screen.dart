@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/location_share.dart';
 import '../app/mesh_controller.dart';
+import '../app/node_hygiene.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../data/models.dart';
@@ -120,11 +121,20 @@ class _NodeDetailsScreenState extends ConsumerState<NodeDetailsScreen> {
     );
     final telemetry = mesh.telemetry[id];
     final info = ref.watch(nodeInfoProvider);
+    final ignored = ref.watch(ignoredNodesProvider).contains(id);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(name, overflow: TextOverflow.ellipsis),
         actions: [
+          if (!isSelf)
+            IconButton(
+              tooltip: ignored ? 'Stop ignoring this node' : 'Ignore this node',
+              isSelected: ignored,
+              icon: const Icon(Icons.visibility_off_outlined),
+              selectedIcon: const Icon(Icons.visibility_off),
+              onPressed: () => unawaited(_toggleIgnore(context, ref, id, name, ignored: ignored)),
+            ),
           IconButton(
             tooltip: 'Copy node ID',
             icon: const Icon(Icons.copy_outlined),
@@ -656,4 +666,31 @@ class _TelemetrySection extends StatelessWidget {
     >= 15 => Icons.battery_2_bar,
     _ => Icons.battery_alert,
   };
+}
+
+/// Ignores [id] after asking, or stops ignoring it at once.
+Future<void> _toggleIgnore(BuildContext context, WidgetRef ref, int id, String name, {required bool ignored}) async {
+  final ctl = ref.read(ignoredNodesProvider.notifier);
+  if (ignored) {
+    ctl.unignore(id);
+    showSnack(context, '$name is shown again');
+    return;
+  }
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: Text('Ignore $name?'),
+      content: const Text(
+        'It disappears from your chats and the map and stops notifying you. Its messages are still '
+        'kept, and it still relays for the mesh. Undo any time here or in Settings, Ignored nodes.',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.of(dialog).pop(true), child: const Text('Ignore')),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  ctl.ignore(id);
+  if (context.mounted) showSnack(context, '$name is ignored');
 }

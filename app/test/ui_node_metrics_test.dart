@@ -76,6 +76,20 @@ void main() {
     expect(find.text('key learned over the air'), findsOneWidget);
   });
 
+  testWidgets('a node not heard for longer than the stale setting says so in words', (tester) async {
+    final mesh = MeshState(ownPos: own);
+    await _pump(
+      tester,
+      NodeMetrics(
+        nodeId: ridge,
+        mesh: mesh,
+        contact: Contact(nodeId: ridge, lastSeen: DateTime.now().subtract(const Duration(days: 2))),
+      ),
+    );
+    expect(find.textContaining('stale · '), findsOneWidget);
+    expect(find.byIcon(Icons.hourglass_bottom), findsOneWidget);
+  });
+
   testWidgets('a heard node waiting for its key, with messages queued; key change is a warning', (tester) async {
     final mesh = MeshState(
       neighbors: {ridge: Neighbor(nodeId: ridge, lastSeen: DateTime.now())},
