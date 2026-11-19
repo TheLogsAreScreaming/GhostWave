@@ -94,7 +94,8 @@ void main() {
 
     test('four metric rings fill the view in round steps', () {
       expect(ringRadii(4500, Units.metric), [1000, 2000, 3000, 4000]);
-      expect(ringRadii(30, Units.metric), [10, 20, 30, 40], reason: 'never below 10 m');
+      expect(ringRadii(30, Units.metric), [10, 20, 30], reason: 'never below 10 m, and only the rings that fit');
+      expect(ringRadii(5, Units.metric), [10], reason: 'always at least one ring');
       expect(ringRadii(0, Units.metric), isEmpty);
     });
 
@@ -103,6 +104,17 @@ void main() {
       expect([for (final m in r) (m / 1609.344 * 10).round() / 10], [2, 4, 6, 8]);
       final tiny = ringRadii(50, Units.imperial);
       expect((tiny.first / 1609.344 * 10).round() / 10, 0.1, reason: 'never below 0.1 mi');
+      expect(tiny, hasLength(1), reason: 'a 0.1 mi ring is all that fits in 50 m');
+      // zoomed in to about 0.2 mi of clear map: two rings, not four that run
+      // under the toolbar and push the E and W tags off screen
+      final close = ringRadii(0.22 * 1609.344, Units.imperial);
+      expect([for (final m in close) (m / 1609.344 * 10).round() / 10], [0.1, 0.2]);
+      for (final span in [50.0, 300.0, 700.0, 4500.0, 20000.0]) {
+        for (final u in Units.values) {
+          final r = ringRadii(span, u);
+          if (r.length > 1) expect(r.last, lessThanOrEqualTo(span + 1e-6), reason: '$u $span m');
+        }
+      }
     });
 
     test('rings stay clear of the toolbar and keep room for the tags', () {

@@ -23,22 +23,23 @@ double niceStep(double x) {
   return m * p;
 }
 
-/// The radii, in metres, of [count] rings that fill [spanMetres] (the
+/// The radii, in metres, of up to [count] rings that fill [spanMetres] (the
 /// distance from you to the edge of the view) in round steps of [units].
 ///
 /// Metric steps are whole metres from 10 m up; imperial steps are miles
-/// from 0.1 mi up. Empty when [spanMetres] is not a usable distance.
+/// from 0.1 mi up. When that smallest step is still too big for four rings,
+/// only the rings that fit are given (always at least one), so the outer ring
+/// never reaches past [spanMetres] and under the toolbar. Empty when
+/// [spanMetres] is not a usable distance.
 List<double> ringRadii(double spanMetres, Units units, {int count = 4}) {
   if (spanMetres <= 0 || spanMetres.isNaN || spanMetres.isInfinite || count < 1) return const [];
-  final List<double> out;
-  if (units == Units.imperial) {
-    final step = math.max(0.1, niceStep(spanMetres / _metresPerMile / count));
-    out = [for (var i = 1; i <= count; i++) step * i * _metresPerMile];
-  } else {
-    final step = math.max(10, niceStep(spanMetres / count)).toDouble();
-    out = [for (var i = 1; i <= count; i++) step * i];
-  }
-  return out;
+  final stepM = units == Units.imperial
+      ? math.max(0.1, niceStep(spanMetres / _metresPerMile / count)) * _metresPerMile
+      : math.max(10, niceStep(spanMetres / count)).toDouble();
+  // a tiny allowance so a ring exactly at the span is not lost to rounding
+  final fits = math.max(1, ((spanMetres + 1e-6) / stepM).floor());
+  final n = math.min(count, fits);
+  return [for (var i = 1; i <= n; i++) stepM * i];
 }
 
 /// How far, in pixels, rings can reach from the middle of a [width] x
