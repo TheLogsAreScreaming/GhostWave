@@ -416,7 +416,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   maxZoom: 19,
                 ),
               ),
-              if (rings && own != null) RangeRingsLayer(centre: own, units: units),
+              if (rings && own != null) RangeRingsLayer(centre: own, units: units, clear: _fitPadding()),
               if (_showTrails && trails.isNotEmpty)
                 PolylineLayer(
                   polylines: [
