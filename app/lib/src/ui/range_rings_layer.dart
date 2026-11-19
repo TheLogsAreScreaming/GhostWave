@@ -93,7 +93,9 @@ class RangeRingsLayer extends StatelessWidget {
                 ),
               for (final (deg, name) in const [(0.0, 'N'), (90.0, 'E'), (180.0, 'S'), (270.0, 'W')])
                 Marker(
-                  point: at(deg, outer * 1.08),
+                  // a fixed 24 px outside the outer ring (within ringReachPx's
+                  // tag room), so on a small ring the N tag clears its label
+                  point: at(deg, outer + 24 * mpp),
                   width: 24,
                   height: 22,
                   child: Center(child: _Tag(name, style?.copyWith(fontWeight: FontWeight.w700))),
