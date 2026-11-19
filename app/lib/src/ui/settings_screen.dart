@@ -14,6 +14,7 @@ import '../app/location_share.dart';
 import '../app/look.dart';
 import '../app/backup.dart';
 import '../app/mesh_controller.dart';
+import '../app/node_hygiene.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../app/radios.dart';
@@ -21,6 +22,7 @@ import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'background_setup_screen.dart';
 import 'backup_screen.dart';
+import 'ignored_nodes_screen.dart';
 import 'look_screen.dart';
 import 'my_radios_screen.dart';
 import 'node_settings_screen.dart';
@@ -194,6 +196,29 @@ class SettingsScreen extends ConsumerWidget {
                 selected: {ref.watch(unitsProvider)},
                 onSelectionChanged: (s) => ref.read(unitsProvider.notifier).set(s.first),
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.hourglass_bottom),
+              title: const Text('Mark nodes stale after'),
+              subtitle: const Text('Not heard for this long: faded on the map, marked "stale" in lists'),
+              trailing: DropdownButton<Duration>(
+                value: ref.watch(staleAfterProvider),
+                onChanged: (d) {
+                  if (d != null) ref.read(staleAfterProvider.notifier).set(d);
+                },
+                items: [for (final d in staleChoices) DropdownMenuItem(value: d, child: Text(staleChoiceLabel(d)))],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.visibility_off_outlined),
+              title: const Text('Ignored nodes'),
+              subtitle: Text(switch (ref.watch(ignoredNodesProvider).length) {
+                0 => 'None. Ignore a node from its details page.',
+                1 => '1 node hidden from chats and the map',
+                final n => '$n nodes hidden from chats and the map',
+              }),
+              onTap: () =>
+                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const IgnoredNodesScreen())),
             ),
             if (ref.watch(backgroundLinkProvider).supported) const _BackgroundTiles(),
             ListTile(

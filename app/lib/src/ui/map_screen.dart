@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart' as ll;
 
 import '../app/coverage.dart';
 import '../app/mesh_controller.dart';
+import '../app/node_hygiene.dart';
 import '../app/preferences.dart';
 import '../app/traffic.dart';
 import '../link/contact_card.dart' show nodeIdHex;
@@ -19,6 +20,7 @@ import 'coverage_screen.dart' show coverageLook;
 import 'format.dart';
 import 'node_details_screen.dart';
 import 'offline_maps_screen.dart';
+import 'range_rings_layer.dart';
 import 'tile_provider.dart';
 import 'traffic_map.dart';
 import 'waypoint_screens.dart';
@@ -38,7 +40,7 @@ class MapScreen extends ConsumerStatefulWidget {
 enum _Kind { me, contact, nearby, sos }
 
 class _Pin {
-  const _Pin(this.kind, this.pos, this.title, this.detail, {this.nodeId, this.seen});
+  const _Pin(this.kind, this.pos, this.title, this.detail, {this.nodeId, this.seen, this.stale = false});
 
   final _Kind kind;
   final LatLon pos;
@@ -50,6 +52,9 @@ class _Pin {
 
   /// When it was last heard, if known.
   final DateTime? seen;
+
+  /// Not heard for longer than the stale setting: drawn faded.
+  final bool stale;
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
@@ -108,36 +113,42 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  List<_Pin> _pins(MeshState m) {
+  List<_Pin> _pins(MeshState m, {Set<int> ignored = const {}, Duration staleAfter = Duration.zero, DateTime? now}) {
     final pins = <_Pin>[];
+    final at = now ?? DateTime.now();
     if (m.ownPos case final p?) pins.add(_Pin(_Kind.me, p, 'My node', p.toString(), nodeId: m.nodeId));
     final ids = <int>{};
     for (final c in m.contacts.values) {
+      if (ignored.contains(c.nodeId)) continue;
       final p = c.pos ?? m.neighbors[c.nodeId]?.pos;
       if (p == null) continue;
       ids.add(c.nodeId);
       final seen = c.lastSeen ?? m.neighbors[c.nodeId]?.lastSeen;
+      final stale = isStale(seen, at, staleAfter);
       pins.add(
         _Pin(
           _Kind.contact,
           p,
           m.nameOf(c.nodeId),
-          seen == null ? p.toString() : 'seen ${timeAgo(seen)}',
+          seen == null ? p.toString() : 'seen ${timeAgo(seen)}${stale ? ' · stale' : ''}',
           nodeId: c.nodeId,
           seen: seen,
+          stale: stale,
         ),
       );
     }
     for (final n in m.neighbors.values) {
-      if (n.pos == null || ids.contains(n.nodeId)) continue;
+      if (n.pos == null || ids.contains(n.nodeId) || ignored.contains(n.nodeId)) continue;
+      final stale = isStale(n.lastSeen, at, staleAfter);
       pins.add(
         _Pin(
           _Kind.nearby,
           n.pos!,
           m.nameOf(n.nodeId),
-          'heard ${timeAgo(n.lastSeen)}',
+          'heard ${timeAgo(n.lastSeen)}${stale ? ' · stale' : ''}',
           nodeId: n.nodeId,
           seen: n.lastSeen,
+          stale: stale,
         ),
       );
     }
@@ -278,7 +289,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     LatLon? posOf(int id) => id == mesh.nodeId
         ? mesh.ownPos
         : mesh.contacts[id]?.pos ?? mesh.neighbors[id]?.pos ?? mesh.journal.entries[id]?.lastPos;
-    final pins = _pins(mesh);
+    final pins = _pins(
+      mesh,
+      ignored: ref.watch(ignoredNodesProvider),
+      staleAfter: ref.watch(staleAfterProvider),
+      now: now(),
+    );
+    final rings = ref.watch(rangeRingsProvider);
     final waypoints = [
       for (final w in mesh.waypoints.all.reversed)
         if (!w.hidden) w,
@@ -353,6 +370,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               selectedIcon: const Icon(Icons.radar),
             ),
           IconButton(
+            tooltip: rings ? 'Hide range rings' : 'Show range rings',
+            isSelected: rings,
+            onPressed: () {
+              ref.read(rangeRingsProvider.notifier).set(!rings);
+              if (!rings && mesh.ownPos == null) showSnack(context, 'Rings appear once your position is known.');
+            },
+            icon: const Icon(Icons.track_changes_outlined),
+            selectedIcon: const Icon(Icons.track_changes),
+          ),
+          IconButton(
             tooltip: 'Waypoints',
             onPressed: () {
               final c = _map.camera.center;
@@ -389,6 +416,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   maxZoom: 19,
                 ),
               ),
+              if (rings && own != null) RangeRingsLayer(centre: own, units: units),
               if (_showTrails && trails.isNotEmpty)
                 PolylineLayer(
                   polylines: [
@@ -451,7 +479,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                       icon: p.kind == _Kind.contact ? Icons.person : Icons.cell_tower,
                                     ),
                                   )
-                                : Icon(iconOf(p.kind), color: colorOf(p.kind), size: p.kind == _Kind.sos ? 44 : 36),
+                                : Opacity(
+                                    opacity: p.stale ? 0.45 : 1,
+                                    child: Icon(
+                                      iconOf(p.kind),
+                                      color: colorOf(p.kind),
+                                      size: p.kind == _Kind.sos ? 44 : 36,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),

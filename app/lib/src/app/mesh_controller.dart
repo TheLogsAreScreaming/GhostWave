@@ -25,6 +25,7 @@ import '../link/geo.dart';
 import '../link/node_link.dart';
 import '../link/session.dart';
 import 'mesh_alerts.dart';
+import 'node_hygiene.dart';
 import 'notification_actions.dart';
 import 'providers.dart';
 
@@ -554,7 +555,11 @@ class MeshController extends Notifier<MeshState> {
     contacts[t.src] = (contacts[t.src] ?? Contact(nodeId: t.src)).copyWith(lastSeen: _now());
     // a coverage walk's ping or a reaction: kept in the chat, but no unread
     // count or notification (reactions must never make a notification storm)
-    final quiet = msg.text.startsWith('[Coverage] ') || parseMeshText(msg.text) is ReactionText;
+    // an ignored node's messages are kept, but never counted or notified
+    final quiet =
+        msg.text.startsWith('[Coverage] ') ||
+        parseMeshText(msg.text) is ReactionText ||
+        ref.read(ignoredNodesProvider).contains(t.src);
     state = state.copyWith(
       messages: {
         ...state.messages,
@@ -762,7 +767,7 @@ class MeshController extends Notifier<MeshState> {
     );
     _takeWaypoint(msg.text, c.src, channel: c.channel);
     _save();
-    if (!reaction && !ref.read(appForegroundProvider)) {
+    if (!reaction && !ref.read(appForegroundProvider) && !ref.read(ignoredNodesProvider).contains(c.src)) {
       unawaited(
         ref
             .read(meshAlertsProvider)

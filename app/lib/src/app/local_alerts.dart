@@ -12,6 +12,7 @@ import '../gen/ghostwave.pb.dart' as pb;
 import '../link/node_link.dart';
 import 'local_alert_engine.dart';
 import 'mesh_alerts.dart';
+import 'node_hygiene.dart';
 import 'mesh_controller.dart';
 import 'providers.dart';
 import 'trip_controller.dart';
@@ -142,7 +143,7 @@ class LocalAlertsRunner {
           body: '${e.message}. Charge it or swap batteries soon.',
         );
       case LocalAlertKind.newNode:
-        if (!s.newNode) return;
+        if (!s.newNode || _ref.read(ignoredNodesProvider).contains(e.nodeId)) return;
         shown = alerts.radioAlert(id: e.nodeId!, title: 'New node heard', body: '$name is in radio range.');
       case LocalAlertKind.contactQuiet:
         if (!s.quiet) return;
