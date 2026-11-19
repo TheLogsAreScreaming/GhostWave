@@ -41,6 +41,24 @@ List<double> ringRadii(double spanMetres, Units units, {int count = 4}) {
   return out;
 }
 
+/// How far, in pixels, rings can reach from the middle of a [width] x
+/// [height] map and stay clear of overlays that cover [left], [top], [right]
+/// and [bottom] pixels of its edges, with [tagRoom] left for the compass tags
+/// just outside the outer ring. Never below 40 px.
+double ringReachPx(
+  double width,
+  double height, {
+  double left = 0,
+  double top = 0,
+  double right = 0,
+  double bottom = 0,
+  double tagRoom = 28,
+}) {
+  final x = width / 2 - math.max(left, right);
+  final y = height / 2 - math.max(top, bottom);
+  return math.max(40, math.min(x, y) - tagRoom);
+}
+
 /// A ring's label: "500 m", "2 km", "0.5 mi", "10 mi". Ring distances are
 /// round numbers, so no "2.0".
 String ringLabel(double metres, Units units) {

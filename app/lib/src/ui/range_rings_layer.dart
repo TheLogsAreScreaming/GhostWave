@@ -11,13 +11,17 @@ import 'theme.dart';
 /// about four rings fit on screen. Ring labels sit on the north spoke.
 class RangeRingsLayer extends StatelessWidget {
   /// Creates the layer.
-  const RangeRingsLayer({required this.centre, required this.units, super.key});
+  const RangeRingsLayer({required this.centre, required this.units, this.clear = EdgeInsets.zero, super.key});
 
   /// Where the rings are centred (your position).
   final LatLon centre;
 
   /// Units for the ring distances.
   final Units units;
+
+  /// Edges of the map covered by toolbars and cards; rings and their tags
+  /// are sized to stay clear of them.
+  final EdgeInsets clear;
 
   static const _distance = ll.Distance();
 
@@ -26,11 +30,21 @@ class RangeRingsLayer extends StatelessWidget {
     final camera = MapCamera.of(context);
     final b = camera.visibleBounds;
     final c = camera.center;
-    // the nearer edge of the view, from its middle
-    final span = [
-      _distance(c, ll.LatLng(b.north, c.longitude)),
-      _distance(c, ll.LatLng(c.latitude, b.east)),
-    ].reduce((a, v) => a < v ? a : v);
+    final size = camera.size;
+    if (size.width <= 0) return const SizedBox.shrink();
+    // metres per pixel across the middle of the view
+    final mpp = _distance(c, ll.LatLng(c.latitude, b.east)) / (size.width / 2);
+    // as far as the rings can reach without running under the toolbar or the
+    // top and bottom edges, with room left for the N/E/S/W tags
+    final reach = ringReachPx(
+      size.width,
+      size.height,
+      left: clear.left,
+      top: clear.top,
+      right: clear.right,
+      bottom: clear.bottom,
+    );
+    final span = reach * mpp;
     final radii = ringRadii(span, units);
     if (radii.isEmpty) return const SizedBox.shrink();
     final ink = GwColors.mapMe;

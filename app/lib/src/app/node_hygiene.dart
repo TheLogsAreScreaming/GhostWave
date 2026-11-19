@@ -22,13 +22,20 @@ const staleChoices = <Duration>[
 /// The default: a node not heard for a day is stale.
 const defaultStaleAfter = Duration(hours: 24);
 
+/// Whether [t] is a believable "last heard" time at [now]: set, not before
+/// 2020 (a radio whose clock was never set reports 1970), and not more than a
+/// day ahead. Anything else is treated as unknown, never as very old.
+bool plausibleHeard(DateTime? t, DateTime now) =>
+    t != null && !t.isBefore(DateTime.utc(2020)) && !t.isAfter(now.add(const Duration(days: 1)));
+
 /// Whether a node last heard at [lastHeard] is stale at [now].
 ///
-/// Never stale when [after] is zero (off) or when it was never heard: a node
-/// with no time at all is shown as it is, not guessed at.
+/// Never stale when [after] is zero (off) or the time is not
+/// [plausibleHeard]: a node with no believable time is shown as it is, not
+/// guessed at.
 bool isStale(DateTime? lastHeard, DateTime now, Duration after) {
-  if (after == Duration.zero || lastHeard == null) return false;
-  return now.difference(lastHeard) >= after;
+  if (after == Duration.zero || !plausibleHeard(lastHeard, now)) return false;
+  return now.difference(lastHeard!) >= after;
 }
 
 /// A short label for a [staleChoices] entry, e.g. "6 h", "3 days", "Off".

@@ -27,6 +27,16 @@ void main() {
       expect(isStale(now.subtract(const Duration(days: 30)), now, Duration.zero), isFalse);
       expect(isStale(null, now, const Duration(hours: 1)), isFalse);
     });
+    test('a clock that was never set is unknown, not 56 years old', () {
+      const day = Duration(hours: 24);
+      expect(isStale(DateTime.fromMillisecondsSinceEpoch(0, isUtc: true), now, day), isFalse);
+      expect(isStale(DateTime.utc(2019, 12, 31), now, day), isFalse);
+      expect(isStale(now.add(const Duration(days: 3)), now, day), isFalse, reason: 'from the future');
+      expect(isStale(DateTime.utc(2026, 11, 10), now, day), isTrue, reason: 'a real, old time still counts');
+      expect(plausibleHeard(DateTime.utc(2020), now), isTrue);
+      expect(plausibleHeard(null, now), isFalse);
+    });
+
     test('labels', () {
       expect([for (final d in staleChoices) staleChoiceLabel(d)], ['Off', '1 h', '6 h', '1 day', '3 days', '7 days']);
     });
@@ -93,6 +103,15 @@ void main() {
       expect([for (final m in r) (m / 1609.344 * 10).round() / 10], [2, 4, 6, 8]);
       final tiny = ringRadii(50, Units.imperial);
       expect((tiny.first / 1609.344 * 10).round() / 10, 0.1, reason: 'never below 0.1 mi');
+    });
+
+    test('rings stay clear of the toolbar and keep room for the tags', () {
+      // 400 x 800 map, 72 px toolbar down the right edge
+      expect(ringReachPx(400, 800, right: 72), 200 - 72 - 28);
+      // a tall top card limits it instead
+      expect(ringReachPx(400, 800, top: 350), 400 - 350 - 28 < 40 ? 40 : 400 - 350 - 28);
+      expect(ringReachPx(400, 800), 200 - 28);
+      expect(ringReachPx(100, 100, right: 90), 40, reason: 'never vanishes');
     });
 
     test('labels have no stray decimals', () {
