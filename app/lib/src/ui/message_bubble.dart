@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 
 import '../data/message_refs.dart';
 import '../data/models.dart';
+import '../data/sarneg.dart';
 import 'format.dart';
+import 'sarneg_screen.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -289,6 +291,11 @@ class MessageBubble extends StatelessWidget {
                   ),
                 if (quote case final q?) _Quote(quote: q, meta: meta),
                 Align(alignment: Alignment.centerLeft, child: Text(text)),
+                if (isSarnegMessage(text))
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SarnegDecodeLine(text: text, at: at, style: meta),
+                  ),
                 const SizedBox(height: 2),
                 Wrap(
                   alignment: WrapAlignment.end,
