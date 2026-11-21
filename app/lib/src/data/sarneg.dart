@@ -48,9 +48,15 @@ String normalizeSarnegWord(String word) => word.replaceAll(RegExp(r'\s'), '').to
 
 /// What is wrong with [word] (already normalized), or null when it can be used.
 SarnegWordProblem? checkSarnegWord(String word) {
-  if (!RegExp(r'^[A-Z]*$').hasMatch(word)) return SarnegWordProblem.letters;
-  if (word.length != 10) return SarnegWordProblem.length;
-  if (word.split('').toSet().length != 10) return SarnegWordProblem.repeats;
+  if (!RegExp(r'^[A-Z]*$').hasMatch(word)) {
+    return SarnegWordProblem.letters;
+  }
+  if (word.length != 10) {
+    return SarnegWordProblem.length;
+  }
+  if (word.split('').toSet().length != 10) {
+    return SarnegWordProblem.repeats;
+  }
   return null;
 }
 
@@ -58,7 +64,9 @@ SarnegWordProblem? checkSarnegWord(String word) {
 class SarnegCodec {
   /// Uses [word], which must pass [checkSarnegWord].
   SarnegCodec(this.word) {
-    if (checkSarnegWord(word) != null) throw ArgumentError.value(word, 'word', 'not a SARNEG code word');
+    if (checkSarnegWord(word) != null) {
+      throw ArgumentError.value(word, 'word', 'not a SARNEG code word');
+    }
   }
 
   /// The 10-letter code word.
@@ -107,7 +115,9 @@ bool isSarnegMessage(String message) => message.trimLeft().startsWith(kSarnegMar
 /// What follows the marker in [message], or null when there is no marker.
 String? sarnegBody(String message) {
   final t = message.trimLeft();
-  if (!t.startsWith(kSarnegMarker)) return null;
+  if (!t.startsWith(kSarnegMarker)) {
+    return null;
+  }
   return t.substring(kSarnegMarker.length).trim();
 }
 
@@ -123,11 +133,19 @@ class SarnegKeySet {
   /// Creates a set. Every word must pass [checkSarnegWord].
   SarnegKeySet({required this.word, Map<String, String> daily = const {}})
     : daily = Map.unmodifiable(Map.fromEntries(daily.entries.toList()..sort((a, b) => a.key.compareTo(b.key)))) {
-    if (checkSarnegWord(word) != null) throw ArgumentError.value(word, 'word', 'not a SARNEG code word');
-    if (this.daily.length > kSarnegMaxDailyWords) throw ArgumentError('more than $kSarnegMaxDailyWords dated words');
+    if (checkSarnegWord(word) != null) {
+      throw ArgumentError.value(word, 'word', 'not a SARNEG code word');
+    }
+    if (this.daily.length > kSarnegMaxDailyWords) {
+      throw ArgumentError('more than $kSarnegMaxDailyWords dated words');
+    }
     for (final e in this.daily.entries) {
-      if (!_dayPattern.hasMatch(e.key)) throw ArgumentError.value(e.key, 'daily', 'not a yyyy-mm-dd day');
-      if (checkSarnegWord(e.value) != null) throw ArgumentError.value(e.value, 'daily', 'not a SARNEG code word');
+      if (!_dayPattern.hasMatch(e.key)) {
+        throw ArgumentError.value(e.key, 'daily', 'not a yyyy-mm-dd day');
+      }
+      if (checkSarnegWord(e.value) != null) {
+        throw ArgumentError.value(e.value, 'daily', 'not a SARNEG code word');
+      }
     }
   }
 
@@ -177,19 +195,31 @@ class SarnegKeySet {
     }
     final parts = t.substring(kSarnegSharePrefix.length).split(';');
     final word = normalizeSarnegWord(parts.first);
-    if (checkSarnegWord(word) != null) throw const FormatException('The code word is not 10 different letters');
+    if (checkSarnegWord(word) != null) {
+      throw const FormatException('The code word is not 10 different letters');
+    }
     final daily = <String, String>{};
     for (final p in parts.skip(1)) {
-      if (p.trim().isEmpty) continue;
+      if (p.trim().isEmpty) {
+        continue;
+      }
       final eq = p.indexOf('=');
-      if (eq < 0) throw const FormatException('A dated word is missing its date');
+      if (eq < 0) {
+        throw const FormatException('A dated word is missing its date');
+      }
       final day = p.substring(0, eq).trim();
       final w = normalizeSarnegWord(p.substring(eq + 1));
-      if (!_dayPattern.hasMatch(day) || !_validDay(day)) throw FormatException('Not a date: $day');
-      if (checkSarnegWord(w) != null) throw FormatException('The word for $day is not 10 different letters');
+      if (!_dayPattern.hasMatch(day) || !_validDay(day)) {
+        throw FormatException('Not a date: $day');
+      }
+      if (checkSarnegWord(w) != null) {
+        throw FormatException('The word for $day is not 10 different letters');
+      }
       daily[day] = w;
     }
-    if (daily.length > kSarnegMaxDailyWords) throw const FormatException('Too many dated words');
+    if (daily.length > kSarnegMaxDailyWords) {
+      throw const FormatException('Too many dated words');
+    }
     return SarnegKeySet(word: word, daily: daily);
   }
 
@@ -204,10 +234,14 @@ class SarnegKeySet {
   /// Reads [toJson] output; null when it is damaged.
   static SarnegKeySet? fromJson(Object? json) {
     try {
-      if (json is! Map) return null;
+      if (json is! Map) {
+        return null;
+      }
       final word = json['word'];
       final daily = json['daily'];
-      if (word is! String) return null;
+      if (word is! String) {
+        return null;
+      }
       return SarnegKeySet(
         word: word,
         daily: daily is Map ? {for (final e in daily.entries) '${e.key}': '${e.value}'} : const {},
