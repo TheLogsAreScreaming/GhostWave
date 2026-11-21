@@ -13,6 +13,7 @@ import '../data/field_reports.dart';
 import '../gen/ghostwave.pb.dart' as pb;
 import 'format.dart';
 import 'coverage_screen.dart';
+import 'sarneg_screen.dart';
 import 'settings_screen.dart' show packageInfoProvider;
 
 String _when(DateTime t) {
@@ -99,6 +100,15 @@ class FieldToolsScreen extends ConsumerWidget {
                 subtitle: const Text('Ping a node as you walk and map where you get through. This one transmits.'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => const CoverageScreen())),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.pin_outlined),
+                title: const Text('SARNEG code word'),
+                subtitle: const Text('Send grids and frequencies as code letters. Set and share the team’s word.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => const SarnegScreen())),
               ),
             ),
             if (s.problem == ReportsProblem.unreadable)

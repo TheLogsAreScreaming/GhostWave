@@ -17,6 +17,7 @@ import 'chat_export_sheet.dart';
 import 'connection_strip.dart';
 import 'format.dart';
 import 'message_bubble.dart';
+import 'sarneg_screen.dart';
 import 'theme.dart';
 import 'thread_view.dart';
 import 'widgets.dart';
@@ -506,6 +507,7 @@ class _ChannelChatScreenState extends ConsumerState<ChannelChatScreen> with Thre
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  SarnegComposeButton(controller: _text, enabled: joined),
                   Expanded(
                     child: TextField(
                       controller: _text,

@@ -18,6 +18,8 @@ import '../app/node_hygiene.dart';
 import '../app/preferences.dart';
 import '../app/providers.dart';
 import '../app/radios.dart';
+import '../app/sarneg_controller.dart';
+import '../data/sarneg.dart';
 import '../link/contact_card.dart';
 import '../link/session.dart';
 import 'background_setup_screen.dart';
@@ -30,6 +32,7 @@ import 'offline_maps_screen.dart';
 import 'privacy_screen.dart';
 import 'restart.dart';
 import 'transmit.dart';
+import 'sarneg_screen.dart';
 import 'theme.dart';
 import 'walkthrough_screen.dart';
 import 'widgets.dart';
@@ -221,6 +224,16 @@ class SettingsScreen extends ConsumerWidget {
                   Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const IgnoredNodesScreen())),
             ),
             if (ref.watch(backgroundLinkProvider).supported) const _BackgroundTiles(),
+            ListTile(
+              leading: const Icon(Icons.pin_outlined),
+              title: const Text('SARNEG code word'),
+              subtitle: Text(switch (ref.watch(sarnegProvider).value) {
+                null => 'Not set. Hides the numbers in a message from casual listeners.',
+                SarnegKeySet(:final daily) when daily.isNotEmpty => 'Set, with ${daily.length} dated words',
+                _ => 'Set',
+              }),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SarnegScreen())),
+            ),
             ListTile(
               leading: const Icon(Icons.download_for_offline_outlined),
               title: const Text('Offline maps'),

@@ -19,6 +19,7 @@ import 'format.dart';
 import 'node_details_screen.dart';
 import 'link_ping.dart';
 import 'message_bubble.dart';
+import 'sarneg_screen.dart';
 import 'trace_route.dart';
 import 'theme.dart';
 import 'thread_view.dart';
@@ -423,6 +424,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with ThreadJumper {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    SarnegComposeButton(controller: _text),
                     Expanded(
                       child: TextField(
                         controller: _text,
