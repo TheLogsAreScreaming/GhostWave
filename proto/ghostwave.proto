@@ -309,6 +309,10 @@ message SendQueued {
   fixed32 dest = 1;
   fixed32 msg_id = 2;            // mesh message ID
   uint32 client_msg_id = 3;
+  // 1.14: the node knows no position for dest and has not heard it lately, so
+  // the message waits in its store and goes out when dest (or a node that
+  // knows where it is) is next heard. DMs only.
+  bool held = 4;
 }
 
 message SosAlert {

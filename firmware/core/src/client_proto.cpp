@@ -550,6 +550,7 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.fx32(2, m.msgId);
       s.u32(3, m.clientMsgId);
       if (m.kind == FromKind::Delivered) s.optSint(4, m.rssiDbm);
+      else if (m.held) s.boolean(4, true);
       break;
     case FromKind::Sos:
       s.fx32(1, m.src);
@@ -706,7 +707,7 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 1: return ok(x.fx32(m.dest));
             case 2: return ok(x.fx32(m.msgId));
             case 3: return ok(x.u32(m.clientMsgId));
-            case 4: return k == FromKind::Delivered ? ok(x.optSint(m.rssiDbm)) : 0;
+            case 4: return k == FromKind::Delivered ? ok(x.optSint(m.rssiDbm)) : ok(x.boolean(m.held));
           }
           return 0;
         case FromKind::Sos:

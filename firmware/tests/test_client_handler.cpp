@@ -318,6 +318,7 @@ void testRequests() {
   v = FakeTransport::drain(c);
   CHECK(v.size() == 1 && v[0].kind == FromKind::SendQueued && v[0].msgId != 0 && v[0].clientMsgId == 4242 &&
         v[0].dest == 0x22222222);
+  CHECK(v.size() == 1 && v[0].held);   // never heard, no position: waits in the store (1.14)
   uint32_t mid = v.empty() ? 0 : v[0].msgId;
   r.h.onDelivered(0x22222222, mid);
   v = FakeTransport::drain(c);
@@ -1137,7 +1138,7 @@ static void testRestart() {
   ToRadio m;
   m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
   auto v = send(m);
-  CHECK(v.size() == 1 && v[0].protocolMinor == 13);
+  CHECK(v.size() == 1 && v[0].protocolMinor >= 13);
   m = {}, m.reqId = 2, m.kind = ToKind::Restart;
   v = send(m);
   CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 2 && calls == 1);

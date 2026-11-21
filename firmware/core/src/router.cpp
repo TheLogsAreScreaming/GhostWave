@@ -346,6 +346,7 @@ bool Router::neighborTelemetry(uint32_t id, Telemetry& out, uint64_t& heardMs) c
 void Router::addKnownPosition(uint32_t id, const Position& p, uint64_t obsMs) { learn(id, p, obsMs); }
 
 uint32_t Router::send(uint32_t dst, const std::vector<uint8_t>& payload, uint64_t now) {
+  lastSendHeld_ = false;
   if (!canSealTo(dst)) return 0;   // never put a DM on the air in the clear
   Packet p;
   p.type = PType::Data;
@@ -377,16 +378,19 @@ uint32_t Router::send(uint32_t dst, const std::vector<uint8_t>& payload, uint64_
   } else {
     storeMsg(p, true, 1 << cfg_.sprayCopiesLog2, now);
     auto se = store_.find(k);
+    bool direct = false;
     for (auto& [id, n] : nb_) {
       if (se == store_.end() || se->second.copies <= 1) break;
       if (now - n.heardMs > 5 * 60 * 1000) continue;
       if (id == dst) {
         unicast(p, shortId(id), 1, now);
+        direct = true;
         break;
       }
       se->second.given.insert(shortId(id));
       unicast(p, shortId(id), se->second.copies / 2, now);
     }
+    lastSendHeld_ = !direct;
   }
   return p.msgId;
 }

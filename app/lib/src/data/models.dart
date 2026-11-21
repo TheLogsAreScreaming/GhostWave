@@ -33,6 +33,7 @@ class ChatMessage {
     this.error,
     this.replayed = false,
     this.rssiDbm,
+    this.held = false,
   });
 
   /// From [toJson].
@@ -47,6 +48,7 @@ class ChatMessage {
     error: j['err'] as String?,
     replayed: (j['replayed'] as bool?) ?? false,
     rssiDbm: j['rssi'] as int?,
+    held: (j['held'] as bool?) ?? false,
   );
 
   /// The other node.
@@ -80,20 +82,32 @@ class ChatMessage {
   /// itself (incoming) or its receipt (outgoing). Null from older nodes.
   final int? rssiDbm;
 
+  /// Outgoing, [MsgState.sent]: the node keeps it in its store until the other
+  /// node is heard, since it knows no position for it and has not heard it
+  /// lately (`SendQueued.held`, protocol 1.14). Only meaningful while sent.
+  final bool held;
+
   /// A copy with some fields changed.
-  ChatMessage copyWith({MsgState? state, int? msgId, String? error, bool clearError = false, int? rssiDbm}) =>
-      ChatMessage(
-        peer: peer,
-        outgoing: outgoing,
-        text: text,
-        at: at,
-        state: state ?? this.state,
-        clientMsgId: clientMsgId,
-        msgId: msgId ?? this.msgId,
-        error: clearError ? null : (error ?? this.error),
-        replayed: replayed,
-        rssiDbm: rssiDbm ?? this.rssiDbm,
-      );
+  ChatMessage copyWith({
+    MsgState? state,
+    int? msgId,
+    String? error,
+    bool clearError = false,
+    int? rssiDbm,
+    bool? held,
+  }) => ChatMessage(
+    peer: peer,
+    outgoing: outgoing,
+    text: text,
+    at: at,
+    state: state ?? this.state,
+    clientMsgId: clientMsgId,
+    msgId: msgId ?? this.msgId,
+    error: clearError ? null : (error ?? this.error),
+    replayed: replayed,
+    rssiDbm: rssiDbm ?? this.rssiDbm,
+    held: held ?? this.held,
+  );
 
   /// JSON form.
   Map<String, Object?> toJson() => {
@@ -107,6 +121,7 @@ class ChatMessage {
     if (error != null) 'err': error,
     if (replayed) 'replayed': true,
     'rssi': ?rssiDbm,
+    if (held) 'held': true,
   };
 }
 
