@@ -42,7 +42,7 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.protocolVersion == b.protocolVersion && a.nodeId == b.nodeId && a.name == b.name &&
          a.ed25519Pub == b.ed25519Pub && a.x25519Pub == b.x25519Pub && a.legacy == b.legacy &&
          a.firmware == b.firmware && a.maxTextBytes == b.maxTextBytes && a.src == b.src &&
-         a.dest == b.dest && a.msgId == b.msgId && a.clientMsgId == b.clientMsgId &&
+         a.dest == b.dest && a.msgId == b.msgId && a.clientMsgId == b.clientMsgId && a.held == b.held &&
          a.text == b.text && a.pos == b.pos && a.seq == b.seq && a.accuracyM == b.accuracyM &&
          a.batteryPct == b.batteryPct && a.isNew == b.isNew && a.pinned == b.pinned && a.verified == b.verified &&
          a.count == b.count && a.status == b.status && a.error == b.error && a.detail == b.detail &&
@@ -219,6 +219,8 @@ static std::vector<FromRadio> sampleFrom() {
   m = {}, m.reqId = 81, m.kind = FromKind::ContactsEnd, m.count = 1;
   v.push_back(m);
   m = {}, m.reqId = 82, m.kind = FromKind::SendQueued, m.dest = 1, m.msgId = 2, m.clientMsgId = 3;
+  v.push_back(m);
+  m = {}, m.reqId = 82, m.kind = FromKind::SendQueued, m.dest = 1, m.msgId = 2, m.clientMsgId = 3, m.held = true;
   v.push_back(m);
   m = {}, m.reqId = 83, m.kind = FromKind::Ok;
   v.push_back(m);

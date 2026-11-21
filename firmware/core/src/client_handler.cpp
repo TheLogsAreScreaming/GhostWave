@@ -202,6 +202,7 @@ void Handler::handle(Conn& c, const ToRadio& m, uint64_t now) {
       q.dest = m.dest;
       q.msgId = mid;
       q.clientMsgId = m.clientMsgId;
+      q.held = r_.lastSendHeld();
       send(c, q);
       return;
     }

@@ -104,7 +104,7 @@ FROM_EVENTS = {
     19: ("contact", {1: ("node_id", "fx32"), 2: ("name", "bytes"), 3: ("x25519_pub", "bytes"),
                      4: ("ed25519_pub", "bytes"), 5: ("pinned", "bool")}),
     20: ("contacts_end", {1: ("count", "u32")}),
-    21: ("send_queued", {1: ("dest", "fx32"), 2: ("msg_id", "fx32"), 3: ("client_msg_id", "u32")}),
+    21: ("send_queued", {1: ("dest", "fx32"), 2: ("msg_id", "fx32"), 3: ("client_msg_id", "u32"), 4: ("held", "bool")}),
     22: ("ok", {}),
     23: ("peer_ident", {1: ("node_id", "fx32"), 2: ("name", "bytes"), 3: ("is_new", "bool")}),
     24: ("key_change", {1: ("node_id", "fx32"), 2: ("ed25519_pub", "bytes"), 3: ("name", "bytes")}),

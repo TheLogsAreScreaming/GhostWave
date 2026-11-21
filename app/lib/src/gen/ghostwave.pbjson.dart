@@ -1139,13 +1139,14 @@ const SendQueued$json = {
     {'1': 'dest', '3': 1, '4': 1, '5': 7, '10': 'dest'},
     {'1': 'msg_id', '3': 2, '4': 1, '5': 7, '10': 'msgId'},
     {'1': 'client_msg_id', '3': 3, '4': 1, '5': 13, '10': 'clientMsgId'},
+    {'1': 'held', '3': 4, '4': 1, '5': 8, '10': 'held'},
   ],
 };
 
 /// Descriptor for `SendQueued`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List sendQueuedDescriptor = $convert.base64Decode(
     'CgpTZW5kUXVldWVkEhIKBGRlc3QYASABKAdSBGRlc3QSFQoGbXNnX2lkGAIgASgHUgVtc2dJZB'
-    'IiCg1jbGllbnRfbXNnX2lkGAMgASgNUgtjbGllbnRNc2dJZA==');
+    'IiCg1jbGllbnRfbXNnX2lkGAMgASgNUgtjbGllbnRNc2dJZBISCgRoZWxkGAQgASgIUgRoZWxk');
 
 @$core.Deprecated('Use sosAlertDescriptor instead')
 const SosAlert$json = {

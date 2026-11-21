@@ -1091,7 +1091,9 @@ class MeshController extends Notifier<MeshState> {
       );
       _update(
         m,
-        (cur) => cur.state == MsgState.delivered ? cur : cur.copyWith(state: MsgState.sent, msgId: r.sendQueued.msgId),
+        (cur) => cur.state == MsgState.delivered
+            ? cur
+            : cur.copyWith(state: MsgState.sent, msgId: r.sendQueued.msgId, held: r.sendQueued.held),
       );
     } on NodeError catch (e) {
       _update(m, (cur) => cur.copyWith(state: MsgState.failed, error: e.message));

@@ -32,7 +32,8 @@ constexpr uint8_t kProtocolVersion = 1;
 // 11: GetSettings / SetSettings / Settings (radio and device settings).
 // 12: GetTelemetry / NodeTelemetry (battery and uptime from neighbors' beacons).
 // 13: Restart (the node restarts itself, as the `reboot` console command).
-constexpr uint32_t kProtocolMinor = 13;
+// 14: SendQueued.held (the DM waits in the store until its destination is heard).
+constexpr uint32_t kProtocolMinor = 14;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -254,6 +255,7 @@ struct FromRadio {
   // Text: src, msgId, text, pos (sender position if the frame carried one)
   // Delivered: dest, msgId, clientMsgId.  SendQueued: dest, msgId, clientMsgId
   uint32_t src = 0, dest = 0, msgId = 0, clientMsgId = 0;
+  bool held = false;   // SendQueued (1.14): stored until the destination is heard
   Bytes text;               // also Sos text
   Pos pos;                  // also Sos / Neighbor / Position
   // Sos: src, seq, pos, accuracyM, batteryPct, text.  SosAck: src (responder), seq

@@ -57,6 +57,7 @@ class MessageBubble extends StatelessWidget {
     this.replayed = false,
     this.error,
     this.receipts = true,
+    this.held = false,
     this.rssiDbm,
     this.progress,
     this.quote,
@@ -109,6 +110,9 @@ class MessageBubble extends StatelessWidget {
 
   /// Whether this kind of message gets delivery receipts (DMs yes, channels no).
   final bool receipts;
+
+  /// Sent, but waiting in the node's store until the other node is heard.
+  final bool held;
 
   /// Signal of the last hop: the message (incoming) or its receipt (outgoing).
   final int? rssiDbm;
@@ -210,6 +214,7 @@ class MessageBubble extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, String label) = switch (state) {
       MsgState.pending => (Icons.schedule, 'saved on phone'),
+      MsgState.sent when held => (Icons.hourglass_top, 'waiting to hear them'),
       MsgState.sent => (Icons.done, receipts ? 'accepted by radio' : 'sent to the mesh'),
       MsgState.delivered => (Icons.done_all, 'delivered'),
       MsgState.failed => (Icons.error_outline, 'failed'),

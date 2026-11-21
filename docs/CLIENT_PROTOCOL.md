@@ -24,6 +24,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | 3 | that handshake also agrees keys, and the link is encrypted after it (`PinChallenge.server_share`, `Hello.client_share`, sealed frames with version byte 2) (§7). Not compatible with minor 2: both ends must be updated. |
 | 11 | `GetSettings` (30), `SetSettings` (31) and `Settings` (32): the node's radio and device settings from the app: name, region, frequency, output power, channel key, require-encryption, SOS responder, Bluetooth PIN, screen timeout, status LEDs and button SOS, with the board's limits and what it has. A request changes all its fields or none (`BAD_ARGUMENT` names the field). Nodes without the hooks (ghostwaved) answer `UNKNOWN_REQUEST`. |
 | 13 | `Restart` (36): restart the node from the app, as the `reboot` console command, so settings that apply after a restart take effect. Replies `Ok`, then restarts about 1.5 s later; the link drops and the app reconnects. Messages held in the node's memory are lost. Nodes that can't restart themselves (ghostwaved) answer `UNKNOWN_REQUEST`. |
+| 14 | `SendQueued.held` (4): true when the node knows no position for the DM's destination and has not heard it in the last 5 minutes, so the message waits in its store and goes out when the destination (or a node that knows where it is) is next heard. Apps show it as waiting rather than sent. Older nodes never set it. |
 | 12 | `GetTelemetry` (35) and `NodeTelemetry` (34): battery %, battery mV and uptime that neighbors carry in their beacons (DESIGN §4.4). Live `NodeTelemetry` events as beacons arrive; `GetTelemetry` asks for the latest one held. A field is absent when that node cannot read it. |
 | 10 | `Traceroute` (29) and `TraceResult` (31): trace the path to any node through relays, both ways, with each node's own signal reading (docs/TRACEROUTE.md). `max_hops` 1–8 (0 = 5). `RATE_LIMITED` while one is out or within 30 s; `BAD_ARGUMENT` for more than 8 hops. |
 | 9 | `LinkPing` (28) and `LinkPingResult` (30): ping a node heard directly and measure the link both ways (docs/TRACEROUTE.md). `NOT_FOUND` if not heard directly, `RATE_LIMITED` while one is out or within 5 s. |
@@ -195,7 +196,7 @@ Notes on the requests:
 | 18 | `Error` | `code`, `detail` | a request failed, or the stream is bad |
 | 19 | `Contact` | `node_id`, `name`, `x25519_pub`, `ed25519_pub`, `pinned` | reply to `ListContacts` |
 | 20 | `ContactsEnd` | `count` | ends `ListContacts` |
-| 21 | `SendQueued` | `dest`, `msg_id`, `client_msg_id` | reply to `SendText` |
+| 21 | `SendQueued` | `dest`, `msg_id`, `client_msg_id`, `held` (1.14) | reply to `SendText`; `held`: waiting in the store for the destination to be heard |
 | 22 | `Ok` | none | success with no data |
 | 29 | `SosCancelled` (1.5) | `src`, `seq`, `verified` | the source ended its SOS. `verified`: signature checked and the alert dropped; false: no key to check, the alert stays |
 | 23 | `PeerIdent` | `node_id`, `name`, `is_new`, `ed25519_pub` (1.4) | a verified IDENT taught a new key, or a new name |

@@ -512,6 +512,11 @@ static void testBeaconWithoutPosition() {
   CHECK(sawBareBeacon);
   uint32_t ab = a.router->send(b.router->id(), {'h', 'i'}, m.now);
   CHECK(ab != 0);
+  CHECK(!a.router->lastSendHeld());   // B was just heard: straight to it
+  // a node nobody has heard and nobody knows a position for: it waits in the
+  // store, and the app is told so (SendQueued.held, protocol 1.14)
+  CHECK(a.router->send(0xC0000013, {'?'}, m.now) != 0);
+  CHECK(a.router->lastSendHeld());
   uint32_t ba = b.router->send(a.router->id(), {'y', 'o'}, m.now);
   CHECK(ba != 0);
   m.run(20000);

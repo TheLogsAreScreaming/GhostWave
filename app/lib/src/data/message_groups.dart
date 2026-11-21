@@ -77,6 +77,10 @@ class LongMessageItem extends ChatItem {
   /// The first failure, if any part failed.
   String? get error => parts.values.map((m) => m.error).firstWhere((e) => e != null, orElse: () => null);
 
+  /// Whether a part still waits in the node's store for the other node to be
+  /// heard ([ChatMessage.held]).
+  bool get held => parts.values.any((m) => m.state == MsgState.sent && m.held);
+
   /// Whether any part was held while no app was connected.
   bool get replayed => parts.values.any((m) => m.replayed);
 

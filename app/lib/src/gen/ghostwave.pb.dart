@@ -3340,11 +3340,13 @@ class SendQueued extends $pb.GeneratedMessage {
     $core.int? dest,
     $core.int? msgId,
     $core.int? clientMsgId,
+    $core.bool? held,
   }) {
     final result = SendQueued._();
     if (dest != null) result.dest = dest;
     if (msgId != null) result.msgId = msgId;
     if (clientMsgId != null) result.clientMsgId = clientMsgId;
+    if (held != null) result.held = held;
     return result;
   }
 
@@ -3366,6 +3368,7 @@ class SendQueued extends $pb.GeneratedMessage {
     ..aI(2, _omitFieldNames ? '' : 'msgId', fieldType: $pb.PbFieldType.OF3)
     ..aI(3, _omitFieldNames ? '' : 'clientMsgId',
         fieldType: $pb.PbFieldType.OU3)
+    ..aOB(4, _omitFieldNames ? '' : 'held')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3414,6 +3417,18 @@ class SendQueued extends $pb.GeneratedMessage {
   $core.bool hasClientMsgId() => $_has(2);
   @$pb.TagNumber(3)
   void clearClientMsgId() => $_clearField(3);
+
+  /// 1.14: the node knows no position for dest and has not heard it lately, so
+  /// the message waits in its store and goes out when dest (or a node that
+  /// knows where it is) is next heard. DMs only.
+  @$pb.TagNumber(4)
+  $core.bool get held => $_getBF(3);
+  @$pb.TagNumber(4)
+  set held($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasHeld() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearHeld() => $_clearField(4);
 }
 
 class SosAlert extends $pb.GeneratedMessage {

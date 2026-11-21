@@ -241,6 +241,11 @@ class Router {
 
   // Queue a message; returns its msg_id, or 0 if it cannot be sealed (too big).
   uint32_t send(uint32_t dst, const std::vector<uint8_t>& payload, uint64_t nowMs);
+  // After send(): true when the message went into the DTN store without being
+  // put on the air toward its destination (we know no position for it and have
+  // not heard it in the last 5 minutes). It goes out when the destination, or
+  // a node that knows where it is, is next heard; the app shows it as waiting.
+  bool lastSendHeld() const { return lastSendHeld_; }
 
   // Group channels (DESIGN §9.3): a pre-shared 256-bit key per channel.
   // addGroupChannel returns the channel ID (groupChannelId(key)); adding the
@@ -487,6 +492,7 @@ class Router {
   void sendDiag(uint32_t to, const uint8_t* payload, size_t n, uint64_t now);
   bool inRx_ = false, heardAny_ = false;
   int rxDbm_ = 0, lastDbm_ = 0;
+  bool lastSendHeld_ = false;
   uint64_t lastMs_ = 0;
 
   bool havePos_ = false;
