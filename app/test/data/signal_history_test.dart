@@ -5,7 +5,7 @@ import 'package:ghostwave_app/src/data/models.dart';
 import 'package:ghostwave_app/src/data/signal_history.dart';
 import 'package:ghostwave_app/src/data/timeline.dart';
 
-const int ridge = 0x9F219DBB;
+const int ridge = 0xCAFE0003;
 final DateTime t0 = DateTime(2026, 11, 14, 9);
 DateTime at(int min) => t0.add(Duration(minutes: min));
 

@@ -41,7 +41,7 @@ void main() {
   });
 
   test('held round-trips through JSON and is left out when false', () {
-    final m = ChatMessage(peer: 0xc8cc34e1, outgoing: true, text: 'hi', at: at, state: MsgState.sent, held: true);
+    final m = ChatMessage(peer: 0xcafe0002, outgoing: true, text: 'hi', at: at, state: MsgState.sent, held: true);
     expect(ChatMessage.fromJson(m.toJson()).held, isTrue);
     final plain = m.copyWith(held: false);
     expect(plain.toJson().containsKey('held'), isFalse);

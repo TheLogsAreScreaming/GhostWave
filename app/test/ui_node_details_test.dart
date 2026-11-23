@@ -20,7 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/journal_seed.dart' show SeededMesh;
 
 const int me = 0x11223344;
-const int ridge = 0x9F219DBB;
+const int ridge = 0xCAFE0003;
 const int quiet = 0x0C0FFEE0;
 final DateTime now = DateTime(2026, 11, 14, 12);
 
@@ -107,8 +107,8 @@ void main() {
     final handle = tester.ensureSemantics();
     await _pump(tester, ridge);
     expect(find.text('Ridge'), findsWidgets);
-    expect(find.text('9f219dbb'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('Node ID 9 f 2 1 9 d b b')), findsOneWidget);
+    expect(find.text('cafe0003'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Node ID c a f e 0 0 0 3')), findsOneWidget);
     expect(find.textContaining('Yes: your node heard its beacon 3 min ago'), findsOneWidget);
     expect(find.textContaining('1.0 km N of your node (bearing 0°)'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Distance: 1\.0 km N of your node, bearing 0 degrees')), findsOneWidget);

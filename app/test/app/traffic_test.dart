@@ -8,7 +8,7 @@ import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
 import 'package:ghostwave_app/src/ui/traffic_map.dart';
 
 const int me = 0x00000009;
-const int ridge = 0x9F219DBB;
+const int ridge = 0xCAFE0003;
 const int relayA = 0x0000A001;
 const int relayB = 0x0000B002;
 

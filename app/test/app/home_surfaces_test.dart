@@ -27,10 +27,10 @@ void main() {
   test('link states in words', () async {
     final session = LinkSession(await FakeNode().open() as FakeConnection);
     addTearDown(session.close);
-    final up = LinkUp('t', pb.NodeInfo(nodeId: 0xb6888904, name: 'Ridge'.codeUnits), session);
+    final up = LinkUp('t', pb.NodeInfo(nodeId: 0xcafe0001, name: 'Ridge'.codeUnits), session);
     expect(widgetTextFor(up, const MeshState(), const TripState(), now).status, 'Connected to Ridge');
-    final unnamed = LinkUp('t', pb.NodeInfo(nodeId: 0xb6888904), session);
-    expect(widgetTextFor(unnamed, const MeshState(), const TripState(), now).status, 'Connected to b6888904');
+    final unnamed = LinkUp('t', pb.NodeInfo(nodeId: 0xcafe0001), session);
+    expect(widgetTextFor(unnamed, const MeshState(), const TripState(), now).status, 'Connected to cafe0001');
     expect(widgetTextFor(null, const MeshState(), const TripState(), now).status, 'Not connected');
     expect(
       widgetTextFor(

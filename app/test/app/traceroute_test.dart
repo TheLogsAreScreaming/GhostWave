@@ -20,7 +20,7 @@ import '../link/fake_node.dart';
 import '../support/history_keys.dart';
 import 'mesh_controller_test.dart' show answeringNode, settle;
 
-const int ridge = 0x9F219DBB;
+const int ridge = 0xCAFE0003;
 const int relayA = 0x0000A001;
 const int relayB = 0x0000B002;
 
