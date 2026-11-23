@@ -382,19 +382,28 @@ class _WordDialogState extends State<_WordDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(widget.title),
-    content: TextField(
-      controller: _text,
-      autofocus: true,
-      autocorrect: false,
-      enableSuggestions: false,
-      textCapitalization: TextCapitalization.characters,
-      maxLength: 12,
-      style: GwText.mono,
-      decoration: InputDecoration(hintText: 'BLACKHORSE', errorText: _error),
-      onChanged: (_) {
-        if (_error != null) setState(() => _error = null);
-      },
-      onSubmitted: (_) => _done(),
+    // Full dialog width, so a refusal like "No letter may appear twice" fits.
+    content: SizedBox(
+      width: double.maxFinite,
+      child: TextField(
+        controller: _text,
+        autofocus: true,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.characters,
+        maxLength: 12,
+        style: GwText.mono,
+        decoration: InputDecoration(
+          hintText: 'BLACKHORSE',
+          errorText: _error,
+          errorMaxLines: 3,
+          counterText: '', // the error needs the whole row
+        ),
+        onChanged: (_) {
+          if (_error != null) setState(() => _error = null);
+        },
+        onSubmitted: (_) => _done(),
+      ),
     ),
     actions: [
       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
@@ -526,6 +535,7 @@ class _SarnegImportScreenState extends State<SarnegImportScreen> {
               labelText: 'Or paste the text',
               hintText: 'SARNEG1:BLACKHORSE',
               errorText: _error,
+              errorMaxLines: 3,
             ),
             onChanged: (_) {
               if (_error != null) setState(() => _error = null);
