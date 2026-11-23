@@ -36,6 +36,9 @@ class NodeError implements Exception {
     10 => 'The node could not send it',
     11 => 'Too many apps connected to the node',
     12 => 'The node has no identity key',
+    13 => 'The node holds as many channels as it can: remove one first',
+    14 => 'Wrong PIN for this node',
+    15 => 'No key for this contact yet. The node asked them for it: send again once you hear from them',
     _ => 'Error ${code.value}',
   };
 

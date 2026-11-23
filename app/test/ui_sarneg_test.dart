@@ -3,6 +3,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ghostwave_app/src/app/mesh_controller.dart';
@@ -84,6 +85,26 @@ void main() {
     await tester.tap(find.byTooltip('Show the word'));
     await tester.pump();
     expect(find.text('BLACKHORSE'), findsOneWidget);
+  });
+
+  testWidgets('the refusal is shown in full on a narrow phone with large text', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pump(tester, const SarnegScreen());
+    final button = find.text('Type a word', skipOffstage: false);
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'helloworld');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final text = find.text('No letter may appear twice');
+    expect(text, findsOneWidget);
+    expect(tester.renderObject<RenderParagraph>(text).didExceedMaxLines, isFalse);
   });
 
   testWidgets('the composer button puts the coded numbers in the message', (tester) async {
