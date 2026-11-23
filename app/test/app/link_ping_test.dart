@@ -18,7 +18,7 @@ import '../link/fake_node.dart';
 import '../support/history_keys.dart';
 import 'mesh_controller_test.dart' show answeringNode, settle;
 
-const int ridge = 0x9F219DBB;
+const int ridge = 0xCAFE0003;
 
 FakeNode pingNode({int minor = 9, bool answer = true}) {
   final node = answeringNode()..protocolMinor = minor;

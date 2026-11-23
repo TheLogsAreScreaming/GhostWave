@@ -10,14 +10,14 @@ import 'package:ghostwave_app/src/data/field_reports.dart';
 
 Map<String, Object?> _sample(int n, {String? note}) => {
   'at': DateTime.utc(2026, 11, 11, 12, n % 60).toIso8601String(),
-  'node': 'b6888904',
+  'node': 'cafe0001',
   'note': ?note,
   'tx': n,
   'rx': n * 2,
   'delivered': n,
   'lastRssiDbm': -100 - n,
   'neighbors': [
-    {'node': '9f219dbb', 'lastSeen': '2026-11-11T12:00:00.000Z', 'distanceMetres': 805},
+    {'node': 'cafe0003', 'lastSeen': '2026-11-11T12:00:00.000Z', 'distanceMetres': 805},
   ],
 };
 

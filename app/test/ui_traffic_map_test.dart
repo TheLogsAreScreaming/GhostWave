@@ -19,7 +19,7 @@ import 'package:ghostwave_app/src/ui/traffic_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const int me = 0x00000009;
-const int ridge = 0x9F219DBB;
+const int ridge = 0xCAFE0003;
 const int saddle = 0x0000B002;
 const int ghost = 0x0000C003;
 

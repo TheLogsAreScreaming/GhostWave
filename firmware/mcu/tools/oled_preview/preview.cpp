@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
   GFXcanvas1 c(128, 64);
   Status s{};
   s.name = "Ridge Base";
-  s.nodeId = 0xb6888904;
+  s.nodeId = 0xcafe0001;
   s.radioOk = true;
   s.txOn = true;
   s.outputDbm = 20;
@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
   s.bleEnabled = true;
   s.bleConnected = true;
   s.batteryPct = 87;
-  s.neighborIds[0] = 0x9f219dbb;
+  s.neighborIds[0] = 0xcafe0003;
   s.neighborIds[1] = 0x07afcfa7;
   s.neighborIdCount = 2;
   s.rangeSent = 24;
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
   v.pages = 4;
   v.version = "0.1.0-dev.14";
   v.passkey = "654321";
-  v.msgFrom = 0x9f219dbb;
+  v.msgFrom = 0xcafe0003;
   v.msg = "At the north trailhead, heading up the ridge. Back by 6.";
   struct Shot {
     const char* name;

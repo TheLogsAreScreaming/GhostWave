@@ -15,7 +15,7 @@ import '../link/fake_node.dart';
 import '../support/history_keys.dart';
 import 'mesh_controller_test.dart' show answeringNode, settle;
 
-const int ridge = 0x9F219DBB;
+const int ridge = 0xCAFE0003;
 final DateTime now = DateTime(2026, 11, 14, 12);
 
 FakeNode telemetryNode({int minor = 12}) {

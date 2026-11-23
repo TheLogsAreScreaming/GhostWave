@@ -253,18 +253,18 @@ void main() {
       final photos = FakePhotos();
       final c = await container({}, photos: photos);
       final looks = c.read(nodeLooksProvider.notifier);
-      looks.setHue(0x9F219DBB, 195);
-      expect(c.read(nodeLooksProvider)[0x9F219DBB], const NodeLook(hue: 195));
-      expect(await looks.pickPhoto(0x9F219DBB), isTrue);
-      expect(c.read(nodeLooksProvider)[0x9F219DBB], const NodeLook(photoPath: '/look/node-9f219dbb-0.jpg'));
+      looks.setHue(0xCAFE0003, 195);
+      expect(c.read(nodeLooksProvider)[0xCAFE0003], const NodeLook(hue: 195));
+      expect(await looks.pickPhoto(0xCAFE0003), isTrue);
+      expect(c.read(nodeLooksProvider)[0xCAFE0003], const NodeLook(photoPath: '/look/node-cafe0003-0.jpg'));
       // choosing a colour drops the photo and deletes it
-      looks.setHue(0x9F219DBB, 25);
-      expect(photos.removed, ['/look/node-9f219dbb-0.jpg']);
+      looks.setHue(0xCAFE0003, 25);
+      expect(photos.removed, ['/look/node-cafe0003-0.jpg']);
       final saved = jsonDecode(c.read(sharedPrefsProvider).getString('node_looks')!);
       expect(saved, {
-        '9f219dbb': {'hue': 25},
+        'cafe0003': {'hue': 25},
       });
-      looks.reset(0x9F219DBB);
+      looks.reset(0xCAFE0003);
       expect(c.read(nodeLooksProvider), isEmpty);
     });
 
@@ -282,16 +282,16 @@ void main() {
     test('loads saved looks and skips junk', () async {
       final c = await container({
         'node_looks': jsonEncode({
-          'b6888904': {'hue': 140},
-          '9f219dbb': {'photo': '/x.jpg'},
+          'cafe0001': {'hue': 140},
+          'cafe0003': {'photo': '/x.jpg'},
           'zz': {'hue': 1},
-          'c8cc34e1': {'hue': 999},
+          'cafe0002': {'hue': 999},
           '0000abcd': 'nope',
         }),
       });
       expect(c.read(nodeLooksProvider), {
-        0xB6888904: const NodeLook(hue: 140),
-        0x9F219DBB: const NodeLook(photoPath: '/x.jpg'),
+        0xCAFE0001: const NodeLook(hue: 140),
+        0xCAFE0003: const NodeLook(photoPath: '/x.jpg'),
       });
     });
 
@@ -301,7 +301,7 @@ void main() {
     });
 
     test('a chosen colour keeps the mark, changes its hue', () {
-      final spec = NodeMarkSpec.forNode(0x9F219DBB);
+      final spec = NodeMarkSpec.forNode(0xCAFE0003);
       final blue = spec.withHue(220);
       expect(blue.hue, 220);
       expect(blue.rings, spec.rings);
@@ -369,7 +369,7 @@ void main() {
         tester,
         Builder(
           builder: (context) => Center(
-            child: FilledButton(onPressed: () => showNodeLookSheet(context, 0x9F219DBB), child: const Text('open')),
+            child: FilledButton(onPressed: () => showNodeLookSheet(context, 0xCAFE0003), child: const Text('open')),
           ),
         ),
       );
@@ -378,7 +378,7 @@ void main() {
       expect(find.text('Only on this phone. Never sent over the mesh.'), findsOneWidget);
       await tester.tap(find.bySemanticsLabel('Colour, hue 220 degrees'));
       await tester.pump();
-      expect(c.read(nodeLooksProvider)[0x9F219DBB], const NodeLook(hue: 220));
+      expect(c.read(nodeLooksProvider)[0xCAFE0003], const NodeLook(hue: 220));
       expect(tester.getSemantics(find.bySemanticsLabel('Colour, hue 220 degrees')), isSemantics(isSelected: true));
       await tester.tap(find.text('Use the generated mark'));
       await tester.pump();

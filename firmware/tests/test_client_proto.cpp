@@ -104,9 +104,9 @@ static std::vector<ToRadio> sampleTo() {
   v.push_back(m);
   m = {}, m.reqId = 23, m.kind = ToKind::SetTx, m.on = false;   // an empty message, still SetTx
   v.push_back(m);
-  m = {}, m.reqId = 24, m.kind = ToKind::LinkPing, m.nodeId = 0x9F219DBB;   // 1.9
+  m = {}, m.reqId = 24, m.kind = ToKind::LinkPing, m.nodeId = 0xCAFE0003;   // 1.9
   v.push_back(m);
-  m = {}, m.reqId = 25, m.kind = ToKind::Traceroute, m.nodeId = 0x9F219DBB, m.maxHops = 6;   // 1.10
+  m = {}, m.reqId = 25, m.kind = ToKind::Traceroute, m.nodeId = 0xCAFE0003, m.maxHops = 6;   // 1.10
   v.push_back(m);
   m = {}, m.reqId = 26, m.kind = ToKind::Traceroute, m.nodeId = 7;   // default hops
   v.push_back(m);
@@ -121,7 +121,7 @@ static std::vector<ToRadio> sampleTo() {
   m.settings.hasBlePin = true, m.settings.blePin = "123456", m.settings.channelKey = key(4);
   m.settings.hasRegion = true, m.settings.region = "eu868", m.settings.requireEncryption.set(true);
   v.push_back(m);
-  m = {}, m.reqId = 27, m.kind = ToKind::GetTelemetry, m.nodeId = 0x9F219DBB;   // 1.12
+  m = {}, m.reqId = 27, m.kind = ToKind::GetTelemetry, m.nodeId = 0xCAFE0003;   // 1.12
   v.push_back(m);
   m = {}, m.reqId = 30, m.kind = ToKind::Restart;   // 1.13, no fields
   v.push_back(m);
@@ -172,7 +172,7 @@ static std::vector<FromRadio> sampleFrom() {
   m.reqId = 181, m.status.lastRssiDbm.set(0), m.status.lastHeardS.set(3600);   // 0 dBm stays distinct from none
   v.push_back(m);
   // 1.7 signal of the frame that carried an event
-  m = {}, m.kind = FromKind::Text, m.src = 0x9F219DBB, m.msgId = 5, m.text = B("RT 5");
+  m = {}, m.kind = FromKind::Text, m.src = 0xCAFE0003, m.msgId = 5, m.text = B("RT 5");
   m.rssiDbm.set(-97);
   v.push_back(m);
   m = {}, m.kind = FromKind::Delivered, m.dest = 2, m.msgId = 3, m.clientMsgId = 4;
@@ -180,14 +180,14 @@ static std::vector<FromRadio> sampleFrom() {
   v.push_back(m);
   m = {}, m.kind = FromKind::Neighbor, m.nodeId = 9, m.rssiDbm.set(50);
   v.push_back(m);
-  m = {}, m.kind = FromKind::LinkPingResult, m.nodeId = 0x9F219DBB, m.answered = true;   // 1.9
+  m = {}, m.kind = FromKind::LinkPingResult, m.nodeId = 0xCAFE0003, m.answered = true;   // 1.9
   m.rssiDbm.set(-97), m.reverseDbm.set(-101);
   v.push_back(m);
   m = {}, m.kind = FromKind::LinkPingResult, m.nodeId = 7;   // no answer: no readings
   v.push_back(m);
-  m = {}, m.kind = FromKind::TraceResult, m.nodeId = 0x9F219DBB, m.answered = true;   // 1.10
-  m.fwdNodes = {0xB6888904, 0x9F219DBB}, m.fwdRssi = {-128, 5};
-  m.backNodes = {0xB6888904, 1}, m.backRssi = {-64, -1};
+  m = {}, m.kind = FromKind::TraceResult, m.nodeId = 0xCAFE0003, m.answered = true;   // 1.10
+  m.fwdNodes = {0xCAFE0001, 0xCAFE0003}, m.fwdRssi = {-128, 5};
+  m.backNodes = {0xCAFE0001, 1}, m.backRssi = {-64, -1};
   v.push_back(m);
   m = {}, m.kind = FromKind::TraceResult, m.nodeId = 3;   // unanswered: empty
   v.push_back(m);
@@ -199,7 +199,7 @@ static std::vector<FromRadio> sampleFrom() {
   m.settings.minOutputDbm.set(-9), m.settings.maxOutputDbm.set(30);
   m.settings.hasScreen = true, m.settings.hasLeds = true, m.settings.hasButton = true, m.settings.restartNeeded = true;
   v.push_back(m);
-  m = {}, m.kind = FromKind::NodeTelemetry, m.nodeId = 0x9F219DBB;   // 1.12
+  m = {}, m.kind = FromKind::NodeTelemetry, m.nodeId = 0xCAFE0003;   // 1.12
   m.batteryPct.set(0), m.batteryMv.set(3100), m.uptimeS.set(0xFFFFFFFE), m.ageS = 61, m.rssiDbm.set(-120);
   v.push_back(m);
   m = {}, m.reqId = 87, m.kind = FromKind::NodeTelemetry, m.nodeId = 4;   // nothing reported
