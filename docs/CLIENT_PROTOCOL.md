@@ -24,6 +24,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | 3 | that handshake also agrees keys, and the link is encrypted after it (`PinChallenge.server_share`, `Hello.client_share`, sealed frames with version byte 2) (§7). Not compatible with minor 2: both ends must be updated. |
 | 11 | `GetSettings` (30), `SetSettings` (31) and `Settings` (32): the node's radio and device settings from the app: name, region, frequency, output power, channel key, require-encryption, SOS responder, Bluetooth PIN, screen timeout, status LEDs and button SOS, with the board's limits and what it has. A request changes all its fields or none (`BAD_ARGUMENT` names the field). Nodes without the hooks (ghostwaved) answer `UNKNOWN_REQUEST`. |
 | 13 | `Restart` (36): restart the node from the app, as the `reboot` console command, so settings that apply after a restart take effect. Replies `Ok`, then restarts about 1.5 s later; the link drops and the app reconnects. Messages held in the node's memory are lost. Nodes that can't restart themselves (ghostwaved) answer `UNKNOWN_REQUEST`. |
+| 15 | `CancelSend` (37) and `SendCancelled` (35): take back a DM that still waits in the node's store (`SendQueued.held`). The store entry and any handoff not yet on the air are dropped; `copies_out` is true when copies had already been passed to other nodes, which may still arrive. `NOT_FOUND` once it has been passed on, delivered or expired. |
 | 14 | `SendQueued.held` (4): true when the node knows no position for the DM's destination and has not heard it in the last 5 minutes, so the message waits in its store and goes out when the destination (or a node that knows where it is) is next heard. Apps show it as waiting rather than sent. Older nodes never set it. |
 | 12 | `GetTelemetry` (35) and `NodeTelemetry` (34): battery %, battery mV and uptime that neighbors carry in their beacons (DESIGN §4.4). Live `NodeTelemetry` events as beacons arrive; `GetTelemetry` asks for the latest one held. A field is absent when that node cannot read it. |
 | 10 | `Traceroute` (29) and `TraceResult` (31): trace the path to any node through relays, both ways, with each node's own signal reading (docs/TRACEROUTE.md). `max_hops` 1–8 (0 = 5). `RATE_LIMITED` while one is out or within 30 s; `BAD_ARGUMENT` for more than 8 hops. |
@@ -121,6 +122,7 @@ gets zero or more `Channel` and then `ChannelsEnd`.
 | 23 | `RemoveChannel` (1.1) | `name` | `Ok` / `NOT_FOUND` |
 | 24 | `ListChannels` (1.1) | none | `Channel`…, `ChannelsEnd{count}` |
 | 25 | `SetName` (1.1) | `name` (≤ 9 bytes UTF-8) | `Ok` / `BAD_ARGUMENT` / `NO_IDENTITY`. The node re-signs and announces its IDENT. |
+| 37 | `CancelSend` (1.15) | `msg_id` (from `SendQueued`) | `SendCancelled` / `NOT_FOUND` (no longer waiting here: passed on, delivered, expired, or not this node's) |
 | 35 | `GetTelemetry` (1.12) | `node_id` (a neighbor, or this node's own ID) | `NodeTelemetry{age_s}` / `NOT_FOUND` (no beacon with telemetry held for it) / `BAD_ARGUMENT` (0 or broadcast) |
 
 Notes on the requests:
@@ -205,6 +207,7 @@ Notes on the requests:
 | 26 | `Channel` (1.1) | `name`, `psk` | reply to `ListChannels` (the key lets the app share the channel) |
 | 27 | `ChannelsEnd` (1.1) | `count` | ends `ListChannels` |
 | 28 | `PinChallenge` (1.2) | `nonce` (16 bytes) | reply to `Hello` on a link that needs a PIN (§7) |
+| 35 | `SendCancelled` (1.15) | `msg_id`, `copies_out` | reply to `CancelSend`: the DM was taken back; `copies_out`: copies already passed on may still arrive |
 | 34 | `NodeTelemetry` (1.12) | `node_id`, `battery_pct`, `battery_mv`, `uptime_s` (each optional), `age_s`, `rssi_dbm` | a neighbor's beacon carried telemetry (live only, not queued, `age_s` 0), or reply to `GetTelemetry` |
 
 `NodeInfo` (1.1) also carries `protocol_minor` and `max_channel_text_bytes`.

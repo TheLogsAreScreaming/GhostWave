@@ -115,6 +115,7 @@ enum ToRadio_Request {
   setSettings,
   getTelemetry,
   restart,
+  cancelSend,
   notSet
 }
 
@@ -145,6 +146,7 @@ class ToRadio extends $pb.GeneratedMessage {
     Settings? setSettings,
     GetTelemetry? getTelemetry,
     Restart? restart,
+    CancelSend? cancelSend,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -172,6 +174,7 @@ class ToRadio extends $pb.GeneratedMessage {
     if (setSettings != null) result.setSettings = setSettings;
     if (getTelemetry != null) result.getTelemetry = getTelemetry;
     if (restart != null) result.restart = restart;
+    if (cancelSend != null) result.cancelSend = cancelSend;
     return result;
   }
 
@@ -209,6 +212,7 @@ class ToRadio extends $pb.GeneratedMessage {
     31: ToRadio_Request.setSettings,
     35: ToRadio_Request.getTelemetry,
     36: ToRadio_Request.restart,
+    37: ToRadio_Request.cancelSend,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -240,7 +244,8 @@ class ToRadio extends $pb.GeneratedMessage {
       30,
       31,
       35,
-      36
+      36,
+      37
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
@@ -291,6 +296,8 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: GetTelemetry.$_createMessage)
     ..aOM<Restart>(36, _omitFieldNames ? '' : 'restart',
         subBuilder: Restart.$_createMessage)
+    ..aOM<CancelSend>(37, _omitFieldNames ? '' : 'cancelSend',
+        subBuilder: CancelSend.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -337,6 +344,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(31)
   @$pb.TagNumber(35)
   @$pb.TagNumber(36)
+  @$pb.TagNumber(37)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -362,6 +370,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(31)
   @$pb.TagNumber(35)
   @$pb.TagNumber(36)
+  @$pb.TagNumber(37)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -645,6 +654,18 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearRestart() => $_clearField(36);
   @$pb.TagNumber(36)
   Restart ensureRestart() => $_ensure(24);
+
+  /// protocol 1.15
+  @$pb.TagNumber(37)
+  CancelSend get cancelSend => $_getN(25);
+  @$pb.TagNumber(37)
+  set cancelSend(CancelSend value) => $_setField(37, value);
+  @$pb.TagNumber(37)
+  $core.bool hasCancelSend() => $_has(25);
+  @$pb.TagNumber(37)
+  void clearCancelSend() => $_clearField(37);
+  @$pb.TagNumber(37)
+  CancelSend ensureCancelSend() => $_ensure(25);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -2394,6 +2415,65 @@ class Restart extends $pb.GeneratedMessage {
   static Restart? _defaultInstance;
 }
 
+/// 1.15: take back a DM that still waits in this node's store (SendQueued.held).
+/// Reply: SendCancelled, or NOT_FOUND once it has been passed on, delivered or
+/// expired.
+class CancelSend extends $pb.GeneratedMessage {
+  factory CancelSend({
+    $core.int? msgId,
+  }) {
+    final result = CancelSend._();
+    if (msgId != null) result.msgId = msgId;
+    return result;
+  }
+
+  CancelSend._();
+
+  factory CancelSend.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CancelSend()..mergeFromBuffer(data, registry);
+  factory CancelSend.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CancelSend()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CancelSend',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: CancelSend.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'msgId', fieldType: $pb.PbFieldType.OF3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CancelSend clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CancelSend copyWith(void Function(CancelSend) updates) =>
+      super.copyWith((message) => updates(message as CancelSend)) as CancelSend;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use CancelSend() / CancelSend.new instead')
+  static CancelSend create() => CancelSend._();
+  static $pb.GeneratedMessage $_createMessage() => CancelSend._();
+  @$core.override
+  CancelSend createEmptyInstance() => CancelSend._();
+  @$core.pragma('dart2js:noInline')
+  static CancelSend getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CancelSend>(CancelSend.$_createMessage);
+  static CancelSend? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get msgId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set msgId($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMsgId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMsgId() => $_clearField(1);
+}
+
 enum FromRadio_Event {
   nodeInfo,
   text,
@@ -2419,6 +2499,7 @@ enum FromRadio_Event {
   traceResult,
   settings,
   nodeTelemetry,
+  sendCancelled,
   notSet
 }
 
@@ -2450,6 +2531,7 @@ class FromRadio extends $pb.GeneratedMessage {
     TraceResult? traceResult,
     Settings? settings,
     NodeTelemetry? nodeTelemetry,
+    SendCancelled? sendCancelled,
   }) {
     final result = FromRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -2478,6 +2560,7 @@ class FromRadio extends $pb.GeneratedMessage {
     if (traceResult != null) result.traceResult = traceResult;
     if (settings != null) result.settings = settings;
     if (nodeTelemetry != null) result.nodeTelemetry = nodeTelemetry;
+    if (sendCancelled != null) result.sendCancelled = sendCancelled;
     return result;
   }
 
@@ -2515,6 +2598,7 @@ class FromRadio extends $pb.GeneratedMessage {
     31: FromRadio_Event.traceResult,
     32: FromRadio_Event.settings,
     34: FromRadio_Event.nodeTelemetry,
+    35: FromRadio_Event.sendCancelled,
     0: FromRadio_Event.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -2546,7 +2630,8 @@ class FromRadio extends $pb.GeneratedMessage {
       30,
       31,
       32,
-      34
+      34,
+      35
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'replayed')
@@ -2597,6 +2682,8 @@ class FromRadio extends $pb.GeneratedMessage {
         subBuilder: Settings.$_createMessage)
     ..aOM<NodeTelemetry>(34, _omitFieldNames ? '' : 'nodeTelemetry',
         subBuilder: NodeTelemetry.$_createMessage)
+    ..aOM<SendCancelled>(35, _omitFieldNames ? '' : 'sendCancelled',
+        subBuilder: SendCancelled.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2643,6 +2730,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(31)
   @$pb.TagNumber(32)
   @$pb.TagNumber(34)
+  @$pb.TagNumber(35)
   FromRadio_Event whichEvent() => _FromRadio_EventByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -2668,6 +2756,7 @@ class FromRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(31)
   @$pb.TagNumber(32)
   @$pb.TagNumber(34)
+  @$pb.TagNumber(35)
   void clearEvent() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -2958,6 +3047,18 @@ class FromRadio extends $pb.GeneratedMessage {
   void clearNodeTelemetry() => $_clearField(34);
   @$pb.TagNumber(34)
   NodeTelemetry ensureNodeTelemetry() => $_ensure(25);
+
+  /// protocol 1.15
+  @$pb.TagNumber(35)
+  SendCancelled get sendCancelled => $_getN(26);
+  @$pb.TagNumber(35)
+  set sendCancelled(SendCancelled value) => $_setField(35, value);
+  @$pb.TagNumber(35)
+  $core.bool hasSendCancelled() => $_has(26);
+  @$pb.TagNumber(35)
+  void clearSendCancelled() => $_clearField(35);
+  @$pb.TagNumber(35)
+  SendCancelled ensureSendCancelled() => $_ensure(26);
 }
 
 class NodeInfo extends $pb.GeneratedMessage {
@@ -3333,6 +3434,77 @@ class Delivered extends $pb.GeneratedMessage {
   $core.bool hasRssiDbm() => $_has(3);
   @$pb.TagNumber(4)
   void clearRssiDbm() => $_clearField(4);
+}
+
+/// 1.15: reply to CancelSend.
+class SendCancelled extends $pb.GeneratedMessage {
+  factory SendCancelled({
+    $core.int? msgId,
+    $core.bool? copiesOut,
+  }) {
+    final result = SendCancelled._();
+    if (msgId != null) result.msgId = msgId;
+    if (copiesOut != null) result.copiesOut = copiesOut;
+    return result;
+  }
+
+  SendCancelled._();
+
+  factory SendCancelled.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SendCancelled()..mergeFromBuffer(data, registry);
+  factory SendCancelled.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SendCancelled()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SendCancelled',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: SendCancelled.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'msgId', fieldType: $pb.PbFieldType.OF3)
+    ..aOB(2, _omitFieldNames ? '' : 'copiesOut')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendCancelled clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SendCancelled copyWith(void Function(SendCancelled) updates) =>
+      super.copyWith((message) => updates(message as SendCancelled))
+          as SendCancelled;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SendCancelled() / SendCancelled.new instead')
+  static SendCancelled create() => SendCancelled._();
+  static $pb.GeneratedMessage $_createMessage() => SendCancelled._();
+  @$core.override
+  SendCancelled createEmptyInstance() => SendCancelled._();
+  @$core.pragma('dart2js:noInline')
+  static SendCancelled getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SendCancelled>(
+          SendCancelled.$_createMessage);
+  static SendCancelled? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get msgId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set msgId($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMsgId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMsgId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get copiesOut => $_getBF(1);
+  @$pb.TagNumber(2)
+  set copiesOut($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCopiesOut() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCopiesOut() => $_clearField(2);
 }
 
 class SendQueued extends $pb.GeneratedMessage {

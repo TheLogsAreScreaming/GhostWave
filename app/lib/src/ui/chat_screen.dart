@@ -12,6 +12,7 @@ import '../data/message_refs.dart';
 import '../data/message_split.dart';
 import '../data/models.dart';
 import '../link/contact_card.dart';
+import '../gen/ghostwave.pb.dart' as pb;
 import '../link/session.dart';
 import 'chat_export_sheet.dart';
 import 'connection_strip.dart';
@@ -29,6 +30,22 @@ import 'widgets.dart';
 const int kDefaultMaxTextBytes = 73;
 
 /// A DM thread with one contact.
+/// Takes back a DM the node still holds, and says how it went.
+Future<void> cancelHeldDm(BuildContext context, MeshController ctl, ChatMessage m) async {
+  final messenger = ScaffoldMessenger.of(context);
+  void say(String text) => messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(text)));
+  try {
+    final copiesOut = await ctl.cancelHeld(m);
+    say(copiesOut ? 'Cancelled here. Copies already passed on may still arrive.' : 'Cancelled. It was not sent.');
+  } on NodeError catch (e) {
+    say(e.code == pb.Error_Code.NOT_FOUND ? 'Too late: it was already passed on or delivered.' : e.message);
+  } on Object catch (e) {
+    say('Could not cancel: $e');
+  }
+}
+
 class ChatScreen extends ConsumerStatefulWidget {
   /// Creates the screen for [peer].
   const ChatScreen({required this.peer, super.key});
@@ -343,6 +360,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with ThreadJumper {
                             error: m.error,
                             rssiDbm: m.rssiDbm,
                             onRetry: m.outgoing && m.state == MsgState.failed ? () => unawaited(ctl.retry(m)) : null,
+                            onCancel: m.outgoing && m.state == MsgState.sent && m.held && ctl.nodeCanCancelSend
+                                ? () => unawaited(cancelHeldDm(context, ctl, m))
+                                : null,
                             onDelete: () => ctl.deleteMessage(m),
                           ),
                           LongMessageItem() => MessageBubble(

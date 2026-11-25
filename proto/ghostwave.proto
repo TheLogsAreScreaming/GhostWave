@@ -60,6 +60,8 @@ message ToRadio {
     GetTelemetry get_telemetry = 35;
     // protocol 1.13
     Restart restart = 36;
+    // protocol 1.15
+    CancelSend cancel_send = 37;
   }
 }
 
@@ -237,6 +239,13 @@ message GetTelemetry {
 // (ghostwaved) answer UNKNOWN_REQUEST.
 message Restart {}
 
+// 1.15: take back a DM that still waits in this node's store (SendQueued.held).
+// Reply: SendCancelled, or NOT_FOUND once it has been passed on, delivered or
+// expired.
+message CancelSend {
+  fixed32 msg_id = 1;            // from SendQueued
+}
+
 // --------------------------------------------------------------- node -> app
 
 message FromRadio {
@@ -274,6 +283,8 @@ message FromRadio {
     Settings settings = 32;
     // protocol 1.12
     NodeTelemetry node_telemetry = 34;
+    // protocol 1.15
+    SendCancelled send_cancelled = 35;
   }
 }
 
@@ -303,6 +314,12 @@ message Delivered {
   fixed32 msg_id = 2;
   uint32 client_msg_id = 3;      // 0 if the message was not sent by a client
   optional sint32 rssi_dbm = 4;  // 1.7: signal of the frame carrying the receipt (last hop)
+}
+
+// 1.15: reply to CancelSend.
+message SendCancelled {
+  fixed32 msg_id = 1;
+  bool copies_out = 2;           // copies already passed to other nodes may still arrive
 }
 
 message SendQueued {

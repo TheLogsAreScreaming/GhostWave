@@ -604,8 +604,22 @@ class MeshController extends Notifier<MeshState> {
           m,
     ];
     if (!changed) return; // receipts can repeat: idempotent
+    // A DM that waited for the other node to be heard: say when it gets there.
+    final waited = thread.where((m) => _receiptFor(d, m) && m.state == MsgState.sent && m.held).firstOrNull;
     state = state.copyWith(messages: {...state.messages, d.dest: updated});
     _save();
+    if (waited != null && !ref.read(appForegroundProvider)) {
+      unawaited(
+        ref
+            .read(meshAlertsProvider)
+            .radioAlert(
+              id: waited.clientMsgId,
+              title: 'Delivered to ${state.nameOf(d.dest)}',
+              body: _notificationText(waited.text),
+            )
+            .catchError((Object _) {}),
+      );
+    }
   }
 
   void _onSos(pb.SosAlert a, {required bool replayed}) {
@@ -1054,6 +1068,36 @@ class MeshController extends Notifier<MeshState> {
     for (final part in splitMessage(text, maxBytes)) {
       await sendText(peer, part);
     }
+  }
+
+  /// Whether the connected node can take back a held DM (protocol 1.15).
+  bool get nodeCanCancelSend {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 15;
+  }
+
+  /// Takes back [m], a DM the node still holds for a node it has not heard
+  /// ([ChatMessage.held]). It is then marked failed, so Send again works.
+  /// Returns whether copies the node had already passed to other nodes may
+  /// still arrive (a receipt then still marks it delivered). Throws
+  /// [NodeError] (NOT_FOUND: already passed on or delivered) or [StateError]
+  /// when not connected.
+  Future<bool> cancelHeld(ChatMessage m) async {
+    final session = _link.session;
+    if (session == null) throw StateError('not connected to a node');
+    final r = await session.request(pb.ToRadio(cancelSend: pb.CancelSend(msgId: m.msgId)));
+    final copiesOut = r.sendCancelled.copiesOut;
+    _update(
+      m,
+      (cur) => cur.state == MsgState.delivered
+          ? cur
+          : cur.copyWith(
+              state: MsgState.failed,
+              held: false,
+              error: copiesOut ? 'Cancelled here; copies already passed on may still arrive' : 'Cancelled: not sent',
+            ),
+    );
+    return copiesOut;
   }
 
   /// Sends a failed message again.
