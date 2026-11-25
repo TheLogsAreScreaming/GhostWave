@@ -10,7 +10,7 @@ Host tests, CI builds, simulator runs and documents are not evidence of a workin
 The code exists and CI builds or host-tests it. Each item still needs a test on real boards.
 
 - RAK4631 (SX1262) and T1000-E (LR1110) firmware targets, with a BLE client link.
-  Prereleases: `fw-rak4631-v0.1.0-dev.15` and `fw-t1000e-v0.1.0-dev.15`.
+  Prereleases: `fw-rak4631-v0.1.0-dev.16` and `fw-t1000e-v0.1.0-dev.16`.
 - Channels and pinned contact keys kept in flash (#119).
 - Ed25519 identity on fresh MCU boards, with the node ID derived from the key (#129).
   Boards already holding an X25519 identity keep it until their settings are erased.
@@ -22,7 +22,7 @@ The code exists and CI builds or host-tests it. Each item still needs a test on 
 - Client link: PIN (#115), TCP encryption after the PIN handshake (#131), battery level (#122),
   keys for heard nodes (#134), transmit-off reporting with an app banner (#138).
 - T1000-E power-off: three quick presses, then System OFF until a button press (not measured yet).
-- Android app through `app-v0.1.0-dev.15`: Bluetooth, background connection and location, encrypted
+- Android app through `app-v0.1.0-dev.16`: Bluetooth, background connection and location, encrypted
   chat history, encrypted backup, long messages split into parts. Part of this has only been tried
   against the virtual mesh or in CI, and from dev.4 on most of it is untried on a phone.
 
