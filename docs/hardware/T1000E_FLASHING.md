@@ -7,9 +7,9 @@ docs/CLIENT_PROTOCOL.md §9), plus the GPS, an SOS button, sounds and a battery 
 
 > **Early hardware results.** One T1000-E has run dev.6 to dev.8: LoRa (LR1110), GPS, Bluetooth to
 > the phone app, SOS with acknowledgement and signed cancel, and a link of about half a mile to a
-> RAK3401 1 W board at 20 dBm (2026-11-09 to 11-11). `fw-t1000e-v0.1.0-dev.14` adds signal reports, link ping,
+> RAK3401 1 W board at 20 dBm (2026-11-09 to 11-11). `fw-t1000e-v0.1.0-dev.15` adds signal reports, link ping,
 > transmit from the app, multi-hop traceroute, settings from the app, battery/uptime telemetry and
-> restart from the app, and shows DMs held for an unheard node as waiting; it has not been flashed yet. Keep the Meshtastic UF2 at hand to go back.
+> restart from the app, shows DMs held for an unheard node as waiting, and keeps keys learned over the air across a reboot; it has not been flashed yet. Keep the Meshtastic UF2 at hand to go back.
 
 ## Before you start
 
@@ -27,8 +27,8 @@ docs/CLIENT_PROTOCOL.md §9), plus the GPS, an SOS button, sounds and a battery 
 
 ## 1. Flash (UF2 drag and drop)
 
-1. Download `ghostwave-t1000e-0.1.0-dev.14.uf2` from the prerelease
-   [`fw-t1000e-v0.1.0-dev.14`](https://github.com/TheLogsAreScreaming/GhostWave-Releases/releases/tag/fw-t1000e-v0.1.0-dev.14).
+1. Download `ghostwave-t1000e-0.1.0-dev.15.uf2` from the prerelease
+   [`fw-t1000e-v0.1.0-dev.15`](https://github.com/TheLogsAreScreaming/GhostWave-Releases/releases/tag/fw-t1000e-v0.1.0-dev.15).
    A CI build of any commit is also in that run's `ghostwave-t1000e-uf2` artifact.
 2. **Enter the bootloader:** unplug the magnetic USB cable. Press and **hold** the button, plug the
    cable back in (into a computer, not a charger), then let go. The green LED stays lit, and a USB
@@ -44,7 +44,7 @@ docs/CLIENT_PROTOCOL.md §9), plus the GPS, an SOS button, sounds and a battery 
 From the command line (macOS), with the drive name as it appears:
 
 ```bash
-cp ghostwave-t1000e-0.1.0-dev.14.uf2 /Volumes/T1000-E/
+cp ghostwave-t1000e-0.1.0-dev.15.uf2 /Volumes/T1000-E/
 ```
 
 To build it yourself: `cd firmware/mcu && pio run -e t1000e`. The UF2 is
