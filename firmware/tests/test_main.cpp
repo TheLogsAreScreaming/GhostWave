@@ -1997,6 +1997,72 @@ static void testIdentForgery() {
   CHECK(r2.app.got.size() == 1);
 }
 
+static void testIdentRestoreLearned() {
+  std::printf("ident: a learned key saved by the host survives a reboot, still as learned\n");
+  uint8_t sr[32], sv[32], sx[32], pv[32], px[32], xr[32], pr[32], xx[32];
+  uint32_t idr = identity(sr, 3), idv = identity(sv, 70), idx = identity(sx, 140);
+  ed25519Public(sv, pv);
+  ed25519Public(sx, px);
+  ed25519ToX25519(px, xx);
+  ed25519Public(sr, pr);
+  ed25519ToX25519(pr, xr);
+
+  // before the reboot: r learns v's key from its IDENT, as the node would
+  PeerInfo saved;
+  {
+    Medium m;
+    auto& r = m.add(idr, 0);
+    CHECK(r.router->setSigningKey(sr, "r"));
+    std::vector<uint8_t> body;
+    CHECK(identBody(sv, "victim", body));
+    inject(r, idv, kBroadcast, body, m.now);
+    for (const PeerInfo& p : r.router->peerList())
+      if (p.id == idv) saved = p;
+    CHECK(saved.id == idv && saved.hasEdPub && !saved.pinned && saved.name == "victim");
+  }
+
+  // after the reboot: put it back, then DMs from v decrypt with no new IDENT
+  Medium m;
+  auto& r = m.add(idr, 0);
+  auto& v = m.add(idv, 2);
+  CHECK(r.router->setSigningKey(sr, "r") && v.router->setSigningKey(sv, "victim"));
+  CHECK(!r.router->hasPeerKey(idv));
+  CHECK(!r.router->restoreLearnedPeer(idx, saved.edPub.data()));            // key does not hash to that ID
+  CHECK(!r.router->restoreLearnedPeer(idv, saved.edPub.data(), std::string(kIdentNameMax + 1, 'n')));
+  CHECK(r.router->restoreLearnedPeer(idv, saved.edPub.data(), saved.name));
+  CHECK(!r.router->restoreLearnedPeer(idv, saved.edPub.data(), saved.name));   // already held
+  bool found = false;
+  for (const PeerInfo& p : r.router->peerList())
+    if (p.id == idv) {
+      found = true;
+      CHECK(!p.pinned && p.hasEdPub && p.name == "victim" && p.edPub == saved.edPub);
+    }
+  CHECK(found);
+  CHECK(v.router->addPeerKey(idr, xr));
+  v.router->addKnownPosition(idr, r.pos, m.now);
+  r.router->addKnownPosition(idv, v.pos, m.now);
+  CHECK(r.router->send(idv, {'h', 'i'}, m.now) != 0);   // r can seal to v right away
+  CHECK(v.router->send(idr, {'o', 'k'}, m.now) != 0);
+  m.run(20000);
+  CHECK(r.app.got.size() == 1 && r.router->stats().rxAuthFail == 0);
+  CHECK(v.app.got.size() == 1);
+  CHECK(r.app.keyChanges.empty());   // v's own IDENT matches the restored key
+
+  // a pinned key added after the restore wins
+  Medium m3;
+  auto& r3 = m3.add(idr, 0);
+  CHECK(r3.router->setSigningKey(sr, "r"));
+  CHECK(r3.router->restoreLearnedPeer(idv, saved.edPub.data(), saved.name));
+  CHECK(r3.router->addPeerKey(idv, xx));
+  for (const PeerInfo& p : r3.router->peerList())
+    if (p.id == idv) CHECK(p.pinned && std::memcmp(p.xPub.data(), xx, 32) == 0 && !p.hasEdPub);
+
+  // without an identity key nothing can be restored (no DM key to derive)
+  Medium m4;
+  auto& r4 = m4.add(idr, 0);
+  CHECK(!r4.router->restoreLearnedPeer(idv, saved.edPub.data()));
+}
+
 static void testIdentRekey() {
   std::printf("ident: identity change re-derives held DM keys and stops stale IDENT\n");
   Medium m;
@@ -2544,6 +2610,7 @@ int main() {
   testIdentAnnounceRepeats();
   testIdentRequest();
   testIdentForgery();
+  testIdentRestoreLearned();
   testIdentRekey();
   testVirtualChannel();
   testTableCaps();

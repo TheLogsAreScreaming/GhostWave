@@ -34,6 +34,7 @@ class ChatMessage {
     this.replayed = false,
     this.rssiDbm,
     this.held = false,
+    this.awaitingKey = false,
   });
 
   /// From [toJson].
@@ -49,6 +50,7 @@ class ChatMessage {
     replayed: (j['replayed'] as bool?) ?? false,
     rssiDbm: j['rssi'] as int?,
     held: (j['held'] as bool?) ?? false,
+    awaitingKey: (j['awaitKey'] as bool?) ?? false,
   );
 
   /// The other node.
@@ -87,6 +89,12 @@ class ChatMessage {
   /// lately (`SendQueued.held`, protocol 1.14). Only meaningful while sent.
   final bool held;
 
+  /// Outgoing, [MsgState.pending]: the node holds no key for the other node
+  /// yet (`NO_KEY`, or none known on the phone), so the DM waits on the phone.
+  /// The node has asked for the key; the DM goes out by itself once the node
+  /// learns it (`PeerIdent`). Only meaningful while pending.
+  final bool awaitingKey;
+
   /// A copy with some fields changed.
   ChatMessage copyWith({
     MsgState? state,
@@ -95,6 +103,7 @@ class ChatMessage {
     bool clearError = false,
     int? rssiDbm,
     bool? held,
+    bool? awaitingKey,
   }) => ChatMessage(
     peer: peer,
     outgoing: outgoing,
@@ -107,6 +116,7 @@ class ChatMessage {
     replayed: replayed,
     rssiDbm: rssiDbm ?? this.rssiDbm,
     held: held ?? this.held,
+    awaitingKey: awaitingKey ?? this.awaitingKey,
   );
 
   /// JSON form.
@@ -122,6 +132,7 @@ class ChatMessage {
     if (replayed) 'replayed': true,
     'rssi': ?rssiDbm,
     if (held) 'held': true,
+    if (awaitingKey) 'awaitKey': true,
   };
 }
 

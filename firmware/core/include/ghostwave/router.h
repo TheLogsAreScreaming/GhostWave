@@ -219,6 +219,13 @@ class Router {
   // from IDENT. Call after setIdentityKey / setSigningKey. False on a low-order
   // key or a table full of pinned keys.
   bool addPeerKey(uint32_t id, const uint8_t x25519Public[32]);
+  // Puts back a key learned from an earlier IDENT (saved by the host so it
+  // survives a reboot). It stays learned, not pinned: a different key in a
+  // later IDENT is still reported as a key change. False if `edPub` does not
+  // hash to `id`, the ID is reserved, a key is already held for `id`, or the
+  // table is full of pinned keys. Call after setIdentityKey / setSigningKey
+  // and before addPeerKey, so a pinned key always wins.
+  bool restoreLearnedPeer(uint32_t id, const uint8_t edPub[32], const std::string& name = "");
   bool hasPeerKey(uint32_t id) const { return peers_.count(id) != 0; }
   // Every peer key held, in node ID order. No DM keys leave the router.
   std::vector<PeerInfo> peerList() const;

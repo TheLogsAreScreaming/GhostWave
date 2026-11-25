@@ -81,6 +81,10 @@ class LongMessageItem extends ChatItem {
   /// heard ([ChatMessage.held]).
   bool get held => parts.values.any((m) => m.state == MsgState.sent && m.held);
 
+  /// Whether a part waits on the phone for the node to learn the other node's
+  /// key ([ChatMessage.awaitingKey]).
+  bool get awaitingKey => parts.values.any((m) => m.state == MsgState.pending && m.awaitingKey);
+
   /// Whether any part was held while no app was connected.
   bool get replayed => parts.values.any((m) => m.replayed);
 
