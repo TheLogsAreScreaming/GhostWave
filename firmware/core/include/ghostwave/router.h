@@ -253,6 +253,11 @@ class Router {
   // not heard it in the last 5 minutes). It goes out when the destination, or
   // a node that knows where it is, is next heard; the app shows it as waiting.
   bool lastSendHeld() const { return lastSendHeld_; }
+  // Takes back a DM this node sent that still waits in its store: the entry
+  // and any handoff not yet on the air are dropped. False when it is no longer
+  // held here (passed on, delivered, expired, or not ours). copiesOut: copies
+  // already given to other nodes, which may still reach the destination.
+  bool cancelStored(uint32_t msgId, bool& copiesOut);
 
   // Group channels (DESIGN §9.3): a pre-shared 256-bit key per channel.
   // addGroupChannel returns the channel ID (groupChannelId(key)); adding the

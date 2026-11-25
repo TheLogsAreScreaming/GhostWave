@@ -562,6 +562,7 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
     case ToKind::LinkPing:
     case ToKind::Traceroute:
     case ToKind::GetTelemetry:
+    case ToKind::CancelSend:
     case ToKind::Restart: break;
     case ToKind::GetSettings:
     case ToKind::SetSettings:
@@ -735,6 +736,21 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
       }
       t_.log(std::string("client turned transmit ") + (m.on ? "on" : "off"));
       reply(c, req, FromKind::Ok);
+      return true;
+    }
+    case ToKind::CancelSend: {
+      bool copiesOut = false;
+      if (!r_.cancelStored(m.msgId, copiesOut)) {
+        error(c, req, ErrorCode::NotFound, "not waiting here any more: passed on or delivered");
+        return true;
+      }
+      t_.log("client took back id " + hex8(m.msgId) + (copiesOut ? " (copies already passed on)" : ""));
+      FromRadio q;
+      q.reqId = req;
+      q.kind = FromKind::SendCancelled;
+      q.msgId = m.msgId;
+      q.copiesOut = copiesOut;
+      send(c, q);
       return true;
     }
     case ToKind::RequestKey: {

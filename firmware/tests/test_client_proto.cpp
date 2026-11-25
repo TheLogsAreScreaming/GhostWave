@@ -34,7 +34,8 @@ static bool sameTo(const ToRadio& a, const ToRadio& b) {
          a.clientMsgId == b.clientMsgId && a.nodeId == b.nodeId && a.ed25519Pub == b.ed25519Pub &&
          a.x25519Pub == b.x25519Pub && a.name == b.name && a.pos == b.pos &&
          a.batteryPct == b.batteryPct && a.accuracyM == b.accuracyM && a.channel == b.channel && a.psk == b.psk &&
-         a.clientShare == b.clientShare && a.pinProof == b.pinProof && a.on == b.on && a.settings == b.settings;
+         a.clientShare == b.clientShare && a.pinProof == b.pinProof && a.on == b.on && a.settings == b.settings &&
+         a.msgId == b.msgId;
 }
 
 static bool sameFrom(const FromRadio& a, const FromRadio& b) {
@@ -43,6 +44,7 @@ static bool sameFrom(const FromRadio& a, const FromRadio& b) {
          a.ed25519Pub == b.ed25519Pub && a.x25519Pub == b.x25519Pub && a.legacy == b.legacy &&
          a.firmware == b.firmware && a.maxTextBytes == b.maxTextBytes && a.src == b.src &&
          a.dest == b.dest && a.msgId == b.msgId && a.clientMsgId == b.clientMsgId && a.held == b.held &&
+         a.copiesOut == b.copiesOut &&
          a.text == b.text && a.pos == b.pos && a.seq == b.seq && a.accuracyM == b.accuracyM &&
          a.batteryPct == b.batteryPct && a.isNew == b.isNew && a.pinned == b.pinned && a.verified == b.verified &&
          a.count == b.count && a.status == b.status && a.error == b.error && a.detail == b.detail &&
@@ -125,6 +127,8 @@ static std::vector<ToRadio> sampleTo() {
   v.push_back(m);
   m = {}, m.reqId = 30, m.kind = ToKind::Restart;   // 1.13, no fields
   v.push_back(m);
+  m = {}, m.reqId = 31, m.kind = ToKind::CancelSend, m.msgId = 0xA1B2C3D4;   // 1.15
+  v.push_back(m);
   m = {}, m.reqId = 19, m.kind = ToKind::Hello, m.protocolVersion = 1, m.clientName = "app", m.clientShare = Bytes(16, 7),
   m.pinProof = key(2);   // 1.2
   v.push_back(m);
@@ -203,6 +207,10 @@ static std::vector<FromRadio> sampleFrom() {
   m.batteryPct.set(0), m.batteryMv.set(3100), m.uptimeS.set(0xFFFFFFFE), m.ageS = 61, m.rssiDbm.set(-120);
   v.push_back(m);
   m = {}, m.reqId = 87, m.kind = FromKind::NodeTelemetry, m.nodeId = 4;   // nothing reported
+  v.push_back(m);
+  m = {}, m.reqId = 88, m.kind = FromKind::SendCancelled, m.msgId = 0xA1B2C3D4;   // 1.15
+  v.push_back(m);
+  m = {}, m.reqId = 89, m.kind = FromKind::SendCancelled, m.msgId = 5, m.copiesOut = true;
   v.push_back(m);
   m = {}, m.kind = FromKind::ChannelMessage, m.channel = "camp", m.src = 1, m.msgId = 2, m.text = B("x");
   m.rssiDbm.set(-1);
@@ -377,12 +385,12 @@ static void testUnknownAndMalformed() {
   const uint8_t future[] = {0x08, 0x05, 0x9A, 0x06, 0x02, 0x08, 0x01};
   CHECK(decodeTo(future, sizeof future, t) && t.kind == ToKind::None && t.reqId == 5);
   // unused oneof numbers (between and after this version's) are skipped too
-  for (uint8_t f : {32, 33, 34, 37, 38}) {
+  for (uint8_t f : {32, 33, 34, 38, 39}) {
     const uint8_t other[] = {0x08, 0x05, static_cast<uint8_t>(((f << 3) | 2) | 0x80),
                              static_cast<uint8_t>(((f << 3) | 2) >> 7), 0x02, 0x08, 0x01};   // tag is a 2-byte varint
     CHECK(decodeTo(other, sizeof other, t) && t.kind == ToKind::None && t.reqId == 5);
   }
-  for (uint8_t f : {33, 35, 36}) {
+  for (uint8_t f : {33, 36, 37}) {
     FromRadio fr;
     const uint8_t other[] = {0x08, 0x05, static_cast<uint8_t>(((f << 3) | 2) | 0x80),
                              static_cast<uint8_t>(((f << 3) | 2) >> 7), 0x02, 0x08, 0x01};   // tag is a 2-byte varint

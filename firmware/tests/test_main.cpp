@@ -539,6 +539,48 @@ static void testBeaconWithoutPosition() {
   CHECK(sawPos);
 }
 
+static void testCancelStored() {
+  std::printf("store: a held DM can be taken back until its copies leave\n");
+  Medium m;
+  auto& a = m.add(0xA0000021, 0);
+  auto& b = m.add(0xB0000022, 1.0);
+  a.router->setPosition(Position{}, m.now);   // A knows nowhere: DMs to unknown nodes wait
+  m.run(5000);
+  CHECK(a.router->neighborCount(m.now) == 1);
+  auto dataFrames = [&](uint32_t mid) {
+    size_t n = 0;
+    for (auto& f : m.frames) {
+      Packet p;
+      n += decode(f.data(), f.size(), p) && p.type == PType::Data && p.src == a.router->id() && p.msgId == mid;
+    }
+    return n;
+  };
+
+  // taken back before anything went on the air: no copy ever leaves
+  const size_t stored0 = a.router->storeSize();
+  const uint32_t m1 = a.router->send(0xC0000023, {'1'}, m.now);
+  CHECK(m1 != 0 && a.router->lastSendHeld() && a.router->storeSize() == stored0 + 1);
+  bool out = true;
+  CHECK(a.router->cancelStored(m1, out) && !out);
+  CHECK(a.router->storeSize() == stored0);
+  m.run(20000);
+  CHECK(dataFrames(m1) == 0);
+  CHECK(b.router->storeSize() == 0);
+  CHECK(!a.router->cancelStored(m1, out));   // gone already
+
+  // B was handed copies first: still taken back here, and the app is told
+  const uint32_t m2 = a.router->send(0xC0000024, {'2'}, m.now);
+  CHECK(m2 != 0 && a.router->lastSendHeld());
+  m.run(20000);
+  CHECK(dataFrames(m2) >= 1 && b.router->storeSize() == 1);
+  out = false;
+  CHECK(a.router->cancelStored(m2, out) && out);
+  CHECK(a.router->storeSize() == stored0);
+
+  // not ours, or never sent
+  CHECK(!a.router->cancelStored(0x12345678, out));
+}
+
 static void testBeaconRecoveryAfterMove() {
   std::printf("beacon recovery: lost exchange after a move\n");
   Medium m;
@@ -2580,6 +2622,7 @@ int main() {
   testBeaconVelocity();
   testBeaconMac();
   testBeaconWithoutPosition();
+  testCancelStored();
   testBeaconTelemetry();
   testBeaconRecoveryAfterMove();
   testBeaconRecoveryBounds();

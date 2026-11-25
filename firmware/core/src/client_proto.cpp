@@ -358,11 +358,12 @@ bool StatusInfo::operator==(const StatusInfo& o) const {
 // are skipped, so the message reads as no request / no event.
 static bool knownTo(uint32_t f) {
   return (f >= 10 && f <= static_cast<uint32_t>(ToKind::SetSettings)) ||
-         f == static_cast<uint32_t>(ToKind::GetTelemetry) || f == static_cast<uint32_t>(ToKind::Restart);
+         f == static_cast<uint32_t>(ToKind::GetTelemetry) || f == static_cast<uint32_t>(ToKind::Restart) ||
+         f == static_cast<uint32_t>(ToKind::CancelSend);
 }
 static bool knownFrom(uint32_t f) {
   return (f >= 10 && f <= static_cast<uint32_t>(FromKind::Settings)) ||
-         f == static_cast<uint32_t>(FromKind::NodeTelemetry);
+         f == static_cast<uint32_t>(FromKind::NodeTelemetry) || f == static_cast<uint32_t>(FromKind::SendCancelled);
 }
 
 // ------------------------------------------------------------- ToRadio --
@@ -423,6 +424,7 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
       s.u32(2, m.maxHops);
       break;
     case ToKind::SetSettings: writeSettings(s, m.settings); break;
+    case ToKind::CancelSend: s.fx32(1, m.msgId); break;
     case ToKind::Restart:
     case ToKind::GetSettings:
     case ToKind::ListChannels:
@@ -508,6 +510,9 @@ bool decodeTo(const uint8_t* p, size_t n, ToRadio& m) {
           if (g == 2) return ok(x.u32(m.maxHops));
           return 0;
         case ToKind::SetSettings: return readSettings(g, x, m.settings);
+        case ToKind::CancelSend:
+          if (g == 1) return ok(x.fx32(m.msgId));
+          return 0;
         default: return 0;
       }
     }));
@@ -591,6 +596,10 @@ bool encodeFrom(const FromRadio& m, Bytes& out) {
       s.opt(4, m.uptimeS);
       s.u32(5, m.ageS);
       s.optSint(6, m.rssiDbm);
+      break;
+    case FromKind::SendCancelled:
+      s.fx32(1, m.msgId);
+      if (m.copiesOut) s.boolean(2, true);
       break;
     case FromKind::Neighbor:
       s.fx32(1, m.nodeId);
@@ -755,6 +764,10 @@ bool decodeFrom(const uint8_t* p, size_t n, FromRadio& m) {
             case 5: return ok(x.u32(m.ageS));
             case 6: return ok(x.optSint(m.rssiDbm));
           }
+          return 0;
+        case FromKind::SendCancelled:
+          if (g == 1) return ok(x.fx32(m.msgId));
+          if (g == 2) return ok(x.boolean(m.copiesOut));
           return 0;
         case FromKind::Neighbor:
           if (g == 1) return ok(x.fx32(m.nodeId));

@@ -320,6 +320,35 @@ void testRequests() {
         v[0].dest == 0x22222222);
   CHECK(v.size() == 1 && v[0].held);   // never heard, no position: waits in the store (1.14)
   uint32_t mid = v.empty() ? 0 : v[0].msgId;
+
+  // CancelSend (1.15): a second held DM is taken back; then it is gone
+  ToRadio second = m;
+  second.reqId = 30;
+  second.clientMsgId = 4343;
+  r.req(c, second);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::SendQueued && v[0].held);
+  const uint32_t mid2 = v.empty() ? 0 : v[0].msgId;
+  const size_t storedBefore = r.router.storeSize();
+  ToRadio cancel;
+  cancel.reqId = 31;
+  cancel.kind = ToKind::CancelSend;
+  cancel.msgId = mid2;
+  r.req(c, cancel);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].kind == FromKind::SendCancelled && v[0].reqId == 31 && v[0].msgId == mid2 &&
+        !v[0].copiesOut);
+  CHECK(r.router.storeSize() + 1 == storedBefore);
+  cancel.reqId = 32;
+  r.req(c, cancel);   // already taken back
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NotFound && v[0].reqId == 32);
+  cancel.reqId = 33;
+  cancel.msgId = 0x12345678;   // never ours
+  r.req(c, cancel);
+  v = FakeTransport::drain(c);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::NotFound);
+
   r.h.onDelivered(0x22222222, mid);
   v = FakeTransport::drain(c);
   CHECK(v.size() == 1 && v[0].kind == FromKind::Delivered && v[0].clientMsgId == 4242 && v[0].msgId == mid);
@@ -1138,7 +1167,7 @@ static void testRestart() {
   ToRadio m;
   m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
   auto v = send(m);
-  CHECK(v.size() == 1 && v[0].protocolMinor >= 13);
+  CHECK(v.size() == 1 && v[0].protocolMinor >= 15);
   m = {}, m.reqId = 2, m.kind = ToKind::Restart;
   v = send(m);
   CHECK(v.size() == 1 && v[0].kind == FromKind::Ok && v[0].reqId == 2 && calls == 1);

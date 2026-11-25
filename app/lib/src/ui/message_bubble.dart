@@ -53,6 +53,7 @@ class MessageBubble extends StatelessWidget {
     required this.state,
     required this.onDelete,
     this.onRetry,
+    this.onCancel,
     this.sender,
     this.replayed = false,
     this.error,
@@ -127,6 +128,9 @@ class MessageBubble extends StatelessWidget {
   /// Retries a failed message.
   final VoidCallback? onRetry;
 
+  /// Takes back a DM the node still holds ([held]); null when it cannot.
+  final VoidCallback? onCancel;
+
   /// Removes it from the history.
   final VoidCallback onDelete;
 
@@ -175,6 +179,13 @@ class MessageBubble extends StatelessWidget {
               title: const Text('Copy timestamp'),
               onTap: () => Navigator.pop(sheet, 'timestamp'),
             ),
+            if (state == MsgState.sent && held && onCancel != null)
+              ListTile(
+                leading: const Icon(Icons.cancel_schedule_send),
+                title: const Text('Cancel sending'),
+                subtitle: const Text('Take it back before they are heard'),
+                onTap: () => Navigator.pop(sheet, 'cancel'),
+              ),
             if (failed)
               ListTile(
                 leading: const Icon(Icons.refresh),
@@ -208,6 +219,8 @@ class MessageBubble extends StatelessWidget {
         if (context.mounted) showSnack(context, 'Timestamp copied');
       case 'retry':
         onRetry?.call();
+      case 'cancel':
+        onCancel?.call();
       case 'delete':
         onDelete();
     }

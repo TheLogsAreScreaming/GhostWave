@@ -776,6 +776,32 @@ void Router::sendLinkAck(const Key& k, uint16_t to, uint64_t now) {
 
 // -------------------------------------------------------------- DTN store --
 
+bool Router::cancelStored(uint32_t msgId, bool& copiesOut) {
+  copiesOut = false;
+  const Key k{static_cast<uint8_t>(PType::Data), cfg_.nodeId, msgId};
+  auto se = store_.find(k);
+  if (se == store_.end()) return false;
+  const std::set<uint16_t> given = se->second.given;
+  store_.erase(se);
+  auto sameKey = [&k](const Key& o) { return o.type == k.type && o.src == k.src && o.mid == k.mid; };
+  for (uint16_t to : given)
+    if (!uni_.count({k, to})) copiesOut = true;   // that neighbor already took its copies
+  for (auto it = uni_.begin(); it != uni_.end();) {
+    if (!sameKey(it->first.first)) {
+      ++it;
+      continue;
+    }
+    if (it->second.item->sent) {
+      copiesOut = true;   // on the air already: it may arrive
+      ++it;
+      continue;
+    }
+    it->second.item->cancelled = true;
+    it = uni_.erase(it);
+  }
+  return true;
+}
+
 void Router::storeMsg(const Packet& f, bool spray, int copies, uint64_t now) {
   Key k = keyOf(f);
   auto s = seen_.find(k);

@@ -78,6 +78,7 @@ TO_REQUESTS = {
     # protocol 1.12 (30-34 are 1.11's)
     35: ("get_telemetry", {1: ("node_id", "fx32")}),
     36: ("restart", {}),
+    37: ("cancel_send", {1: ("msg_id", "fx32")}),   # 1.15
 }
 
 FROM_EVENTS = {
@@ -126,6 +127,8 @@ FROM_EVENTS = {
     # protocol 1.12 (32-33 are 1.11's)
     34: ("node_telemetry", {1: ("node_id", "fx32"), 2: ("battery_pct", "opt"), 3: ("battery_mv", "opt"),
                             4: ("uptime_s", "opt"), 5: ("age_s", "u32"), 6: ("rssi_dbm", "osint")}),
+    # protocol 1.15
+    35: ("send_cancelled", {1: ("msg_id", "fx32"), 2: ("copies_out", "bool")}),
 }
 
 ERRORS = ["NONE", "BAD_FRAME", "BAD_VERSION", "UNKNOWN_REQUEST", "NEED_HELLO", "BAD_ARGUMENT",

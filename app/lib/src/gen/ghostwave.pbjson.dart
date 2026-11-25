@@ -250,6 +250,15 @@ const ToRadio$json = {
       '9': 0,
       '10': 'restart'
     },
+    {
+      '1': 'cancel_send',
+      '3': 37,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.CancelSend',
+      '9': 0,
+      '10': 'cancelSend'
+    },
   ],
   '8': [
     {'1': 'request'},
@@ -287,7 +296,9 @@ final $typed_data.Uint8List toRadioDescriptor = $convert.base64Decode(
     'dFNldHRpbmdzEkIKDHNldF9zZXR0aW5ncxgfIAEoCzIdLmdob3N0d2F2ZS5jbGllbnQudjEuU2'
     'V0dGluZ3NIAFILc2V0U2V0dGluZ3MSSAoNZ2V0X3RlbGVtZXRyeRgjIAEoCzIhLmdob3N0d2F2'
     'ZS5jbGllbnQudjEuR2V0VGVsZW1ldHJ5SABSDGdldFRlbGVtZXRyeRI4CgdyZXN0YXJ0GCQgAS'
-    'gLMhwuZ2hvc3R3YXZlLmNsaWVudC52MS5SZXN0YXJ0SABSB3Jlc3RhcnRCCQoHcmVxdWVzdA==');
+    'gLMhwuZ2hvc3R3YXZlLmNsaWVudC52MS5SZXN0YXJ0SABSB3Jlc3RhcnQSQgoLY2FuY2VsX3Nl'
+    'bmQYJSABKAsyHy5naG9zdHdhdmUuY2xpZW50LnYxLkNhbmNlbFNlbmRIAFIKY2FuY2VsU2VuZE'
+    'IJCgdyZXF1ZXN0');
 
 @$core.Deprecated('Use helloDescriptor instead')
 const Hello$json = {
@@ -773,6 +784,18 @@ const Restart$json = {
 final $typed_data.Uint8List restartDescriptor =
     $convert.base64Decode('CgdSZXN0YXJ0');
 
+@$core.Deprecated('Use cancelSendDescriptor instead')
+const CancelSend$json = {
+  '1': 'CancelSend',
+  '2': [
+    {'1': 'msg_id', '3': 1, '4': 1, '5': 7, '10': 'msgId'},
+  ],
+};
+
+/// Descriptor for `CancelSend`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List cancelSendDescriptor =
+    $convert.base64Decode('CgpDYW5jZWxTZW5kEhUKBm1zZ19pZBgBIAEoB1IFbXNnSWQ=');
+
 @$core.Deprecated('Use fromRadioDescriptor instead')
 const FromRadio$json = {
   '1': 'FromRadio',
@@ -995,6 +1018,15 @@ const FromRadio$json = {
       '9': 0,
       '10': 'nodeTelemetry'
     },
+    {
+      '1': 'send_cancelled',
+      '3': 35,
+      '4': 1,
+      '5': 11,
+      '6': '.ghostwave.client.v1.SendCancelled',
+      '9': 0,
+      '10': 'sendCancelled'
+    },
   ],
   '8': [
     {'1': 'event'},
@@ -1031,8 +1063,9 @@ final $typed_data.Uint8List fromRadioDescriptor = $convert.base64Decode(
     '5rUGluZ1Jlc3VsdBJFCgx0cmFjZV9yZXN1bHQYHyABKAsyIC5naG9zdHdhdmUuY2xpZW50LnYx'
     'LlRyYWNlUmVzdWx0SABSC3RyYWNlUmVzdWx0EjsKCHNldHRpbmdzGCAgASgLMh0uZ2hvc3R3YX'
     'ZlLmNsaWVudC52MS5TZXR0aW5nc0gAUghzZXR0aW5ncxJLCg5ub2RlX3RlbGVtZXRyeRgiIAEo'
-    'CzIiLmdob3N0d2F2ZS5jbGllbnQudjEuTm9kZVRlbGVtZXRyeUgAUg1ub2RlVGVsZW1ldHJ5Qg'
-    'cKBWV2ZW50');
+    'CzIiLmdob3N0d2F2ZS5jbGllbnQudjEuTm9kZVRlbGVtZXRyeUgAUg1ub2RlVGVsZW1ldHJ5Ek'
+    'sKDnNlbmRfY2FuY2VsbGVkGCMgASgLMiIuZ2hvc3R3YXZlLmNsaWVudC52MS5TZW5kQ2FuY2Vs'
+    'bGVkSABSDXNlbmRDYW5jZWxsZWRCBwoFZXZlbnQ=');
 
 @$core.Deprecated('Use nodeInfoDescriptor instead')
 const NodeInfo$json = {
@@ -1131,6 +1164,20 @@ final $typed_data.Uint8List deliveredDescriptor = $convert.base64Decode(
     'CglEZWxpdmVyZWQSEgoEZGVzdBgBIAEoB1IEZGVzdBIVCgZtc2dfaWQYAiABKAdSBW1zZ0lkEi'
     'IKDWNsaWVudF9tc2dfaWQYAyABKA1SC2NsaWVudE1zZ0lkEh4KCHJzc2lfZGJtGAQgASgRSABS'
     'B3Jzc2lEYm2IAQFCCwoJX3Jzc2lfZGJt');
+
+@$core.Deprecated('Use sendCancelledDescriptor instead')
+const SendCancelled$json = {
+  '1': 'SendCancelled',
+  '2': [
+    {'1': 'msg_id', '3': 1, '4': 1, '5': 7, '10': 'msgId'},
+    {'1': 'copies_out', '3': 2, '4': 1, '5': 8, '10': 'copiesOut'},
+  ],
+};
+
+/// Descriptor for `SendCancelled`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List sendCancelledDescriptor = $convert.base64Decode(
+    'Cg1TZW5kQ2FuY2VsbGVkEhUKBm1zZ19pZBgBIAEoB1IFbXNnSWQSHQoKY29waWVzX291dBgCIA'
+    'EoCFIJY29waWVzT3V0');
 
 @$core.Deprecated('Use sendQueuedDescriptor instead')
 const SendQueued$json = {

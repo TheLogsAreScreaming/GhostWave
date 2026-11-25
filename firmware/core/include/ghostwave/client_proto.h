@@ -33,7 +33,8 @@ constexpr uint8_t kProtocolVersion = 1;
 // 12: GetTelemetry / NodeTelemetry (battery and uptime from neighbors' beacons).
 // 13: Restart (the node restarts itself, as the `reboot` console command).
 // 14: SendQueued.held (the DM waits in the store until its destination is heard).
-constexpr uint32_t kProtocolMinor = 14;
+// 15: CancelSend / SendCancelled (take back a DM that still waits in the store).
+constexpr uint32_t kProtocolMinor = 15;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -154,6 +155,7 @@ enum class ToKind : uint8_t {
   SetSettings = 31,       // 1.11
   GetTelemetry = 35,      // 1.12
   Restart = 36,           // 1.13 (no fields)
+  CancelSend = 37,        // 1.15
 };
 
 struct ToRadio {
@@ -186,6 +188,8 @@ struct ToRadio {
   Bytes psk;
   // SetSettings
   SettingsMsg settings;
+  // CancelSend: msgId (from SendQueued)
+  uint32_t msgId = 0;
 };
 
 // ------------------------------------------------------------- node -> app --
@@ -216,6 +220,7 @@ enum class FromKind : uint8_t {
   TraceResult = 31,      // 1.10
   Settings = 32,         // 1.11
   NodeTelemetry = 34,    // 1.12
+  SendCancelled = 35,    // 1.15
 };
 
 struct StatusInfo {
@@ -256,6 +261,9 @@ struct FromRadio {
   // Delivered: dest, msgId, clientMsgId.  SendQueued: dest, msgId, clientMsgId
   uint32_t src = 0, dest = 0, msgId = 0, clientMsgId = 0;
   bool held = false;   // SendQueued (1.14): stored until the destination is heard
+  // SendCancelled (1.15): msgId, copiesOut (copies already passed to other
+  // nodes may still arrive)
+  bool copiesOut = false;
   Bytes text;               // also Sos text
   Pos pos;                  // also Sos / Neighbor / Position
   // Sos: src, seq, pos, accuracyM, batteryPct, text.  SosAck: src (responder), seq
