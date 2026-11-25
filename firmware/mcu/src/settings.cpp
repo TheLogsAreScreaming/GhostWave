@@ -225,6 +225,10 @@ bool loadChannels(std::vector<SavedChannel>& out) { return loadBlob("channels", 
 bool saveChannels(const std::vector<SavedChannel>& in) { return saveBlob("channels", app_state::encodeChannels(in)); }
 bool loadEdKeys(std::map<uint32_t, AppKey>& out) { return loadBlob("edkeys", out, app_state::decodeEdKeys); }
 bool saveEdKeys(const std::map<uint32_t, AppKey>& in) { return saveBlob("edkeys", app_state::encodeEdKeys(in)); }
+bool loadLearnedKeys(std::vector<LearnedKey>& out) { return loadBlob("learned", out, app_state::decodeLearnedKeys); }
+bool saveLearnedKeys(const std::vector<LearnedKey>& in) {
+  return saveBlob("learned", app_state::encodeLearnedKeys(in));
+}
 
 bool saveName(const Settings& s) {
   Nvs nvs(false);

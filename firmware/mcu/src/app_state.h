@@ -1,5 +1,5 @@
-// What the app hands an nRF52 node to keep: joined group channels and pinned
-// Ed25519 contact keys. Each list is its own CRC-checked file in internal
+// What a node keeps besides its settings: joined group channels, pinned
+// Ed25519 contact keys, and keys learned over the air. Each list is its own CRC-checked file in internal
 // flash next to /gw/settings (settings_nrf52.cpp), written the same atomic way.
 // The record format below is plain C++ so the host tests can cover it.
 #pragma once
@@ -33,6 +33,14 @@ struct SavedChannel {
   AppKey key{};
 };
 
+// A peer key the node learned from a signed IDENT (not pinned by the app).
+struct LearnedKey {
+  uint32_t id = 0;
+  AppKey edPub{};
+  std::string name;
+  bool operator==(const LearnedKey& o) const { return id == o.id && edPub == o.edPub && name == o.name; }
+};
+
 namespace app_state {
 
 constexpr size_t kMaxChannels = 8;       // gw::kMaxGroupChannels
@@ -40,6 +48,8 @@ constexpr size_t kMaxChannelName = 16;   // gw::ChannelBook::kNameMax
 constexpr size_t kMaxEdKeys = 32;        // kMaxStoredPeers: a pin without a stored peer key is useless
 constexpr uint8_t kChannelsMagic[4] = {'G', 'W', 'C', '1'};
 constexpr uint8_t kEdKeysMagic[4] = {'G', 'W', 'E', '1'};
+constexpr size_t kMaxLearnedKeys = 32;
+constexpr uint8_t kLearnedMagic[4] = {'G', 'W', 'L', '1'};
 
 inline void putCrc(std::vector<uint8_t>& b) {
   const uint32_t c = crc32c(b.data(), b.size());
@@ -122,6 +132,55 @@ inline bool decodeEdKeys(const std::vector<uint8_t>& b, std::map<uint32_t, AppKe
   return true;
 }
 
+// Keys learned from IDENT, oldest first. Each: node ID, Ed25519 key, name.
+// Empty when there are more than kMaxLearnedKeys, a name does not fit, or an
+// ID repeats.
+inline std::vector<uint8_t> encodeLearnedKeys(const std::vector<LearnedKey>& in) {
+  if (in.size() > kMaxLearnedKeys) return {};
+  std::vector<uint8_t> b(kLearnedMagic, kLearnedMagic + 4);
+  b.push_back(static_cast<uint8_t>(in.size()));
+  for (size_t i = 0; i < in.size(); ++i) {
+    const LearnedKey& k = in[i];
+    if (k.name.size() > gw::kIdentNameMax) return {};
+    for (size_t j = 0; j < i; ++j)
+      if (in[j].id == k.id) return {};
+    for (int s = 0; s < 4; ++s) b.push_back(static_cast<uint8_t>(k.id >> (8 * s)));
+    b.insert(b.end(), k.edPub.begin(), k.edPub.end());
+    b.push_back(static_cast<uint8_t>(k.name.size()));
+    b.insert(b.end(), k.name.begin(), k.name.end());
+  }
+  putCrc(b);
+  return b;
+}
+
+inline bool decodeLearnedKeys(const std::vector<uint8_t>& b, std::vector<LearnedKey>& out) {
+  size_t body = 0;
+  if (!checkRecord(b, kLearnedMagic, body)) return false;
+  const size_t n = b[4];
+  if (n > kMaxLearnedKeys) return false;
+  std::vector<LearnedKey> t;
+  size_t at = 5;
+  for (size_t i = 0; i < n; ++i) {
+    if (at + 37 > body) return false;
+    LearnedKey k;
+    const uint8_t* q = &b[at];
+    k.id = q[0] | q[1] << 8 | q[2] << 16 | static_cast<uint32_t>(q[3]) << 24;
+    std::memcpy(k.edPub.data(), q + 4, 32);
+    const size_t len = q[36];
+    at += 37;
+    if (len > gw::kIdentNameMax || at + len > body) return false;
+    k.name.assign(reinterpret_cast<const char*>(&b[at]), len);
+    at += len;
+    if (k.id == 0 || k.id == kBroadcast) return false;
+    for (const LearnedKey& o : t)
+      if (o.id == k.id) return false;
+    t.push_back(k);
+  }
+  if (at != body) return false;
+  out = t;
+  return true;
+}
+
 }  // namespace app_state
 
 // Implemented in settings_nrf52.cpp (nRF52, files) and settings.cpp (ESP32, NVS). Load: false if the file is
@@ -130,6 +189,8 @@ bool loadChannels(std::vector<SavedChannel>& out);
 bool saveChannels(const std::vector<SavedChannel>& in);
 bool loadEdKeys(std::map<uint32_t, AppKey>& out);
 bool saveEdKeys(const std::map<uint32_t, AppKey>& in);
+bool loadLearnedKeys(std::vector<LearnedKey>& out);
+bool saveLearnedKeys(const std::vector<LearnedKey>& in);
 
 }  // namespace mcu
 }  // namespace gw

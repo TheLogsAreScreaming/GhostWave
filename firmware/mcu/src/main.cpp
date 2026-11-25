@@ -220,6 +220,12 @@ uint32_t g_rtRxCount = 0;
 uint64_t g_rtShowUntil = 0;   // keep the range page up this long after a ping
 
 // Prints router events on the console, and passes them to the app link.
+// Peer keys learned from IDENT, oldest first, saved so a reboot does not
+// lose them (a DM to that peer would fail with NO_KEY until its next IDENT).
+std::vector<gw::mcu::LearnedKey> g_learned;
+bool g_learnedDirty = false;   // saved from gwLoop, not from inside the radio path
+void noteLearnedKey(uint32_t id, const std::string& name, bool firstSeen);
+
 class SerialApp : public gw::AppPort {
  public:
   void onMessage(uint32_t src, uint32_t msgId, const std::vector<uint8_t>& p) override {
@@ -289,6 +295,7 @@ class SerialApp : public gw::AppPort {
   }
   void onPeerIdent(uint32_t id, const std::string& name, bool firstSeen) override {
     Serial.printf("IDENT %s %08x \"%s\"\n", firstSeen ? "learned key for" : "name change from", id, name.c_str());
+    noteLearnedKey(id, name, firstSeen);
     GW_LINK(onPeerIdent(id, name, firstSeen));
   }
   void onKeyChange(uint32_t id, const uint8_t* edPub, const std::string& name) override {
@@ -311,6 +318,40 @@ gw::mcu::McuRadio g_radio;
 SerialApp g_app;
 gw::Config g_cfg;
 std::unique_ptr<gw::Router> g_router;
+
+void noteLearnedKey(uint32_t id, const std::string& name, bool firstSeen) {
+  if (!firstSeen) {   // a new name signed by the key we already hold
+    for (gw::mcu::LearnedKey& k : g_learned)
+      if (k.id == id && k.name != name) {
+        k.name = name;
+        g_learnedDirty = true;
+      }
+    return;
+  }
+  for (const gw::PeerInfo& p : g_router->peerList()) {
+    if (p.id != id || p.pinned || !p.hasEdPub) continue;
+    g_learned.erase(std::remove_if(g_learned.begin(), g_learned.end(),
+                                   [id](const gw::mcu::LearnedKey& k) { return k.id == id; }),
+                    g_learned.end());
+    if (g_learned.size() >= gw::mcu::app_state::kMaxLearnedKeys) g_learned.erase(g_learned.begin());   // oldest
+    gw::mcu::LearnedKey k;
+    k.id = id;
+    k.edPub = p.edPub;
+    k.name = name.size() <= gw::kIdentNameMax ? name : std::string();
+    g_learned.push_back(k);
+    g_learnedDirty = true;
+    return;
+  }
+}
+
+// Puts saved learned keys back in the router. Call before the pinned keys.
+void restoreLearnedKeys() {
+  if (!gw::mcu::loadLearnedKeys(g_learned)) return;
+  size_t n = 0;
+  for (const gw::mcu::LearnedKey& k : g_learned)
+    if (g_router->restoreLearnedPeer(k.id, k.edPub.data(), k.name)) ++n;
+  Serial.printf("learned peer keys restored: %u\n", static_cast<unsigned>(n));
+}
 Key32 g_pub{};      // X25519, which is what `keys` prints and peers encrypt to
 Key32 g_edPub{};    // Ed25519, when g_signing
 bool g_signing = false;   // has an Ed25519 identity and sends IDENT
@@ -1138,6 +1179,7 @@ void gwSetup() {
   }
   gw::wipe(g_set.secret.data(), g_set.secret.size());   // the router keeps its own copy
   if (g_set.havePsk) g_router->setChannelKey(g_set.psk.data());
+  restoreLearnedKeys();   // before the pinned keys, so a pinned key wins
   for (size_t i = 0; i < g_set.peerCount; ++i) g_router->addPeerKey(g_set.peers[i].id, g_set.peers[i].pub.data());
 
   const gw::mcu::RegionInfo& region = gw::mcu::regionInfo(g_set.region);
@@ -1337,6 +1379,10 @@ void gwLoop() {
   pollGps(now);
 #endif
   pollSerial();
+  if (g_learnedDirty) {
+    g_learnedDirty = false;
+    if (!gw::mcu::saveLearnedKeys(g_learned)) Serial.println("learned peer keys not saved: they last until the next reboot");
+  }
   {
     // Our battery and uptime ride in our beacons (DESIGN §4.4).
     static uint64_t nextTel = 0;

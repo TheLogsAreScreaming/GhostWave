@@ -725,8 +725,10 @@ class MeshController extends Notifier<MeshState> {
       },
     );
     _save();
+    // The node now holds this peer's key: send what waited for it. That covers a
+    // contact the phone already knew whose key the node had lost (NO_KEY).
     final session = _link.session;
-    if (old == null && session != null) _releaseHeld(session, [p.nodeId]);
+    if (session != null) _releaseHeld(session, [p.nodeId]);
   }
 
   void _onKeyChange(pb.KeyChange k) {
@@ -824,6 +826,7 @@ class MeshController extends Notifier<MeshState> {
       at: _now(),
       state: MsgState.pending,
       clientMsgId: cmid,
+      awaitingKey: !_hasKey(peer),
     );
     state = state.copyWith(
       messages: {
@@ -1093,10 +1096,20 @@ class MeshController extends Notifier<MeshState> {
         m,
         (cur) => cur.state == MsgState.delivered
             ? cur
-            : cur.copyWith(state: MsgState.sent, msgId: r.sendQueued.msgId, held: r.sendQueued.held),
+            : cur.copyWith(
+                state: MsgState.sent,
+                msgId: r.sendQueued.msgId,
+                held: r.sendQueued.held,
+                awaitingKey: false,
+              ),
       );
     } on NodeError catch (e) {
-      _update(m, (cur) => cur.copyWith(state: MsgState.failed, error: e.message));
+      if (e.code == pb.Error_Code.NO_KEY) {
+        // The node asked the peer for its key; this goes out once it arrives.
+        _update(m, (cur) => cur.copyWith(state: MsgState.pending, awaitingKey: true, clearError: true));
+      } else {
+        _update(m, (cur) => cur.copyWith(state: MsgState.failed, error: e.message));
+      }
     } on Object {
       // link dropped or timed out: stays pending, sent again on reconnect
     } finally {

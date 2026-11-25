@@ -1,5 +1,5 @@
-// Host tests for the flash records of app-joined channels and pinned contact
-// keys (firmware/mcu/src/app_state.h).
+// Host tests for the flash records of app-joined channels, pinned contact
+// keys and keys learned over the air (firmware/mcu/src/app_state.h).
 #include <cstdio>
 
 #include "app_state.h"
@@ -75,6 +75,57 @@ void testEdKeys() {
   CHECK(encodeEdKeys(edKeys(kMaxEdKeys + 1)).empty());
 }
 
+std::vector<LearnedKey> learned(size_t n) {
+  std::vector<LearnedKey> v;
+  for (size_t i = 0; i < n; ++i) {
+    LearnedKey k;
+    k.id = static_cast<uint32_t>(0x2000 + (n - i));   // not in ID order: the list keeps its own order
+    k.edPub = key(static_cast<uint8_t>(i + 7));
+    k.name = std::string(i % (gw::kIdentNameMax + 1), static_cast<char>('a' + i % 26));
+    v.push_back(k);
+  }
+  return v;
+}
+
+void testLearnedKeys() {
+  for (size_t n : {size_t(0), size_t(1), size_t(5), kMaxLearnedKeys}) {
+    std::vector<LearnedKey> out;
+    CHECK(decodeLearnedKeys(encodeLearnedKeys(learned(n)), out));
+    CHECK(out == learned(n));
+  }
+  CHECK(encodeLearnedKeys(learned(kMaxLearnedKeys + 1)).empty());
+  std::vector<LearnedKey> bad = learned(2);
+  bad[1].name = std::string(gw::kIdentNameMax + 1, 'x');
+  CHECK(encodeLearnedKeys(bad).empty());
+  bad = learned(2);
+  bad[1].id = bad[0].id;
+  CHECK(encodeLearnedKeys(bad).empty());
+
+  const std::vector<uint8_t> good = encodeLearnedKeys(learned(3));
+  std::vector<LearnedKey> kept = learned(1), out = kept;
+  for (size_t i = 0; i < good.size(); ++i) {   // any single damaged byte
+    std::vector<uint8_t> b = good;
+    b[i] ^= 0x40;
+    CHECK(!decodeLearnedKeys(b, out));
+  }
+  for (size_t n = 0; n < good.size(); ++n) {   // any torn write
+    std::vector<uint8_t> b(good.begin(), good.begin() + static_cast<long>(n));
+    CHECK(!decodeLearnedKeys(b, out));
+  }
+  CHECK(out == kept);   // a failed load leaves the list alone
+  std::map<uint32_t, AppKey> m;
+  CHECK(!decodeEdKeys(good, m));   // not mistaken for the pinned-key file
+  CHECK(!decodeLearnedKeys(encodeEdKeys(edKeys(2)), out));
+  std::vector<uint8_t> b = good;
+  b[5] = b[6] = b[7] = b[8] = 0;   // node id 0
+  reseal(b);
+  CHECK(!decodeLearnedKeys(b, out));
+  b = good;
+  b[41] = static_cast<uint8_t>(gw::kIdentNameMax + 1);   // first name length over the limit
+  reseal(b);
+  CHECK(!decodeLearnedKeys(b, out));
+}
+
 void testDamage() {
   const std::vector<uint8_t> good = encodeChannels(channels(3));
   std::vector<SavedChannel> kept = channels(1), out = kept;
@@ -135,6 +186,7 @@ int main() {
   testChannels();
   testEdKeys();
   testDamage();
+  testLearnedKeys();
   std::printf("%d passed, %d failed\n", g_pass, g_fail);
   return g_fail ? 1 : 0;
 }

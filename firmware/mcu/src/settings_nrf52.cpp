@@ -35,6 +35,8 @@ constexpr const char* kChannelsPath = "/gw/channels";
 constexpr const char* kChannelsTmp = "/gw/channels.tmp";
 constexpr const char* kEdKeysPath = "/gw/edkeys";
 constexpr const char* kEdKeysTmp = "/gw/edkeys.tmp";
+constexpr const char* kLearnedPath = "/gw/learned";
+constexpr const char* kLearnedTmp = "/gw/learned.tmp";
 constexpr uint8_t kMagic[4] = {'G', 'W', 'S', '1'};
 constexpr uint8_t kVersion = 1;
 // Optional fields after the peers: tag, length, value. Unknown tags are
@@ -424,6 +426,15 @@ bool loadEdKeys(std::map<uint32_t, AppKey>& out) {
 bool saveEdKeys(const std::map<uint32_t, AppKey>& in) {
   std::vector<uint8_t> b = app_state::encodeEdKeys(in);
   return !b.empty() && writeAtomic(kEdKeysPath, kEdKeysTmp, b);
+}
+
+bool loadLearnedKeys(std::vector<LearnedKey>& out) {
+  return loadRecord(kLearnedPath, kLearnedTmp, out, app_state::decodeLearnedKeys);
+}
+
+bool saveLearnedKeys(const std::vector<LearnedKey>& in) {
+  std::vector<uint8_t> b = app_state::encodeLearnedKeys(in);
+  return !b.empty() && writeAtomic(kLearnedPath, kLearnedTmp, b);
 }
 
 }  // namespace mcu

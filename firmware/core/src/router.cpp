@@ -207,6 +207,20 @@ bool Router::setPeerEdPub(uint32_t id, const uint8_t edPub[32]) {
 
 bool Router::addPeerKey(uint32_t id, const uint8_t pub[32]) { return storePeer(id, pub, true, 0); }
 
+bool Router::restoreLearnedPeer(uint32_t id, const uint8_t edPub[32], const std::string& name) {
+  if (peers_.count(id) || nodeIdOf(edPub) != id || !nodeIdUsable(id) || name.size() > kIdentNameMax) return false;
+  uint8_t x[32];
+  ed25519ToX25519(edPub, x);
+  const bool ok = storePeer(id, x, false, 0);   // learnedMs 0: the oldest, evicted first
+  wipe(x, sizeof x);
+  if (!ok) return false;
+  Peer& p = peers_[id];
+  std::memcpy(p.edPub.data(), edPub, 32);
+  p.hasEdPub = true;
+  p.name = name;
+  return true;
+}
+
 // Pinned keys replace whatever we hold; learned ones only fill a free slot (or
 // evict the oldest learned key). The caller does the TOFU comparison.
 bool Router::storePeer(uint32_t id, const uint8_t pub[32], bool pinned, uint64_t now) {
