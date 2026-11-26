@@ -79,6 +79,7 @@ TO_REQUESTS = {
     35: ("get_telemetry", {1: ("node_id", "fx32")}),
     36: ("restart", {}),
     37: ("cancel_send", {1: ("msg_id", "fx32")}),   # 1.15
+    38: ("power_off", {}),   # 1.16
 }
 
 FROM_EVENTS = {

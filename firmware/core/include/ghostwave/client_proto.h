@@ -34,7 +34,8 @@ constexpr uint8_t kProtocolVersion = 1;
 // 13: Restart (the node restarts itself, as the `reboot` console command).
 // 14: SendQueued.held (the DM waits in the store until its destination is heard).
 // 15: CancelSend / SendCancelled (take back a DM that still waits in the store).
-constexpr uint32_t kProtocolMinor = 15;
+// 16: PowerOff (the node powers itself off, as the `poweroff` console command).
+constexpr uint32_t kProtocolMinor = 16;
 constexpr size_t kFrameHeader = 4;
 // Whole frame, header included. 180 fits one BLE write at ATT MTU 185 (the
 // smallest a current iPhone negotiates), so a frame is never split there.
@@ -156,6 +157,7 @@ enum class ToKind : uint8_t {
   GetTelemetry = 35,      // 1.12
   Restart = 36,           // 1.13 (no fields)
   CancelSend = 37,        // 1.15
+  PowerOff = 38,          // 1.16 (no fields)
 };
 
 struct ToRadio {

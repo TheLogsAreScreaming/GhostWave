@@ -359,7 +359,7 @@ bool StatusInfo::operator==(const StatusInfo& o) const {
 static bool knownTo(uint32_t f) {
   return (f >= 10 && f <= static_cast<uint32_t>(ToKind::SetSettings)) ||
          f == static_cast<uint32_t>(ToKind::GetTelemetry) || f == static_cast<uint32_t>(ToKind::Restart) ||
-         f == static_cast<uint32_t>(ToKind::CancelSend);
+         f == static_cast<uint32_t>(ToKind::CancelSend) || f == static_cast<uint32_t>(ToKind::PowerOff);
 }
 static bool knownFrom(uint32_t f) {
   return (f >= 10 && f <= static_cast<uint32_t>(FromKind::Settings)) ||
@@ -426,6 +426,7 @@ bool encodeTo(const ToRadio& m, Bytes& out) {
     case ToKind::SetSettings: writeSettings(s, m.settings); break;
     case ToKind::CancelSend: s.fx32(1, m.msgId); break;
     case ToKind::Restart:
+    case ToKind::PowerOff:
     case ToKind::GetSettings:
     case ToKind::ListChannels:
     case ToKind::ListContacts:

@@ -363,6 +363,10 @@ void clearPasskey() {
 
 void wake() { g_wakeRequest = true; }
 
+void powerOff() {
+  if (g_ok) panelOn(false);
+}
+
 void nextPage() { g_nextRequest = true; }
 
 void setOffAfterS(uint32_t s) {

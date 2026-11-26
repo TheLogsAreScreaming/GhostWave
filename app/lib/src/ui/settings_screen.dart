@@ -133,6 +133,13 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: const Text('Applies saved settings that need a restart'),
                   onTap: () => unawaited(confirmRestartNode(context, ref)),
                 ),
+              if (ref.read(meshProvider.notifier).nodeCanPowerOff)
+                ListTile(
+                  leading: const Icon(Icons.power_settings_new),
+                  title: const Text('Power off the node'),
+                  subtitle: const Text('Turn it back on with its reset button, or by plugging it in again'),
+                  onTap: () => unawaited(confirmPowerOffNode(context, ref)),
+                ),
               ListTile(
                 leading: const Icon(Icons.memory),
                 title: const Text('Node firmware'),

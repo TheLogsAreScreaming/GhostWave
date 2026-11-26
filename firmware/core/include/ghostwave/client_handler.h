@@ -94,6 +94,9 @@ class Handler {
     // (the board restarts itself about a second later). False if it can't.
     // Unset: UNKNOWN_REQUEST (a node that can't restart itself, like ghostwaved).
     std::function<bool()> restart;
+    // PowerOff (1.16): schedules a power-off soon after the Ok reply has gone
+    // out. Refused during an SOS before it gets here. Unset: UNKNOWN_REQUEST.
+    std::function<bool()> powerOff;
   };
 
   static constexpr size_t kDefaultQueueMax = 64;

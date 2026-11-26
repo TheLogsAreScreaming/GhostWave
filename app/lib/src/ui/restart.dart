@@ -36,3 +36,36 @@ Future<bool> confirmRestartNode(BuildContext context, WidgetRef ref) async {
   }
   return false;
 }
+
+/// Asks, then powers the connected node off (protocol 1.16). True if the node
+/// took the request.
+Future<bool> confirmPowerOffNode(BuildContext context, WidgetRef ref) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      icon: const Icon(Icons.power_settings_new),
+      title: const Text('Power off the node?'),
+      content: const Text(
+        'It stops sending and listening in a couple of seconds, and the app loses the link.\n\n'
+        'To turn it back on, press its reset button (or its button, on boards that have one), '
+        'or unplug it and plug it back in.\n\n'
+        'Saved settings, contacts and channels are kept. Messages it is holding for other nodes are lost.',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Power off')),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return false;
+  try {
+    await ref.read(meshProvider.notifier).powerOffNode();
+    if (context.mounted) showSnack(context, 'Powering off.');
+    return true;
+  } on NodeError catch (e) {
+    if (context.mounted) showSnack(context, 'Not powered off: ${e.message}');
+  } on Object catch (e) {
+    if (context.mounted) showSnack(context, 'Not powered off: $e');
+  }
+  return false;
+}
