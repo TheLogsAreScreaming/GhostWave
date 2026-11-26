@@ -28,6 +28,8 @@ void showPasskey(const uint8_t digits[6]);
 void clearPasskey();
 // Wakes the screen (the `display` console command).
 void wake();
+// Dark before the board powers off (`poweroff`). E-ink keeps its last picture.
+void powerOff();
 // The board button: turns to the next page, or wakes a dark screen.
 void nextPage();
 // The screen timeout (app setting, 1.11): off this long after the last event; 0 = never.

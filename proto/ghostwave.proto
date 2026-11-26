@@ -62,6 +62,8 @@ message ToRadio {
     Restart restart = 36;
     // protocol 1.15
     CancelSend cancel_send = 37;
+    // protocol 1.16
+    PowerOff power_off = 38;
   }
 }
 
@@ -245,6 +247,15 @@ message Restart {}
 message CancelSend {
   fixed32 msg_id = 1;            // from SendQueued
 }
+
+// 1.16: power the node off, as the `poweroff` console command. The node
+// replies Ok, then powers off about 1.5 s later: the link drops and stays
+// down until someone wakes the board (its reset button, its user button where
+// it has one, or unplugging and plugging in USB). Saved settings, contacts,
+// keys and channels are kept; messages held in memory for others are lost.
+// Refused with SEND_FAILED while an SOS runs. Nodes that can't power
+// themselves off (ghostwaved) answer UNKNOWN_REQUEST.
+message PowerOff {}
 
 // --------------------------------------------------------------- node -> app
 

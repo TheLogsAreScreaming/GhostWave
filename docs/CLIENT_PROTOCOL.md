@@ -25,6 +25,7 @@ requests with `UNKNOWN_REQUEST`. An older app ignores the new fields and events.
 | 11 | `GetSettings` (30), `SetSettings` (31) and `Settings` (32): the node's radio and device settings from the app: name, region, frequency, output power, channel key, require-encryption, SOS responder, Bluetooth PIN, screen timeout, status LEDs and button SOS, with the board's limits and what it has. A request changes all its fields or none (`BAD_ARGUMENT` names the field). Nodes without the hooks (ghostwaved) answer `UNKNOWN_REQUEST`. |
 | 13 | `Restart` (36): restart the node from the app, as the `reboot` console command, so settings that apply after a restart take effect. Replies `Ok`, then restarts about 1.5 s later; the link drops and the app reconnects. Messages held in the node's memory are lost. Nodes that can't restart themselves (ghostwaved) answer `UNKNOWN_REQUEST`. |
 | 15 | `CancelSend` (37) and `SendCancelled` (35): take back a DM that still waits in the node's store (`SendQueued.held`). The store entry and any handoff not yet on the air are dropped; `copies_out` is true when copies had already been passed to other nodes, which may still arrive. `NOT_FOUND` once it has been passed on, delivered or expired. |
+| 16 | `PowerOff` (38): power the node off from the app, as the `poweroff` console command. Replies `Ok`, then powers off about 1.5 s later; the link stays down until the board is woken (reset button, its user button where it has one, or replugging USB). `SEND_FAILED` while an SOS runs. Nodes that can't power themselves off (ghostwaved) answer `UNKNOWN_REQUEST`. |
 | 14 | `SendQueued.held` (4): true when the node knows no position for the DM's destination and has not heard it in the last 5 minutes, so the message waits in its store and goes out when the destination (or a node that knows where it is) is next heard. Apps show it as waiting rather than sent. Older nodes never set it. |
 | 12 | `GetTelemetry` (35) and `NodeTelemetry` (34): battery %, battery mV and uptime that neighbors carry in their beacons (DESIGN §4.4). Live `NodeTelemetry` events as beacons arrive; `GetTelemetry` asks for the latest one held. A field is absent when that node cannot read it. |
 | 10 | `Traceroute` (29) and `TraceResult` (31): trace the path to any node through relays, both ways, with each node's own signal reading (docs/TRACEROUTE.md). `max_hops` 1–8 (0 = 5). `RATE_LIMITED` while one is out or within 30 s; `BAD_ARGUMENT` for more than 8 hops. |
@@ -166,6 +167,11 @@ Notes on the requests:
   `Ok` first and restarts about 1.5 s later, so the reply reaches the app. Saved settings, contacts,
   keys and channels are kept; messages and SOS held in memory for other nodes are lost, so the app
   says so before asking. ghostwaved answers `UNKNOWN_REQUEST`.
+- **PowerOff (1.16)** powers the node off, exactly like the `poweroff` console command. The node
+  replies `Ok` first and powers off about 1.5 s later. nRF52 boards go to System OFF and wake on the
+  reset button, on plugging in USB, or on the user button where they have one. ESP32 boards go to
+  deep sleep and wake on the reset button or the user button. Nothing is lost that a restart keeps.
+  While an SOS runs the reply is `SEND_FAILED` and the node stays on. ghostwaved answers `UNKNOWN_REQUEST`.
 - **RequestKey (1.4)** asks a node in radio range for its signed IDENT now, instead of waiting for
   the node's own request (DESIGN §4.5). Beacons carry no key and a node ID is only a hash, so a node
   that was only heard can't be sent a sealed DM: an app should hold a message for it until

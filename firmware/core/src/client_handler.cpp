@@ -563,7 +563,8 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
     case ToKind::Traceroute:
     case ToKind::GetTelemetry:
     case ToKind::CancelSend:
-    case ToKind::Restart: break;
+    case ToKind::Restart:
+    case ToKind::PowerOff: break;
     case ToKind::GetSettings:
     case ToKind::SetSettings:
       if (!hooks_.getSettings || !hooks_.setSettings) {
@@ -722,6 +723,23 @@ bool Handler::handleV11(Conn& c, const ToRadio& m, uint64_t now) {
         return true;
       }
       t_.log("client asked the node to restart");
+      reply(c, req, FromKind::Ok);
+      return true;
+    }
+    case ToKind::PowerOff: {
+      if (!hooks_.powerOff) {
+        error(c, req, ErrorCode::UnknownRequest, "this node can't power itself off");
+        return true;
+      }
+      if (r_.sosActive()) {
+        error(c, req, ErrorCode::SendFailed, "not powering off during an SOS: stop it first");
+        return true;
+      }
+      if (!hooks_.powerOff()) {
+        error(c, req, ErrorCode::SendFailed, "could not schedule powering off");
+        return true;
+      }
+      t_.log("client asked the node to power off");
       reply(c, req, FromKind::Ok);
       return true;
     }

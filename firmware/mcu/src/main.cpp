@@ -27,6 +27,7 @@
 #include "button_gesture.h"
 #include "board_io.h"
 #include "oled.h"
+#include "power.h"
 #include "rangetest.h"
 #include "ui.h"
 #if GW_HAS_BLE
@@ -313,6 +314,8 @@ gw::mcu::Settings g_set;
 gw::mcu::DeviceSettings g_dev;   // screen timeout, LEDs, button SOS (app settings, 1.11)
 bool g_restartNeeded = false;    // saved settings that apply after a restart
 uint64_t g_restartAtMs = 0;      // the app asked for a restart (Restart, 1.13): when to do it
+uint64_t g_powerOffAtMs = 0;     // the app asked the node to power off (PowerOff, 1.16): when to do it
+[[noreturn]] void powerDown();
 bool g_displayOk = false;
 gw::mcu::McuRadio g_radio;
 SerialApp g_app;
@@ -474,7 +477,7 @@ void printHelp() {
       "commands: send <hex-id> <text> | known <hex-id> <lat> <lon> | stats | status | pos\n"
       "          keys | peer <hex-id> <hex-pubkey> | sos <text> | sosstop | sosack <hex-id>\n"
       "settings (saved): name [text] | name clear | setpos <lat> <lon> | setpos clear | psk <64 hex> | psk gen | psk off\n"
-      "          tx on|off | power <dBm> | freq <MHz> | region us915|eu868 | responder on|off | requireenc on|off | reboot\n"
+      "          tx on|off | power <dBm> | freq <MHz> | region us915|eu868 | responder on|off | requireenc on|off | reboot | poweroff\n"
 #if GW_HAS_BLE
       "app link: ble | ble on|off (saved) | ble clear (forget paired phones) | ble pin [6 digits]\n"
 #if GW_HAS_OLED
@@ -938,6 +941,12 @@ void handleCommand(std::string line) {
     gw::mcu::oled::wake();
     Serial.println("display: awake");
 #endif
+  } else if (cmd == "poweroff") {
+    if (r.sosActive()) {
+      Serial.println("not powering off during an SOS: stop it first (sosstop)");
+      return;
+    }
+    powerDown();
   } else if (cmd == "reboot") {
     Serial.println("rebooting");
     Serial.flush();
@@ -1081,6 +1090,13 @@ void startBle() {
     Serial.println("app asked for a restart: rebooting in 1.5 s");
     return true;
   };
+  // The app's PowerOff (1.16): as the `poweroff` command, a moment after the Ok
+  // reply. The handler refuses it during an SOS.
+  hooks.powerOff = [] {
+    g_powerOffAtMs = nowMs() + 1500;
+    Serial.println("app asked the node to power off: in 1.5 s");
+    return true;
+  };
   hooks.edKeys = &g_edKeys;
   loadEdPins();
   g_channels.reset(new SavedChannelBook(*g_router));
@@ -1123,10 +1139,37 @@ void startBle() {
 }
 #endif
 
+// Powers the node off (the `poweroff` command, the app's PowerOff, the
+// T1000-E's triple press): learned keys saved, radio asleep, screen dark, then
+// the board's own power-off (power.h). Held DMs in memory are lost, as on a reboot.
+[[noreturn]] void powerDown() {
+  if (g_learnedDirty) {
+    g_learnedDirty = false;
+    gw::mcu::saveLearnedKeys(g_learned);
+  }
+#if GW_HAS_UI
+  Serial.println("powering off; press the button to wake");
+#else
+  Serial.printf("powering off; to start it again, %s\n", gw::mcu::powerOnHint());
+#endif
+  Serial.flush();
+  delay(50);
+  if (g_radioOk) g_radio.sleep();
+#if GW_HAS_OLED
+  gw::mcu::oled::powerOff();
+#endif
+#if GW_HAS_UI
+  gw::mcu::ui::powerOff();
+#else
+  gw::mcu::powerOffBoard();
+#endif
+}
+
 void gwSetup() {
 #if GW_HAS_BLE
   g_bootMs = nowMs();
 #endif
+  gw::mcu::releasePowerOffHolds();
 #if defined(GW_BOARD_RAK4631) || defined(GW_BOARD_RAK3401_1W)
   pinMode(kPin3v3SEnable, OUTPUT);
   digitalWrite(kPin3v3SEnable, HIGH);
@@ -1255,12 +1298,6 @@ void gwSetup() {
 }
 
 #if GW_HAS_UI
-[[noreturn]] void powerDown() {
-  Serial.println("powering off; press the button to wake");
-  Serial.flush();
-  if (g_radioOk) g_radio.sleep();
-  gw::mcu::ui::powerOff();
-}
 
 // Button: hold ~3 s = SOS on, double press = SOS off, three quick presses =
 // power off (on battery, with no SOS running), single press = a chirp
@@ -1354,6 +1391,7 @@ void gwLoop() {
   static uint64_t lastTick = 0;
   static uint8_t buf[256];
   uint64_t now = nowMs();
+  if (g_powerOffAtMs != 0 && now >= g_powerOffAtMs) powerDown();
   if (g_restartAtMs != 0 && now >= g_restartAtMs) {
     Serial.println("rebooting");
     Serial.flush();

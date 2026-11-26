@@ -1206,8 +1206,71 @@ static void testRestart() {
   CHECK(v.size() == 1 && v[0].error == ErrorCode::NeedHello && calls == 2);
 }
 
+// PowerOff (1.16): through the board's hook, answered Ok before the board
+// powers off; refused during an SOS without calling the hook; no hook, none.
+static void testPowerOff() {
+  std::printf("client handler: PowerOff\n");
+  NullRadio radio;
+  NullApp app;
+  gw::Config cfg = Rig::mkCfg();
+  gw::Router router(cfg, radio, app);
+  gw::Position pos;
+  int calls = 0;
+  FakeTransport t;
+  Handler::Hooks hooks;
+  hooks.powerOff = [&] {
+    ++calls;
+    return true;
+  };
+  Handler h(router, Rig::ident(), pos, hooks, 0, t);
+  auto& c = t.add("ble");
+  auto send = [&](const ToRadio& m) {
+    Bytes f;
+    frameTo(m, f);
+    FrameReader in;
+    in.push(f.data(), f.size());
+    h.receive(c.conn, in, 1000);
+    return FakeTransport::drain(c);
+  };
+  ToRadio m;
+  m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
+  auto v = send(m);
+  CHECK(v.size() == 1 && v[0].protocolMinor >= 16);
+
+  CHECK(router.startSos("SOS (test)", 0xFF, 0xFF, 1000));
+  m = {}, m.reqId = 2, m.kind = ToKind::PowerOff;
+  v = send(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::SendFailed && v[0].reqId == 2 && calls == 0);
+  router.stopSos(2000);
+
+  m = {}, m.reqId = 3, m.kind = ToKind::PowerOff;
+  v = FakeTransport::drain(c);
+  v = send(m);
+  bool ok = false;
+  for (const auto& e : v) ok |= e.kind == FromKind::Ok && e.reqId == 3;
+  CHECK(ok && calls == 1);
+
+  FakeTransport t2;
+  Handler h2(router, Rig::ident(), pos, Handler::Hooks{}, 0, t2);
+  auto& c2 = t2.add("tcp");
+  auto send2 = [&](const ToRadio& q) {
+    Bytes f;
+    frameTo(q, f);
+    FrameReader in;
+    in.push(f.data(), f.size());
+    h2.receive(c2.conn, in, 1000);
+    return FakeTransport::drain(c2);
+  };
+  m = {}, m.reqId = 1, m.kind = ToKind::Hello, m.protocolVersion = 1;
+  send2(m);
+  m = {}, m.reqId = 4, m.kind = ToKind::PowerOff;
+  v = send2(m);
+  CHECK(v.size() == 1 && v[0].error == ErrorCode::UnknownRequest && v[0].reqId == 4 && calls == 1);
+}
+
 int main() {
   testRestart();
+  testPowerOff();
   testTelemetry();
   testStatusTxOff();
   testHelloGate();

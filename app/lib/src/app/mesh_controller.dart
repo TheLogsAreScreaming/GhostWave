@@ -1003,6 +1003,22 @@ class MeshController extends Notifier<MeshState> {
     await session.request(pb.ToRadio(restart: pb.Restart()));
   }
 
+  /// Whether the connected node can be powered off from the app (PowerOff,
+  /// protocol 1.16). Only radio boards: a Pi node answers UNKNOWN_REQUEST.
+  bool get nodeCanPowerOff {
+    final s = _link.state;
+    return s is LinkUp && s.info.protocolMinor >= 16 && s.info.firmware.startsWith('ghostwave-');
+  }
+
+  /// Asks the node to power off. It answers first, then powers off about
+  /// 1.5 s later, and stays off until someone wakes the board. Refused while
+  /// an SOS runs. Throws [NodeError] or [StateError].
+  Future<void> powerOffNode() async {
+    final session = _link.session;
+    if (session == null || !nodeCanPowerOff) throw StateError('This node cannot power off from the app.');
+    await session.request(pb.ToRadio(powerOff: pb.PowerOff()));
+  }
+
   /// Whether the connected node takes radio and device settings from the app
   /// (GetSettings / SetSettings, protocol 1.11).
   bool get nodeCanSettings {

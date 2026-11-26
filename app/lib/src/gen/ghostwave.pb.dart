@@ -116,6 +116,7 @@ enum ToRadio_Request {
   getTelemetry,
   restart,
   cancelSend,
+  powerOff,
   notSet
 }
 
@@ -147,6 +148,7 @@ class ToRadio extends $pb.GeneratedMessage {
     GetTelemetry? getTelemetry,
     Restart? restart,
     CancelSend? cancelSend,
+    PowerOff? powerOff,
   }) {
     final result = ToRadio._();
     if (reqId != null) result.reqId = reqId;
@@ -175,6 +177,7 @@ class ToRadio extends $pb.GeneratedMessage {
     if (getTelemetry != null) result.getTelemetry = getTelemetry;
     if (restart != null) result.restart = restart;
     if (cancelSend != null) result.cancelSend = cancelSend;
+    if (powerOff != null) result.powerOff = powerOff;
     return result;
   }
 
@@ -213,6 +216,7 @@ class ToRadio extends $pb.GeneratedMessage {
     35: ToRadio_Request.getTelemetry,
     36: ToRadio_Request.restart,
     37: ToRadio_Request.cancelSend,
+    38: ToRadio_Request.powerOff,
     0: ToRadio_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -245,7 +249,8 @@ class ToRadio extends $pb.GeneratedMessage {
       31,
       35,
       36,
-      37
+      37,
+      38
     ])
     ..aI(1, _omitFieldNames ? '' : 'reqId', fieldType: $pb.PbFieldType.OU3)
     ..aOM<Hello>(10, _omitFieldNames ? '' : 'hello',
@@ -298,6 +303,8 @@ class ToRadio extends $pb.GeneratedMessage {
         subBuilder: Restart.$_createMessage)
     ..aOM<CancelSend>(37, _omitFieldNames ? '' : 'cancelSend',
         subBuilder: CancelSend.$_createMessage)
+    ..aOM<PowerOff>(38, _omitFieldNames ? '' : 'powerOff',
+        subBuilder: PowerOff.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -345,6 +352,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(35)
   @$pb.TagNumber(36)
   @$pb.TagNumber(37)
+  @$pb.TagNumber(38)
   ToRadio_Request whichRequest() => _ToRadio_RequestByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -371,6 +379,7 @@ class ToRadio extends $pb.GeneratedMessage {
   @$pb.TagNumber(35)
   @$pb.TagNumber(36)
   @$pb.TagNumber(37)
+  @$pb.TagNumber(38)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   /// Echoed in every reply to this request. 0 = no reply correlation wanted.
@@ -666,6 +675,18 @@ class ToRadio extends $pb.GeneratedMessage {
   void clearCancelSend() => $_clearField(37);
   @$pb.TagNumber(37)
   CancelSend ensureCancelSend() => $_ensure(25);
+
+  /// protocol 1.16
+  @$pb.TagNumber(38)
+  PowerOff get powerOff => $_getN(26);
+  @$pb.TagNumber(38)
+  set powerOff(PowerOff value) => $_setField(38, value);
+  @$pb.TagNumber(38)
+  $core.bool hasPowerOff() => $_has(26);
+  @$pb.TagNumber(38)
+  void clearPowerOff() => $_clearField(38);
+  @$pb.TagNumber(38)
+  PowerOff ensurePowerOff() => $_ensure(26);
 }
 
 /// Must be the first request. Reply: NodeInfo, then any replayed events.
@@ -2472,6 +2493,53 @@ class CancelSend extends $pb.GeneratedMessage {
   $core.bool hasMsgId() => $_has(0);
   @$pb.TagNumber(1)
   void clearMsgId() => $_clearField(1);
+}
+
+/// 1.16: power the node off, as the `poweroff` console command. The node
+/// replies Ok, then powers off about 1.5 s later: the link drops and stays
+/// down until someone wakes the board (its reset button, its user button where
+/// it has one, or unplugging and plugging in USB). Saved settings, contacts,
+/// keys and channels are kept; messages held in memory for others are lost.
+/// Refused with SEND_FAILED while an SOS runs. Nodes that can't power
+/// themselves off (ghostwaved) answer UNKNOWN_REQUEST.
+class PowerOff extends $pb.GeneratedMessage {
+  factory PowerOff() => PowerOff._();
+
+  PowerOff._();
+
+  factory PowerOff.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PowerOff()..mergeFromBuffer(data, registry);
+  factory PowerOff.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PowerOff()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PowerOff',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'ghostwave.client.v1'),
+      createEmptyInstance: PowerOff.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PowerOff clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PowerOff copyWith(void Function(PowerOff) updates) =>
+      super.copyWith((message) => updates(message as PowerOff)) as PowerOff;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PowerOff() / PowerOff.new instead')
+  static PowerOff create() => PowerOff._();
+  static $pb.GeneratedMessage $_createMessage() => PowerOff._();
+  @$core.override
+  PowerOff createEmptyInstance() => PowerOff._();
+  @$core.pragma('dart2js:noInline')
+  static PowerOff getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PowerOff>(PowerOff.$_createMessage);
+  static PowerOff? _defaultInstance;
 }
 
 enum FromRadio_Event {
