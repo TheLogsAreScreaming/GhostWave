@@ -194,6 +194,106 @@
       "transport": "esp-web-tools",
       "flashSize": 8388608,
       "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "rak_wismesh_pocket",
+      "name": "RAK WisMesh Pocket",
+      "detail": "RAK4631 core on a RAK19003 mini base. Experimental firmware; not yet verified on this hardware",
+      "softdevice": "S140 6.1.1",
+      "sdFwid": 182,
+      "appStart": 155648,
+      "enter": "Double-tap the reset button if the automatic step doesn't work.",
+      "guide": "RAK4631_FLASHING.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is a RAK WisMesh Pocket.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "nrf-dfu"
+    },
+    {
+      "id": "t_beam_sx1262",
+      "name": "LILYGO T-Beam (SX1262)",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is a LILYGO T-Beam with an SX1262 radio.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 4194304,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "t_beam_sx1276",
+      "name": "LILYGO T-Beam (SX1276)",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is a LILYGO T-Beam with an SX1276 radio.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 4194304,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "t_beam_s3",
+      "name": "LILYGO T-Beam S3",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact LILYGO T-Beam S3 model.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 8388608,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "t3s3_sx1276",
+      "name": "LILYGO T3-S3 (SX1276)",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is a LILYGO T3-S3 with an SX1276 radio.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 4194304,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "tlora_v2_1_6",
+      "name": "LILYGO TLora V2.1-1.6",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact LILYGO TLora V2.1-1.6 model.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 4194304,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
+    },
+    {
+      "id": "xiao_s3",
+      "name": "Seeed XIAO ESP32S3",
+      "detail": "Experimental firmware; not yet verified on this hardware",
+      "guide": "SELECTED_TARGET_REFERENCE.md",
+      "checks": [
+        "The LoRa antenna is attached.",
+        "This is the exact Seeed XIAO ESP32S3 model.",
+        "I understand this firmware has not been tested on this hardware."
+      ],
+      "transport": "esp-web-tools",
+      "flashSize": 8388608,
+      "enter": "If connection fails, hold BOOT while pressing and releasing RESET, then release BOOT and retry."
     }
   ]
 }

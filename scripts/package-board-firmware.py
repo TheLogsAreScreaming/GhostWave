@@ -7,11 +7,13 @@ from pathlib import Path
 import shutil
 
 BOARDS = {
-    'rak4631': 'uf2', 't1000e': 'uf2', 'heltec_t114': 'uf2',
-    'wio_tracker_l1': 'uf2', 't_echo': 'uf2',
+    'rak4631': 'uf2', 'rak_wismesh_pocket': 'uf2', 't1000e': 'uf2',
+    'heltec_t114': 'uf2', 'wio_tracker_l1': 'uf2', 't_echo': 'uf2',
     'heltec_v4': 'esp32', 'heltec_v3': 'esp32', 't3s3': 'esp32',
-    't_deck': 'esp32', 'heltec_wireless_tracker_v2': 'esp32',
-    'heltec_wsl_v3': 'esp32',
+    't3s3_sx1276': 'esp32', 't_deck': 'esp32',
+    'heltec_wireless_tracker_v2': 'esp32', 'heltec_wsl_v3': 'esp32',
+    't_beam_sx1262': 'esp32', 't_beam_sx1276': 'esp32', 't_beam_s3': 'esp32',
+    'tlora_v2_1_6': 'esp32', 'xiao_s3': 'esp32',
 }
 
 

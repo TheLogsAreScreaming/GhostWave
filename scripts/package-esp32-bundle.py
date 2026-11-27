@@ -10,9 +10,13 @@ import subprocess
 import sys
 
 
+CHIP_FAMILY = {'esp32s3': 'ESP32-S3', 'esp32': 'ESP32'}
+
+
 def package(layout_path, out, commit, esptool=None):
     layout = json.loads(layout_path.read_text())
-    if layout.get('schema') != 1 or layout.get('chip') != 'esp32s3':
+    chip = layout.get('chip', '')
+    if layout.get('schema') != 1 or chip not in CHIP_FAMILY:
         raise ValueError('Unsupported flash-layout schema or chip')
     board = layout.get('board', '')
     if not re.fullmatch(r'[a-z0-9_]+', board):
@@ -48,7 +52,7 @@ def package(layout_path, out, commit, esptool=None):
         # esptool updates the bootloader header with the same settings as pio upload.
         try:
             subprocess.run([
-                sys.executable, str(esptool), '--chip', 'esp32s3', 'merge_bin',
+                sys.executable, str(esptool), '--chip', chip, 'merge_bin',
                 '--flash_mode', layout['flashMode'], '--flash_freq', layout['flashFreq'],
                 '--flash_size', layout['flashSize'], '-o', str(out / 'firmware-merged.bin'),
                 *[arg for offset, source in images for arg in (hex(offset), str(source))],
@@ -62,7 +66,7 @@ def package(layout_path, out, commit, esptool=None):
         parts = [{'path': 'firmware-merged.bin', 'offset': 0}]
     manifest = {
         'name': f'GhostWave {board}', 'version': commit,
-        'builds': [{'chipFamily': 'ESP32-S3', 'parts': parts}],
+        'builds': [{'chipFamily': CHIP_FAMILY[chip], 'parts': parts}],
         'new_install_prompt_erase': True, 'new_install_improv_wait_time': 0,
     }
     (out / 'install.json').write_text(json.dumps(manifest, indent=2) + '\n')

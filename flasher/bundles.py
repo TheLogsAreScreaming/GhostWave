@@ -27,7 +27,10 @@ def verify_esp(directory, board_id, flash_size):
         raise ValueError('Firmware board or source commit mismatch')
     if provenance.get('browserReady') is not True or provenance.get('flashSize') != flash_size:
         raise ValueError('Bundle is not browser-ready for this flash size; rebuild with merged-image packaging')
-    if manifest.get('version') != provenance['commit'] or manifest.get('builds') != [{'chipFamily': 'ESP32-S3', 'parts': [{'path': 'firmware-merged.bin', 'offset': 0}]}]:
+    builds = manifest.get('builds', [])
+    valid_chip = builds == [{'chipFamily': 'ESP32-S3', 'parts': [{'path': 'firmware-merged.bin', 'offset': 0}]}] or \
+                 builds == [{'chipFamily': 'ESP32', 'parts': [{'path': 'firmware-merged.bin', 'offset': 0}]}]
+    if manifest.get('version') != provenance['commit'] or not valid_chip:
         raise ValueError('Unexpected ESP32 installer layout')
     hashes = provenance.get('sha256', {})
     if set(hashes) != {'install.json', 'firmware-merged.bin'}:
