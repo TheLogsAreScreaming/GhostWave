@@ -78,6 +78,55 @@
       "hardwareStatus": "unqualified",
       "webFlashStatus": "installer implemented; requires compatible published release and exact hardware/bootloader match",
       "name": "Heltec Wireless Stick Lite V3"
+    },
+    {
+      "id": "rak_wismesh_pocket",
+      "packageFormat": "uf2",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "installer implemented; requires compatible published release and exact hardware/bootloader match",
+      "name": "RAK WisMesh Pocket"
+    },
+    {
+      "id": "t_beam_sx1262",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "installer implemented; requires compatible published release and exact hardware/bootloader match",
+      "name": "LILYGO T-Beam (SX1262)"
+    },
+    {
+      "id": "t_beam_sx1276",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "installer implemented; requires compatible published release and exact hardware/bootloader match",
+      "name": "LILYGO T-Beam (SX1276)"
+    },
+    {
+      "id": "t_beam_s3",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "installer implemented; requires compatible published release and exact hardware/bootloader match",
+      "name": "LILYGO T-Beam S3"
+    },
+    {
+      "id": "t3s3_sx1276",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "installer implemented; requires compatible published release and exact hardware/bootloader match",
+      "name": "LILYGO T3-S3 (SX1276)"
+    },
+    {
+      "id": "tlora_v2_1_6",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "installer implemented; requires compatible published release and exact hardware/bootloader match",
+      "name": "LILYGO TLora V2.1-1.6"
+    },
+    {
+      "id": "xiao_s3",
+      "packageFormat": "esp32",
+      "hardwareStatus": "unqualified",
+      "webFlashStatus": "installer implemented; requires compatible published release and exact hardware/bootloader match",
+      "name": "Seeed XIAO ESP32S3"
     }
   ]
 }
