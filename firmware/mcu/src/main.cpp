@@ -35,7 +35,7 @@
 #include "ghostwave/client_handler.h"
 #endif
 
-#define GW_FW_VERSION "0.1.0-dev.16"
+#define GW_FW_VERSION "0.1.0-dev.17"
 
 namespace {
 
