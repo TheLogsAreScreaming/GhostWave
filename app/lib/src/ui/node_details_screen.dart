@@ -635,13 +635,19 @@ class _TelemetrySection extends StatelessWidget {
     final pct = r.batteryPct;
     final mv = r.batteryMv;
     final up = r.uptimeAt(now);
-    final battery = pct == null && mv == null
+    final derivedPct = mv != null && pct == null ? batteryPercent(mv / 1000.0).round() : null;
+    final displayPct = pct ?? derivedPct;
+    final battery = displayPct == null && mv == null
         ? 'Not reported (the board cannot read it)'
-        : [if (pct != null) '$pct %', if (mv != null) '${(mv / 1000).toStringAsFixed(2)} V'].join(' · ');
+        : [if (displayPct != null) '$displayPct %', if (mv != null) '${(mv / 1000).toStringAsFixed(2)} V'].join(' · ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _Fact(icon: pct == null ? Icons.battery_unknown_outlined : _batteryIcon(pct), label: 'Battery', value: battery),
+        _Fact(
+          icon: displayPct == null ? Icons.battery_unknown_outlined : _batteryIcon(displayPct),
+          label: 'Battery',
+          value: battery,
+        ),
         _Fact(
           icon: Icons.timer_outlined,
           label: 'Uptime',
