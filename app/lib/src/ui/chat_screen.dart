@@ -31,18 +31,44 @@ const int kDefaultMaxTextBytes = 73;
 
 /// A DM thread with one contact.
 /// Takes back a DM the node still holds, and says how it went.
-Future<void> cancelHeldDm(BuildContext context, MeshController ctl, ChatMessage m) async {
+Future<void> cancelHeldDm(BuildContext context, MeshController ctl, ChatMessage m) => cancelHeldDms(context, ctl, [m]);
+
+/// Takes back every part of a DM the node still holds (a long message is sent
+/// as several), and says how it went in one line.
+Future<void> cancelHeldDms(BuildContext context, MeshController ctl, List<ChatMessage> parts) async {
   final messenger = ScaffoldMessenger.of(context);
   void say(String text) => messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(text)));
-  try {
-    final copiesOut = await ctl.cancelHeld(m);
+  final held = [
+    for (final p in parts)
+      if (p.outgoing && p.state == MsgState.sent && p.held) p,
+  ];
+  var cancelled = 0, tooLate = 0;
+  var copiesOut = false;
+  Object? failure;
+  for (final p in held) {
+    try {
+      copiesOut |= await ctl.cancelHeld(p);
+      cancelled++;
+    } on NodeError catch (e) {
+      if (e.code == pb.Error_Code.NOT_FOUND) {
+        tooLate++;
+      } else {
+        failure ??= e.message;
+      }
+    } on Object catch (e) {
+      failure ??= 'Could not cancel: $e';
+    }
+  }
+  if (failure != null && cancelled == 0) {
+    say('$failure');
+  } else if (cancelled == 0) {
+    say('Too late: it was already passed on or delivered.');
+  } else if (tooLate > 0 || cancelled < held.length) {
+    say('Cancelled $cancelled of ${held.length} parts. The rest were already passed on or delivered.');
+  } else {
     say(copiesOut ? 'Cancelled here. Copies already passed on may still arrive.' : 'Cancelled. It was not sent.');
-  } on NodeError catch (e) {
-    say(e.code == pb.Error_Code.NOT_FOUND ? 'Too late: it was already passed on or delivered.' : e.message);
-  } on Object catch (e) {
-    say('Could not cancel: $e');
   }
 }
 
@@ -393,6 +419,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with ThreadJumper {
                                       if (p.state == MsgState.failed) unawaited(ctl.retry(p));
                                     }
                                   }
+                                : null,
+                            onCancel: item.outgoing && item.held && ctl.nodeCanCancelSend
+                                ? () => unawaited(cancelHeldDms(context, ctl, item.parts.values.toList()))
                                 : null,
                             onDelete: () {
                               for (final p in item.parts.values.toList()) {
