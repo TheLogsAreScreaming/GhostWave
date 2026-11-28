@@ -213,6 +213,22 @@ bool McuRadio::transmit(const uint8_t* buf, size_t len) {
   return st == RADIOLIB_ERR_NONE;
 }
 
+bool McuRadio::lastFrameHadCrc() {
+#if GW_RADIO_LR1110
+  bool crc = true;
+  g_sx.getLoRaRxHeaderInfo(nullptr, &crc);
+  return crc;
+#elif defined(GW_RADIO_SX1276)
+  // RegHopChannel bit 6, CrcOnPayload: the CRC flag of the received header.
+  const int16_t bit = g_sx.getMod()->SPIgetRegValue(RADIOLIB_SX127X_REG_HOP_CHANNEL, 6, 6);
+  return bit != 0;   // negative = SPI error: keep the frame, the MIC still checks it
+#else
+  bool crc = true;
+  g_sx.getLoRaRxHeaderInfo(nullptr, &crc);
+  return crc;
+#endif
+}
+
 bool McuRadio::poll(uint8_t* buf, size_t cap, size_t& len, float& rssiDbm) {
   len = 0;
   rssiDbm = 0;
@@ -221,7 +237,12 @@ bool McuRadio::poll(uint8_t* buf, size_t cap, size_t& len, float& rssiDbm) {
   bool ok = false;
   if (received > 0 && received <= cap) {
     int16_t st = g_sx.readData(buf, received);
-    if (st == RADIOLIB_ERR_NONE) {
+    if (st == RADIOLIB_ERR_NONE && !lastFrameHadCrc()) {
+      // Every GhostWave frame is sent with CRC on (begin() sets it), so a
+      // header without it is noise or a foreign sender, and the radio never
+      // checked the payload. Dropped here, as MeshCore's companion does.
+      ++noCrcDropped_;
+    } else if (st == RADIOLIB_ERR_NONE) {
       rssiDbm = g_sx.getRSSI();
       len = received;
       ok = true;
