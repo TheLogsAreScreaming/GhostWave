@@ -275,6 +275,7 @@ class MeshController extends Notifier<MeshState> {
             journal: saved.journal.markListening(_now()),
             signalLog: saved.signalLog,
             waypoints: saved.waypoints,
+            telemetry: saved.telemetry,
             historyProblem: saved.problem,
           );
     return true;
@@ -335,7 +336,14 @@ class MeshController extends Notifier<MeshState> {
       } on Object {
         // not fatal
       }
-      if (!ref.mounted) return;
+      if (nodeCanTelemetry) {
+        try {
+          await requestTelemetry(state.nodeId!);
+        } on Object {
+          // not fatal
+        }
+        if (!ref.mounted) return;
+      }
       await _flushOutbox(session);
     } finally {
       _syncing = false;
@@ -1633,6 +1641,7 @@ class MeshController extends Notifier<MeshState> {
       journal: _snap.journal,
       signalLog: _snap.signalLog,
       waypoints: _snap.waypoints,
+      telemetry: _snap.telemetry,
     );
     // a failed write (disk full, app dir gone) must not crash the app; the
     // next change tries again

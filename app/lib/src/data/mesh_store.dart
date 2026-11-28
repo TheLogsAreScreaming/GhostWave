@@ -45,6 +45,17 @@ enum HistoryProblem {
   unreadable,
 }
 
+/// Telemetry readings from [toJson]'s `telemetry`; anything malformed is dropped.
+Map<int, NodeTelemetry> _telemetryFromJson(Object? j) {
+  final out = <int, NodeTelemetry>{};
+  if (j is! List) return out;
+  for (final item in j) {
+    final t = NodeTelemetry.tryFromJson(item);
+    if (t != null) out[t.nodeId] = t;
+  }
+  return out;
+}
+
 /// What is saved for one node.
 class StoredMesh {
   /// Creates the snapshot.
@@ -60,6 +71,7 @@ class StoredMesh {
     this.journal = const NodeJournal(),
     this.signalLog = const [],
     this.waypoints = const WaypointBook(),
+    this.telemetry = const {},
     this.problem = HistoryProblem.none,
   });
 
@@ -97,6 +109,7 @@ class StoredMesh {
       journal: NodeJournal.fromJson(j['journal']),
       signalLog: signalLogFromJson(j['signal']),
       waypoints: WaypointBook.fromJson(j['waypoints']),
+      telemetry: _telemetryFromJson(j['telemetry']),
     );
   }
 
@@ -133,6 +146,9 @@ class StoredMesh {
   /// Waypoints, ours and others'.
   final WaypointBook waypoints;
 
+  /// Last-known telemetry per node (from protocol 1.12 pushes and GetTelemetry).
+  final Map<int, NodeTelemetry> telemetry;
+
   /// Why this snapshot is empty, if the saved one could not be read. Not saved.
   final HistoryProblem problem;
 
@@ -159,6 +175,7 @@ class StoredMesh {
     if (!journal.isEmpty) 'journal': journal.toJson(),
     if (signalLog.isNotEmpty) 'signal': [for (final x in signalLog) x.toJson()],
     if (!waypoints.isEmpty) 'waypoints': waypoints.toJson(),
+    if (telemetry.isNotEmpty) 'telemetry': [for (final t in telemetry.values) t.toJson()],
   };
 }
 
