@@ -1,5 +1,6 @@
 // Held DMs (protocol 1.15): take one back with CancelSend while the node still
 // holds it, and get a notification when one that waited is finally delivered.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:ghostwave_app/src/data/mesh_store.dart';
 import 'package:ghostwave_app/src/data/models.dart';
 import 'package:ghostwave_app/src/gen/ghostwave.pb.dart' as pb;
 import 'package:ghostwave_app/src/link/session.dart';
+import 'package:ghostwave_app/src/ui/chat_screen.dart';
 import 'package:ghostwave_app/src/ui/message_bubble.dart';
 import 'package:ghostwave_app/src/ui/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,7 +54,7 @@ class HoldingNode {
         case pb.ToRadio_Request.cancelSend:
           cancels.add(r.cancelSend.msgId);
           c.send(
-            gone
+            gone || (cancelLimit != null && cancels.length > cancelLimit!)
                 ? pb.FromRadio(
                     reqId: id,
                     error: pb.Error(code: pb.Error_Code.NOT_FOUND),
@@ -72,6 +74,9 @@ class HoldingNode {
   final List<int> cancels = [];
   bool copiesOut = false;
   bool gone = false;
+
+  /// Takes back only this many; later ones are already gone (NOT_FOUND).
+  int? cancelLimit;
 }
 
 void main() {
@@ -183,6 +188,72 @@ void main() {
     );
     await settle();
     expect(alerts.shown, isEmpty, reason: 'foreground: the chat shows it');
+  });
+
+  group('a long message (several parts)', () {
+    Future<HoldingNode> sendLong() async {
+      final n = HoldingNode();
+      c.read(nodeLinkProvider).connect(n.node);
+      await settle();
+      await ctl().sendMessage(bob, 'meet at the north trailhead after the storm passes, bring water', 30);
+      await settle();
+      return n;
+    }
+
+    List<ChatMessage> parts() => c.read(meshProvider).messages[bob]!;
+
+    Future<void> pumpCancel(WidgetTester tester) => tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: c,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => unawaited(cancelHeldDms(context, ctl(), parts())),
+                child: const Text('go'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Future<void> tapCancel(WidgetTester tester) async {
+      await pumpCancel(tester);
+      await tester.runAsync(() async {
+        await tester.tap(find.text('go'));
+        await settle();
+      });
+      await tester.pump();
+    }
+
+    testWidgets('Cancel sending takes back every held part', (tester) async {
+      late HoldingNode n;
+      await tester.runAsync(() async => n = await sendLong());
+      expect(parts().length, greaterThan(1));
+      expect(parts().every((p) => p.held), isTrue);
+      await tapCancel(tester);
+      expect(n.cancels, hasLength(parts().length));
+      expect(parts().every((p) => p.state == MsgState.failed), isTrue);
+      expect(find.text('Cancelled. It was not sent.'), findsOneWidget);
+    });
+
+    testWidgets('some parts already gone: says how many were taken back', (tester) async {
+      late HoldingNode n;
+      await tester.runAsync(() async => n = (await sendLong())..cancelLimit = 1);
+      final total = parts().length;
+      await tapCancel(tester);
+      expect(n.cancels, hasLength(total));
+      expect(parts().where((p) => p.state == MsgState.failed), hasLength(1));
+      expect(find.text('Cancelled 1 of $total parts. The rest were already passed on or delivered.'), findsOneWidget);
+    });
+
+    testWidgets('all gone: too late', (tester) async {
+      await tester.runAsync(() async => (await sendLong()).gone = true);
+      await tapCancel(tester);
+      expect(parts().every((p) => p.state == MsgState.sent), isTrue);
+      expect(find.text('Too late: it was already passed on or delivered.'), findsOneWidget);
+    });
   });
 
   group('bubble menu', () {
