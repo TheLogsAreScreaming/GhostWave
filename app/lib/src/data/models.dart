@@ -362,10 +362,26 @@ class Neighbor {
 
 /// A node's own readings, from the telemetry its beacons carry (client
 /// protocol 1.12). Each value is null when that node did not report it: the
-/// app never guesses one. Live only, not saved.
+/// app never guesses one.
 class NodeTelemetry {
   /// Creates a reading.
   const NodeTelemetry({required this.nodeId, required this.heardAt, this.batteryPct, this.batteryMv, this.uptime});
+
+  /// From [toJson].
+  static NodeTelemetry? tryFromJson(Object? j) {
+    if (j is! Map) return null;
+    final id = j['id'] as int?;
+    final at = j['at'] as int?;
+    if (id == null || at == null) return null;
+    final uptimeS = j['up'] as int?;
+    return NodeTelemetry(
+      nodeId: id,
+      heardAt: DateTime.fromMillisecondsSinceEpoch(at),
+      batteryPct: j['bat'] as int?,
+      batteryMv: j['mv'] as int?,
+      uptime: uptimeS == null ? null : Duration(seconds: uptimeS),
+    );
+  }
 
   /// The node.
   final int nodeId;
@@ -392,6 +408,15 @@ class NodeTelemetry {
 
   /// Whether it carries anything at all.
   bool get isEmpty => batteryPct == null && batteryMv == null && uptime == null;
+
+  /// JSON form.
+  Map<String, Object?> toJson() => {
+    'id': nodeId,
+    'at': heardAt.millisecondsSinceEpoch,
+    if (batteryPct != null) 'bat': batteryPct,
+    if (batteryMv != null) 'mv': batteryMv,
+    if (uptime != null) 'up': uptime!.inSeconds,
+  };
 }
 
 /// An SOS from another node.

@@ -116,8 +116,12 @@ class _StatusList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final canSetTx = ref.read(meshProvider.notifier).nodeCanSetTx;
+    final mesh = ref.watch(meshProvider);
+    final ownTelemetry = mesh.nodeId == null ? null : mesh.telemetry[mesh.nodeId];
+    final batteryPct = s.hasBatteryPct() ? s.batteryPct : ownTelemetry?.batteryPct;
     final tiles = <_Metric>[
       _Metric(Icons.timer_outlined, 'Uptime', formatUptime(s.uptimeS)),
+      if (batteryPct != null) _Metric(Icons.battery_std_outlined, 'Battery', '$batteryPct%'),
       s.txOff
           ? _Metric(
               Icons.portable_wifi_off,
@@ -132,7 +136,7 @@ class _StatusList extends ConsumerWidget {
           ? const _Metric(Icons.sos, 'SOS (ours)', 'ACTIVE', alert: true)
           : const _Metric(Icons.shield_outlined, 'SOS (ours)', 'off'),
     ];
-    final mesh = <(String, String)>[
+    final meshStats = <(String, String)>[
       ('SOS alerts held', '${s.sosHeld}'),
       ('Store (carry-forward)', '${s.storeSize}'),
       ('Delivered to us', '${s.delivered}'),
@@ -191,7 +195,7 @@ class _StatusList extends ConsumerWidget {
                 ),
               ],
               const SectionLabel('Messages'),
-              _Rows(mesh),
+              _Rows(meshStats),
               const SectionLabel('Radio'),
               _Rows(radio),
             ],
