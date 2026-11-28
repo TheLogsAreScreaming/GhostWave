@@ -336,6 +336,7 @@ class MeshController extends Notifier<MeshState> {
       } on Object {
         // not fatal
       }
+      if (!ref.mounted) return;
       if (nodeCanTelemetry) {
         try {
           await requestTelemetry(state.nodeId!);
