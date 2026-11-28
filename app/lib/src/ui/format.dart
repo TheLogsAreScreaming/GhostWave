@@ -62,6 +62,12 @@ String formatAccuracy(int metres, Units units) =>
 String compassPoint(double bearing) =>
     const ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][((bearing % 360) / 45).round() % 8];
 
+/// Battery percentage from a raw cell voltage (V).
+///
+/// Linear interpolation over the typical LiPo discharge curve
+/// (3.0 V empty → 4.2 V full), clamped to [0, 100].
+double batteryPercent(double voltage) => ((voltage - 3.0) / (4.2 - 3.0) * 100.0).clamp(0.0, 100.0);
+
 /// `m:ss`, or `h:mm:ss` from an hour up.
 String clockDuration(Duration d) {
   String two(int v) => v.toString().padLeft(2, '0');
