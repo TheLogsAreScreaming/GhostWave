@@ -333,6 +333,7 @@ struct Medium {
   uint32_t beaconMinS = 0, beaconMaxS = 0;   // ghostwaved --beacon-*-s overrides; 0 = defaults
   bool requireBeaconMac = false;
   bool allowPlaintextDm = true;   // most routing tests send without keys; see testNoPlaintextDm
+  uint16_t chanRelayLimit = Config{}.chanRelayPerSourcePerMin;
   uint64_t now = 0;
   uint32_t txCount = 0;
   std::vector<uint8_t> txTypes;
@@ -351,6 +352,7 @@ struct Medium {
     c.identIntervalMs = identIntervalMs;
     c.requireBeaconMac = requireBeaconMac;
     c.allowPlaintextDm = allowPlaintextDm;
+    c.chanRelayPerSourcePerMin = chanRelayLimit;
     applyBeaconTiming(beaconMinS, beaconMaxS, c);
     n->router = std::make_unique<Router>(c, n->radio, n->app);
     n->app.router = n->router.get();
@@ -612,6 +614,55 @@ static void testBeaconRecoveryAfterMove() {
   while (m.now < arrived + 200000 && !c.router->hasSos(a.router->id())) m.run(1000);
   CHECK(c.router->hasSos(a.router->id()));
   CHECK(m.now < arrived + 200000);   // well under beaconMaxMs (15 min)
+}
+
+// Per-originator relay budget (Config::chanRelayPerSourcePerMin): a relay
+// passes on at most N channel frames per sender per minute, still delivers
+// every one to its own app, and starts again in the next minute.
+static void testChannelRelayLimit() {
+  std::printf("channel relay limit\n");
+  std::array<uint8_t, 32> k{};
+  for (int i = 0; i < 32; ++i) k[i] = static_cast<uint8_t>(i + 7);
+  Medium m;
+  m.identIntervalMs = 0;
+  m.chanRelayLimit = 3;
+  // A - B - C in a line, 2 km apart: C hears A only through B.
+  SimNode& a = m.add(0xA1, 0.0);
+  SimNode& b = m.add(0xB1, 2.0);
+  SimNode& c = m.add(0xC1, 4.0);
+  uint32_t id = 0;
+  for (SimNode* x : {&a, &b, &c}) id = x->router->addGroupChannel(k.data());
+  m.run(3000);
+  for (int i = 0; i < 8; ++i) {
+    CHECK(a.router->sendChannel(id, {'m', static_cast<uint8_t>('0' + i)}, m.now) != 0);
+    m.run(1500);
+  }
+  m.run(20000);
+  CHECK(b.app.chanMsgs.size() == 8);   // the relay itself still gets them all
+  CHECK(c.app.chanMsgs.size() == 3);   // only what B passed on
+  CHECK(b.router->stats().relayLimited == 5);
+  // a new minute: B relays again
+  m.run(60000);
+  CHECK(a.router->sendChannel(id, {'n', 'x'}, m.now) != 0);
+  m.run(20000);
+  CHECK(c.app.chanMsgs.size() == 4);
+
+  // 0 turns the limit off
+  Medium m2;
+  m2.identIntervalMs = 0;
+  m2.chanRelayLimit = 0;
+  SimNode& a2 = m2.add(0xA2, 0.0);
+  SimNode& b2 = m2.add(0xB2, 2.0);
+  SimNode& c2 = m2.add(0xC2, 4.0);
+  for (SimNode* x : {&a2, &b2, &c2}) id = x->router->addGroupChannel(k.data());
+  m2.run(3000);
+  for (int i = 0; i < 8; ++i) {
+    CHECK(a2.router->sendChannel(id, {'m', static_cast<uint8_t>('0' + i)}, m2.now) != 0);
+    m2.run(1500);
+  }
+  m2.run(20000);
+  CHECK(c2.app.chanMsgs.size() == 8);
+  CHECK(b2.router->stats().relayLimited == 0);
 }
 
 static void testGroupChannels() {
@@ -2657,6 +2708,7 @@ int main() {
   testIdentRekey();
   testVirtualChannel();
   testTableCaps();
+  testChannelRelayLimit();
   std::printf("\n%d passed, %d failed\n", g_pass, g_fail);
   return g_fail ? 1 : 0;
 }

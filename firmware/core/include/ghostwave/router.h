@@ -171,6 +171,10 @@ struct Config {
   uint32_t identIntervalMs = 60 * 60 * 1000;   // broadcast IDENT this often; 0 = only on request
   size_t peerCapacity = 64;          // peer keys held (pinned + learned)
   size_t seenCapacity = 0;           // duplicate-suppression entries; 0 = unbounded (MCU ports set it)
+  // Channel frames relayed per originator per minute; past it this node
+  // still delivers them to its own app but stops passing them on, so one
+  // noisy or hostile sender can't fill the shared airtime. 0 = no limit.
+  uint16_t chanRelayPerSourcePerMin = 30;
 };
 
 struct Key {
@@ -191,6 +195,7 @@ struct RouterStats {
   uint32_t identTx = 0, identRx = 0, identBad = 0, keyChanges = 0;
   uint32_t beaconMacBad = 0;   // beacons with a wrong MAC, or none when one is required
   uint32_t dtnOffersSkipped = 0;   // spray copies not handed over: the neighbor's filter has them
+  uint32_t relayLimited = 0;   // channel frames not relayed: their sender was over its per-minute share
   uint64_t airMs = 0;
 };
 
@@ -501,6 +506,10 @@ class Router {
   std::map<Key, TraceFlood> traceFlood_;   // pending trace relays, for duplicate suppression
   void onTraceFrame(const Packet& p, uint64_t now);
   bool traceRelayAllowed(uint64_t now);
+  // Per-originator channel relay budget (Config::chanRelayPerSourcePerMin).
+  struct SrcRelay { uint64_t windowMs = 0; uint16_t count = 0; };
+  std::map<uint32_t, SrcRelay> srcRelay_;
+  bool chanRelayAllowed(uint32_t src, uint64_t now);
   void sendDiag(uint32_t to, const uint8_t* payload, size_t n, uint64_t now);
   bool inRx_ = false, heardAny_ = false;
   int rxDbm_ = 0, lastDbm_ = 0;

@@ -1221,6 +1221,10 @@ void Router::onChannelData(const Packet& p, uint64_t now) {
     break;
   }
   if (p.hopsLeft == 0) return;
+  if (!chanRelayAllowed(p.src, now)) {
+    ++stats_.relayLimited;
+    return;
+  }
   Packet g = p;
   g.hopsLeft = p.hopsLeft - 1;
   g.prevHop = me16();
@@ -2048,6 +2052,26 @@ Router::TraceStart Router::traceroute(uint32_t node, uint8_t maxHops, uint64_t n
   trace_ = {node, t.token, now + kTraceTimeoutMs};
   lastTraceMs_ = now;
   return TraceStart::Sent;
+}
+
+bool Router::chanRelayAllowed(uint32_t src, uint64_t now) {
+  const uint16_t cap = cfg_.chanRelayPerSourcePerMin;
+  if (cap == 0) return true;
+  constexpr uint64_t kWindowMs = 60000;
+  // Bounded: drop windows that have run out before tracking a new sender.
+  if (srcRelay_.size() >= 128 && !srcRelay_.count(src)) {
+    for (auto it = srcRelay_.begin(); it != srcRelay_.end();)
+      it = now - it->second.windowMs >= kWindowMs ? srcRelay_.erase(it) : std::next(it);
+    if (srcRelay_.size() >= 128) return true;   // all busy: never block on bookkeeping
+  }
+  SrcRelay& r = srcRelay_[src];
+  if (r.count == 0 || now - r.windowMs >= kWindowMs) {
+    r.windowMs = now;
+    r.count = 0;
+  }
+  if (r.count >= cap) return false;
+  ++r.count;
+  return true;
 }
 
 bool Router::traceRelayAllowed(uint64_t now) {
