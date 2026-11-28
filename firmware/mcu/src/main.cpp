@@ -428,9 +428,9 @@ void printTxState();
 void printStatus() {
   printStats();
   printTxState();
-  Serial.printf("node %08x %s, %.3f MHz, %d dBm out (%d dBm drive), radio %s, crc err %u, tx err %u\n",
+  Serial.printf("node %08x %s, %.3f MHz, %d dBm out (%d dBm drive), radio %s, crc err %u, no-crc %u, tx err %u\n",
                 g_router->id(), GW_BOARD_NAME, g_set.freqMHz, g_radio.outputDbm(), g_radio.driveDbm(),
-                g_radioOk ? "ok" : "FAILED", g_radio.crcErrors(), g_radio.txErrors());
+                g_radioOk ? "ok" : "FAILED", g_radio.crcErrors(), g_radio.noCrcDropped(), g_radio.txErrors());
   if (g_radio.duty().capped())
     Serial.printf("region %s, duty cycle %lu of %lu ms this hour, %u frames dropped at the cap\n",
                   gw::mcu::regionInfo(g_set.region).name, static_cast<unsigned long>(g_radio.duty().usedMs(nowMs())),

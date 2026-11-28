@@ -44,7 +44,14 @@ const Module::RfSwitchMode_t kRfSwitchTable[] = {
 constexpr int kMinDriveDbm = 2;       // PA_BOOST range. Kept to 17: +20 dBm is rated for 1% duty only
 constexpr int kMaxDriveDbm = 17;
 // For an SX1276 the IRQ argument is DIO0 and the GPIO argument is DIO1.
-SX1276 g_sx(new Module(kPinLoraCs, kPinLoraDio1, kPinLoraRst, kPinLoraBusy, SPI));
+// SX1276 with access to its Module, which RadioLib keeps protected, so the
+// driver can read the received header's CRC flag (lastFrameHadCrc).
+class GwSx1276 : public SX1276 {
+ public:
+  using SX1276::SX1276;
+  Module* module() { return getMod(); }
+};
+GwSx1276 g_sx(new Module(kPinLoraCs, kPinLoraDio1, kPinLoraRst, kPinLoraBusy, SPI));
 #else
 constexpr int kMinDriveDbm = -9;      // SX1262 high-power PA range
 constexpr int kMaxDriveDbm = 22;
@@ -213,6 +220,22 @@ bool McuRadio::transmit(const uint8_t* buf, size_t len) {
   return st == RADIOLIB_ERR_NONE;
 }
 
+bool McuRadio::lastFrameHadCrc() {
+#if GW_RADIO_LR1110
+  bool crc = true;
+  g_sx.getLoRaRxHeaderInfo(nullptr, &crc);
+  return crc;
+#elif defined(GW_RADIO_SX1276)
+  // RegHopChannel bit 6, CrcOnPayload: the CRC flag of the received header.
+  const int16_t bit = g_sx.module()->SPIgetRegValue(RADIOLIB_SX127X_REG_HOP_CHANNEL, 6, 6);
+  return bit != 0;   // negative = SPI error: keep the frame, the MIC still checks it
+#else
+  bool crc = true;
+  g_sx.getLoRaRxHeaderInfo(nullptr, &crc);
+  return crc;
+#endif
+}
+
 bool McuRadio::poll(uint8_t* buf, size_t cap, size_t& len, float& rssiDbm) {
   len = 0;
   rssiDbm = 0;
@@ -221,7 +244,12 @@ bool McuRadio::poll(uint8_t* buf, size_t cap, size_t& len, float& rssiDbm) {
   bool ok = false;
   if (received > 0 && received <= cap) {
     int16_t st = g_sx.readData(buf, received);
-    if (st == RADIOLIB_ERR_NONE) {
+    if (st == RADIOLIB_ERR_NONE && !lastFrameHadCrc()) {
+      // Every GhostWave frame is sent with CRC on (begin() sets it), so a
+      // header without it is noise or a foreign sender, and the radio never
+      // checked the payload. Dropped here, as MeshCore's companion does.
+      ++noCrcDropped_;
+    } else if (st == RADIOLIB_ERR_NONE) {
       rssiDbm = g_sx.getRSSI();
       len = received;
       ok = true;

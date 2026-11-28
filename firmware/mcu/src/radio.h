@@ -41,6 +41,10 @@ class McuRadio : public RadioPort {
   void sleep();
 
   uint32_t crcErrors() const { return crcErrors_; }
+  // Frames dropped because their LoRa header said the payload had no CRC,
+  // so the radio never checked it (noise that decoded as a header, or a
+  // sender with CRC off). Counted apart from CRC errors.
+  uint32_t noCrcDropped() const { return noCrcDropped_; }
   uint32_t txErrors() const { return txErrors_; }
   const DutyWindow& duty() const { return duty_; }
   uint32_t dutyDropped() const { return dutyDropped_; }
@@ -50,7 +54,9 @@ class McuRadio : public RadioPort {
   void femTx();
 
   int outputDbm_ = 0, driveDbm_ = 0;
-  uint32_t crcErrors_ = 0, txErrors_ = 0;
+  uint32_t crcErrors_ = 0, txErrors_ = 0, noCrcDropped_ = 0;
+  // Whether the frame just read had the payload-CRC bit set in its header.
+  bool lastFrameHadCrc();
   bool (*txGate_)() = nullptr;
   uint32_t txRefused_ = 0;
 
