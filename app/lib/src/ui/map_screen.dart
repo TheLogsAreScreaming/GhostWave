@@ -78,6 +78,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   MapFocus? _focus;
   OfflineFirstTileProvider? _tiles;
   Object? _tilesKey;
+  StreamSubscription<MapEvent>? _mapSub;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapSub = _map.mapEventStream.listen((_) {
+        if (mounted) setState(() {});
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _mapSub?.cancel();
+    super.dispose();
+  }
 
   OfflineFirstTileProvider _tileProvider(OfflineStore? store, String url, List<OfflineRegion> regions) {
     final usable = [
@@ -244,6 +262,78 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (picked != null && mounted) _map.move(ll.LatLng(picked.pos.lat, picked.pos.lon), math.max(_map.camera.zoom, 14));
   }
 
+  /// Collapses nearby pins into cluster groups based on pixel distance.
+  List<({List<_Pin> members, LatLon center})> _clusterPins(List<_Pin> pins) {
+    if (pins.isEmpty) return const [];
+    MapCamera camera;
+    try {
+      camera = _map.camera;
+    } on Object {
+      return [
+        for (final p in pins) (members: [p], center: p.pos),
+      ];
+    }
+    const threshold = 40.0; // pixels
+    final used = List.filled(pins.length, false);
+    final clusters = <({List<_Pin> members, LatLon center})>[];
+    for (var i = 0; i < pins.length; i++) {
+      if (used[i]) continue;
+      final pi = camera.latLngToScreenOffset(ll.LatLng(pins[i].pos.lat, pins[i].pos.lon));
+      final group = [pins[i]];
+      used[i] = true;
+      for (var j = i + 1; j < pins.length; j++) {
+        if (used[j]) continue;
+        final pj = camera.latLngToScreenOffset(ll.LatLng(pins[j].pos.lat, pins[j].pos.lon));
+        final dx = pi.dx - pj.dx, dy = pi.dy - pj.dy;
+        if (dx * dx + dy * dy <= threshold * threshold) {
+          group.add(pins[j]);
+          used[j] = true;
+        }
+      }
+      final lat = group.map((p) => p.pos.lat).reduce((a, b) => a + b) / group.length;
+      final lon = group.map((p) => p.pos.lon).reduce((a, b) => a + b) / group.length;
+      clusters.add((members: group, center: LatLon(lat, lon)));
+    }
+    return clusters;
+  }
+
+  _Kind _dominantKind(List<_Pin> pins) {
+    if (pins.any((p) => p.kind == _Kind.sos)) return _Kind.sos;
+    if (pins.any((p) => p.kind == _Kind.me)) return _Kind.me;
+    if (pins.any((p) => p.kind == _Kind.contact)) return _Kind.contact;
+    return _Kind.nearby;
+  }
+
+  void _tapCluster(List<_Pin> members) {
+    // If all pins are physically close (< 100 m) or we're very zoomed in, list them.
+    var maxDist = 0.0;
+    for (var i = 0; i < members.length; i++) {
+      for (var j = i + 1; j < members.length; j++) {
+        final d = members[i].pos.distanceTo(members[j].pos);
+        if (d > maxDist) maxDist = d;
+      }
+    }
+    if (maxDist < 100 || _map.camera.zoom >= 17) {
+      unawaited(
+        showModalBottomSheet<_Pin>(
+          context: context,
+          showDragHandle: true,
+          builder: (_) => _ClusterSheet(pins: members),
+        ).then((p) {
+          if (!mounted || p == null) return;
+          if (p.nodeId != null) {
+            unawaited(openNodeDetails(context, p.nodeId!));
+          } else {
+            showSnack(context, '${p.title}: ${p.detail}');
+          }
+        }),
+      );
+      return;
+    }
+    final pts = [for (final p in members) ll.LatLng(p.pos.lat, p.pos.lon)];
+    _map.fitCamera(CameraFit.coordinates(coordinates: pts, padding: const EdgeInsets.all(80), maxZoom: 18));
+  }
+
   Future<void> _options() => showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -295,6 +385,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       staleAfter: ref.watch(staleAfterProvider),
       now: now(),
     );
+    final clusters = _clusterPins(pins);
     final rings = ref.watch(rangeRingsProvider);
     final waypoints = [
       for (final w in mesh.waypoints.all.reversed)
@@ -457,40 +548,59 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
               MarkerLayer(
                 markers: [
-                  for (final p in pins)
-                    Marker(
-                      point: ll.LatLng(p.pos.lat, p.pos.lon),
-                      width: 44,
-                      height: 44,
-                      child: Semantics(
-                        button: true,
-                        label: '${p.title}. ${p.detail}',
-                        hint: p.nodeId == null ? null : 'Opens node details',
-                        child: GestureDetector(
-                          onTap: () => p.nodeId == null
-                              ? showSnack(context, '${p.title}: ${p.detail}')
-                              : unawaited(openNodeDetails(context, p.nodeId!)),
-                          child: ExcludeSemantics(
-                            child: trafficOn && (p.kind == _Kind.nearby || p.kind == _Kind.contact)
-                                ? Center(
-                                    child: TrafficNodePin(
-                                      color: colorOf(p.kind),
-                                      heardRecently: heardRecently(p.seen, now()),
-                                      icon: p.kind == _Kind.contact ? Icons.person : Icons.cell_tower,
+                  for (final c in clusters)
+                    if (c.members.length == 1)
+                      Marker(
+                        point: ll.LatLng(c.members.first.pos.lat, c.members.first.pos.lon),
+                        width: 44,
+                        height: 44,
+                        child: Semantics(
+                          button: true,
+                          label: '${c.members.first.title}. ${c.members.first.detail}',
+                          hint: c.members.first.nodeId == null ? null : 'Opens node details',
+                          child: GestureDetector(
+                            onTap: () => c.members.first.nodeId == null
+                                ? showSnack(context, '${c.members.first.title}: ${c.members.first.detail}')
+                                : unawaited(openNodeDetails(context, c.members.first.nodeId!)),
+                            child: ExcludeSemantics(
+                              child:
+                                  trafficOn &&
+                                      (c.members.first.kind == _Kind.nearby || c.members.first.kind == _Kind.contact)
+                                  ? Center(
+                                      child: TrafficNodePin(
+                                        color: colorOf(c.members.first.kind),
+                                        heardRecently: heardRecently(c.members.first.seen, now()),
+                                        icon: c.members.first.kind == _Kind.contact ? Icons.person : Icons.cell_tower,
+                                      ),
+                                    )
+                                  : Opacity(
+                                      opacity: c.members.first.stale ? 0.45 : 1,
+                                      child: Icon(
+                                        iconOf(c.members.first.kind),
+                                        color: colorOf(c.members.first.kind),
+                                        size: c.members.first.kind == _Kind.sos ? 44 : 36,
+                                      ),
                                     ),
-                                  )
-                                : Opacity(
-                                    opacity: p.stale ? 0.45 : 1,
-                                    child: Icon(
-                                      iconOf(p.kind),
-                                      color: colorOf(p.kind),
-                                      size: p.kind == _Kind.sos ? 44 : 36,
-                                    ),
-                                  ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Marker(
+                        point: ll.LatLng(c.center.lat, c.center.lon),
+                        width: 48,
+                        height: 48,
+                        child: Semantics(
+                          button: true,
+                          label: '${c.members.length} nodes clustered. Tap to expand',
+                          child: GestureDetector(
+                            onTap: () => _tapCluster(c.members),
+                            child: ExcludeSemantics(
+                              child: _ClusterMarker(count: c.members.length, color: colorOf(_dominantKind(c.members))),
+                            ),
                           ),
                         ),
                       ),
-                    ),
                 ],
               ),
               if (trafficOn) TrafficRoutesLayer(posOf: posOf, nameOf: nameOf),
@@ -688,6 +798,66 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// A circular badge showing how many nodes have collapsed into one cluster.
+class _ClusterMarker extends StatelessWidget {
+  const _ClusterMarker({required this.count, required this.color});
+
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 2.5),
+        boxShadow: const [BoxShadow(blurRadius: 4, offset: Offset(0, 1), color: Colors.black38)],
+      ),
+      child: Center(
+        child: Text(
+          '$count',
+          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, height: 1),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lists the individual nodes inside a cluster so the user can pick one.
+class _ClusterSheet extends StatelessWidget {
+  const _ClusterSheet({required this.pins});
+
+  final List<_Pin> pins;
+
+  @override
+  Widget build(BuildContext context) {
+    IconData iconOf(_Kind k) => switch (k) {
+      _Kind.me => Icons.my_location,
+      _Kind.contact => Icons.person_pin_circle,
+      _Kind.nearby => Icons.cell_tower,
+      _Kind.sos => Icons.sos,
+    };
+    return ListView(
+      shrinkWrap: true,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(GwSpace.lg, 0, GwSpace.lg, GwSpace.sm),
+          child: Text('${pins.length} nodes here', style: Theme.of(context).textTheme.titleMedium),
+        ),
+        for (final p in pins)
+          ListTile(
+            leading: Icon(iconOf(p.kind), size: 20),
+            title: Text(p.title),
+            subtitle: Text(p.detail),
+            onTap: () => Navigator.pop(context, p),
+          ),
+        SizedBox(height: MediaQuery.viewPaddingOf(context).bottom + GwSpace.sm),
+      ],
     );
   }
 }
